@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="lapis" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b3f86"/><stop offset="0.55" stop-color="#0e2354"/><stop offset="1" stop-color="#060f2c"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset="0.5" stop-color="#f4c65a"/><stop offset="1" stop-color="#c98a24"/></linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55"><stop offset="0" stop-color="#3d6fd1" stop-opacity="0.55"/><stop offset="1" stop-color="#3d6fd1" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#lapis)"/>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#glow)"/>
+  <rect x="103" y="103" width="818" height="818" rx="183" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="5"/>
+  <g fill="none" stroke="url(#gold)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- brow -->
+    <path d="M236 372 C 340 292, 560 276, 790 344" stroke-width="40"/>
+    <!-- upper lid, running out to the long stroke behind the eye -->
+    <path d="M232 508 C 318 396, 500 372, 622 470 L 800 470" stroke-width="36"/>
+    <!-- lower lid -->
+    <path d="M232 508 C 340 578, 520 588, 622 470" stroke-width="26"/>
+    <!-- the falcon's marks: the spiral -->
+    <path d="M566 572 C 610 640, 690 660, 742 626 C 784 596, 754 544, 712 566 C 688 580, 698 612, 722 606" stroke-width="28"/>
+  </g>
+  <!-- the falcon's marks: the teardrop -->
+  <path d="M398 574 L 470 590 L 400 776 C 392 794, 366 788, 368 768 Z" fill="url(#gold)"/>
+  <!-- the pupil, with a catch of light -->
+  <circle cx="434" cy="470" r="74" fill="url(#gold)"/>
+  <circle cx="434" cy="470" r="38" fill="#071332"/>
+  <circle cx="458" cy="450" r="13" fill="#fff5d2"/>
+</svg>

@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+test-results
+playwright-report
+data
+.e2e-data
+dist-electron
+release

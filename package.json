@@ -1,0 +1,178 @@
+{
+  "name": "horus",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A spatial web browser with a 360° room for your tabs.",
+  "homepage": "https://github.com/tajwarah/horus",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tajwarah/horus.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:lan": "node scripts/dev.mjs --host",
+    "dev:server": "node --watch server/cli.ts",
+    "dev:client": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "start": "NODE_ENV=production node --env-file-if-exists=.env server/cli.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "build:electron": "node scripts/build-electron.mjs",
+    "desktop": "vite build && node scripts/build-electron.mjs && electron .",
+    "desktop:dev": "node scripts/build-electron.mjs && node scripts/desktop-dev.mjs",
+    "dist": "vite build && node scripts/build-electron.mjs && electron-builder",
+    "dist:mac": "vite build && node scripts/build-electron.mjs && electron-builder --mac",
+    "dist:win": "vite build && node scripts/build-electron.mjs && electron-builder --win",
+    "dist:linux": "vite build && node scripts/build-electron.mjs && electron-builder --linux",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "@ghostery/adblocker-electron": "^2.20.3",
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@playwright/test": "^1.64.1",
+    "@types/d3-geo": "^3.1.1",
+    "@types/node": "^26.6.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/topojson-client": "^3.1.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "d3-geo": "^3.1.1",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "electron-updater": "^6.8.11",
+    "esbuild": "^0.28.2",
+    "mammoth": "^1.11.0",
+    "pdfjs-dist": "^5.4.296",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "topojson-client": "^3.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.0.7",
+    "vitest": "^3.0.5",
+    "world-atlas": "^2.0.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "^3.25.76"
+  },
+  "main": "dist-electron/main.js",
+  "description": "Horus: a spatial web browser, with your tabs in a full circle around you.",
+  "license": "MIT",
+  "author": "Horus contributors",
+  "build": {
+    "appId": "io.horus.browser",
+    "productName": "Horus",
+    "copyright": "Copyright © Horus contributors",
+    "artifactName": "Horus-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**/*.js",
+      "dist-electron/**/*.cjs",
+      "package.json",
+      "!node_modules/**"
+    ],
+    "asar": true,
+    "compression": "maximum",
+    "protocols": [
+      {
+        "name": "Web page",
+        "schemes": [
+          "http",
+          "https"
+        ]
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "html",
+          "htm"
+        ],
+        "name": "HTML document",
+        "role": "Viewer"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "identity": "-",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Websites you allow can use the microphone.",
+        "NSCameraUsageDescription": "Websites you allow can use the camera.",
+        "NSLocalNetworkUsageDescription": "Horus uses your local network to receive your iPhone’s screen through Screen Mirroring.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "Web page",
+            "CFBundleURLSchemes": [
+              "http",
+              "https"
+            ]
+          }
+        ]
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network;WebBrowser",
+      "icon": "build/icons",
+      "mimeTypes": [
+        "x-scheme-handler/http",
+        "x-scheme-handler/https",
+        "text/html"
+      ],
+      "maintainer": "Horus contributors"
+    },
+    "publish": [
+      {
+        "provider": "github"
+      }
+    ]
+  }
+}
