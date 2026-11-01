@@ -86,6 +86,9 @@ const AI = [
   { id: "openrouter", label: "OpenRouter", key: "OPENROUTER_API_KEY", url: "https://openrouter.ai/keys", note: "Many models from one key, including free ones." },
   { id: "groq", label: "Groq", key: "GROQ_API_KEY", url: "https://console.groq.com/keys", note: "Fast open models; has a free tier." },
   { id: "gemini", label: "Gemini", key: "GEMINI_API_KEY", url: "https://aistudio.google.com/apikey", note: "Has a free tier; Google may use free-tier data to improve its products." },
+  { id: "ollama", label: "Ollama, on this computer", key: "", url: "https://ollama.com/download", note: "Free and private: nothing leaves your computer. Needs the Ollama app and a downloaded model." },
+  { id: "ollama-cloud", label: "Ollama Cloud", key: "OLLAMA_API_KEY", url: "https://ollama.com/settings/keys", note: "Open models on Ollama's computers, so yours can be small. See its plans at ollama.com/pricing." },
+  { id: "lmstudio", label: "LM Studio, on this computer", key: "", url: "https://lmstudio.ai", note: "Free and private. Start LM Studio's local server first." },
 ] as const;
 
 const VOICE_CHOICES = [["", "Automatic", ""], ["openai", "Whisper · OpenAI", "OPENAI_API_KEY"], ["groq", "Whisper · Groq", "GROQ_API_KEY"], ["gemini", "Gemini", "GEMINI_API_KEY"]] as const;
@@ -123,7 +126,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void desktop?.invoke<AppInfo>("app:info").then((i) => {
       setInfo(i);
-      const current = i.config.LLM_PROVIDER ?? AI.find((a) => i.keys[a.key])?.id;
+      const current = i.config.LLM_PROVIDER ?? AI.find((a) => a.key && i.keys[a.key])?.id;
       if (current) setProvider(current);
       if (i.config.LLM_MODEL) setModel(i.config.LLM_MODEL);
     });
@@ -135,7 +138,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", on, true);
   }, [onClose]);
   const p = AI.find((a) => a.id === provider) ?? AI[0];
-  const connected = info ? (info.config.LLM_PROVIDER ? AI.find((a) => a.id === info.config.LLM_PROVIDER && info.keys[a.key]) : AI.find((a) => info.keys[a.key])) : undefined;
+  const connected = info ? (info.config.LLM_PROVIDER ? AI.find((a) => a.id === info.config.LLM_PROVIDER && (!a.key || info.keys[a.key])) : AI.find((a) => a.key && info.keys[a.key])) : undefined;
 
   const check = async () => {
     setChecking(true);
@@ -160,13 +163,13 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
     setChecking(false);
     if (r.error || !r.models?.length) { setAiError(r.error ?? "No models were listed."); return; }
     const best = r.models.find((m) => m.id === model) ?? r.models.find((m) => m.id === "claude-opus-5-5") ?? r.models[0];
-    await apply(aiKey ? { [p.key]: aiKey } : {}, { LLM_PROVIDER: provider, LLM_MODEL: best.id }, `Connected to ${p.label} · ${best.name}.`);
+    await apply(aiKey && p.key ? { [p.key]: aiKey } : {}, { LLM_PROVIDER: provider, LLM_MODEL: best.id }, `Connected to ${p.label} · ${best.name}.`);
     setModel(best.id);
     setModels(r.models);
     setAiKey("");
   };
   const pickModel = (id: string) => { setModel(id); void apply({}, { LLM_PROVIDER: provider, LLM_MODEL: id }, `Using ${id}.`); };
-  const disconnect = () => connected && void apply({ [connected.key]: "" }, { LLM_PROVIDER: "", LLM_MODEL: "" }, `${connected.label} disconnected. Warpnaut works without AI.`).then(() => setModel(""));
+  const disconnect = () => connected && void apply(connected.key ? { [connected.key]: "" } : {}, { LLM_PROVIDER: "", LLM_MODEL: "" }, `${connected.label} disconnected. Warpnaut works without AI.`).then(() => setModel(""));
 
   const save = () => void apply(Object.fromEntries(Object.entries(draft).filter(([, v]) => v)), searx !== null ? { SEARXNG_URL: searx } : undefined).then(() => { setDraft({}); setSearx(null); });
   const dirty = Object.values(draft).some(Boolean) || contact !== null || searx !== null;
@@ -204,10 +207,10 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
                   {AI.map((a) => <option key={a.id} value={a.id}>{a.label}{info?.keys[a.key] ? " ✓" : ""}</option>)}
                 </select>
               </div>
-              <label className="group__row">
+              {p.key && <label className="group__row">
                 <span>API key</span>
                 <input type="password" autoComplete="off" spellCheck={false} placeholder={info?.keys[p.key] ? "Saved ••••••••" : "Paste your key"} value={aiKey} onChange={(e) => { setAiKey(e.target.value); setSaved(""); setAiError(""); }} />
-              </label>
+              </label>}
               {models && (
                 <div className="group__row">
                   <span>Model</span>
@@ -219,10 +222,10 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
             </div>
             <div className="prefs__actions">
               {aiError && <span className="fine fine--error" role="alert">{aiError}</span>}
-              {info?.keys[p.key] && !aiKey && !models && <button className="btn" disabled={checking} onClick={() => void check()}>{checking ? "Checking…" : "Choose model"}</button>}
-              <button className="btn btn--primary" disabled={checking || (!aiKey && !info?.keys[p.key])} onClick={() => void connect()}>{checking ? "Checking…" : `Connect ${p.label}`}</button>
+              {(!p.key || info?.keys[p.key]) && !aiKey && !models && <button className="btn" disabled={checking} onClick={() => void check()}>{checking ? "Checking…" : "Choose model"}</button>}
+              <button className="btn btn--primary" disabled={checking || (!!p.key && !aiKey && !info?.keys[p.key])} onClick={() => void connect()}>{checking ? "Checking…" : `Connect ${p.label}`}</button>
             </div>
-            <p className="group__note">{p.note} A key is separate from a ChatGPT or Claude subscription: <a href={p.url} onClick={open(p.url)}>create one in the {p.label} console</a>. It's encrypted with your system keychain and sent only to {p.label}. {p.id === "anthropic" && "Claude powers research maps, the assistant, file reading and the Agent Station."}</p>
+            <p className="group__note">{p.note} {p.key ? <>A key is separate from a ChatGPT or Claude subscription: <a href={p.url} onClick={open(p.url)}>create one with {p.label}</a>.</> : <a href={p.url} onClick={open(p.url)}>Get {p.label}</a>} {p.key && <>It's encrypted with your system keychain and sent only to {p.label}.</>} This model powers research maps, the assistant and file reading. Each agent chooses its own.</p>
           </>}
 
           {page === "search" && <>

@@ -1,11 +1,12 @@
-// Claude agents: each agent in the Agent Station works through its plan with the person's own Claude API key.
-// The server holds the key and calls Claude; the interface runs the tools, in front of the person, and sends
+// Agents: each agent in the Agent Station works through its plan with the model the person chose for it, Claude here
+// and any other through brains.ts. The server holds the keys and calls the model; the interface runs the tools, in front of the person, and sends
 // back what happened. One request here is one turn of that conversation.
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
+import { brainTurn } from "./brains.ts";
 import { extractJson } from "./models.ts";
 
-export const CLAUDE_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
+export const AGENT_PROVIDERS = ["anthropic", "ollama", "ollama-cloud", "lmstudio", "groq", "gemini", "openrouter", "openai"] as const;
 export const SKILLS = ["harvest", "mail", "video", "build"] as const;
 export type Skill = (typeof SKILLS)[number];
 
@@ -64,7 +65,8 @@ export const AgentTurn = z.object({
     task: z.string().trim().min(1).max(4000),
     plan: z.array(z.string().max(400)).max(20).default([]),
     access: z.enum(["read", "ask", "auto"]).default("ask"),
-    model: z.enum(CLAUDE_MODELS).default("claude-opus-5-5"),
+    provider: z.enum(AGENT_PROVIDERS).default("anthropic"),
+    model: z.string().trim().min(1).max(200).default("claude-opus-5-5"),
     skills: z.array(z.enum(SKILLS)).max(SKILLS.length).default([]),
     memory: z.array(z.string().max(300)).max(30).default([]),
   }),
@@ -72,7 +74,7 @@ export const AgentTurn = z.object({
 });
 export type AgentTurn = z.infer<typeof AgentTurn>;
 
-export const DraftPlan = z.object({ role: z.string().trim().max(1000).default(""), task: z.string().trim().min(1).max(4000) });
+export const DraftPlan = z.object({ role: z.string().trim().max(1000).default(""), task: z.string().trim().min(1).max(4000), provider: z.enum(AGENT_PROVIDERS).default("anthropic"), model: z.string().trim().max(200).default("claude-sonnet-5-5") });
 export type DraftPlan = z.infer<typeof DraftPlan>;
 
 /** The tools one agent gets. Fixed for a whole run, so the cached part of each request stays the same. */
@@ -103,8 +105,9 @@ const thinks = (model: string) => !model.includes("haiku");
 /** Non-streaming requests stay under the SDK's limit; apps need the room, ordinary turns don't. */
 const roomFor = (a: AgentTurn["agent"]) => (a.skills.includes("build") ? 16_000 : 8000);
 
-/** One turn: Claude's next move, given everything so far. */
+/** One turn: the model's next move, given everything so far. */
 export async function agentTurn(req: AgentTurn) {
+  if (req.agent.provider !== "anthropic") return brainTurn(req.agent.provider, req.agent.model, systemFor(req.agent), toolsFor(req.agent), req.messages as never, roomFor(req.agent));
   const reply = await client(290_000).messages.create({
     model: req.agent.model,
     max_tokens: roomFor(req.agent),
@@ -119,14 +122,21 @@ export async function agentTurn(req: AgentTurn) {
   return { content: reply.content, stop: reply.stop_reason, usage: { input: u.input_tokens, output: u.output_tokens, cached: u.cache_read_input_tokens ?? 0, written: u.cache_creation_input_tokens ?? 0 } };
 }
 
+const PLANNER = 'You plan work for a browser agent that can open and read pages, search, extract data into data sets, crawl politely, read Gmail, read YouTube transcripts, build small apps, click and type, and never signs in, pays or sends. Reply with JSON only: {"role":"one sentence","plan":["3 to 7 short steps"]}.';
+
 /** A role and step-by-step plan for a task, for the person to edit. */
 export async function draftPlan(req: DraftPlan) {
+  const parse = (text: string) => z.object({ role: z.string().default(""), plan: z.array(z.string()).max(10) }).parse(extractJson(text));
+  const ask = `Task: ${req.task}${req.role ? `\nRole: ${req.role}` : ""}`;
+  if (req.provider !== "anthropic") {
+    const r = await brainTurn(req.provider, req.model, PLANNER, [], [{ role: "user", content: ask }], 1500);
+    return parse(r.content.flatMap((b) => (b.type === "text" ? [b.text ?? ""] : [])).join(""));
+  }
   const reply = await client(60_000).messages.create({
-    model: "claude-sonnet-5-5",
+    model: req.model,
     max_tokens: 1500,
-    system: 'You plan work for a browser agent that can open and read pages, search, extract data into data sets, crawl politely, read Gmail, read YouTube transcripts, build small apps, click and type, and never signs in, pays or sends. Reply with JSON only: {"role":"one sentence","plan":["3 to 7 short steps"]}.',
-    messages: [{ role: "user", content: `Task: ${req.task}${req.role ? `\nRole: ${req.role}` : ""}` }],
+    system: PLANNER,
+    messages: [{ role: "user", content: ask }],
   });
-  const text = reply.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-  return z.object({ role: z.string().default(""), plan: z.array(z.string()).max(10) }).parse(extractJson(text));
+  return parse(reply.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join(""));
 }

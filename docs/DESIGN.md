@@ -321,3 +321,7 @@ Smoothness rules, each from a measurement:
 **Search stays visible.** Google's Custom Search API is closed to new customers and ends on January 1, 2027, and Google's terms don't allow automated queries. So Warpnaut doesn't query Google in the background: the engine's results are read from a window the person opened by asking, and any check is theirs to answer. SearXNG, Brave and Tavily remain the options for background search.
 
 **Ram** (`RamBuddy.tsx`, `lib/ram.ts`) shows the app's memory as a sheep whose wool grows toward the engine's limit of half the computer's memory.
+
+## Agents on any model
+
+An agent has a `provider` and a `model`. The loop in `lib/agents.ts` still speaks Claude's blocks everywhere; `server/brains.ts` translates each turn for anything else. Ollama, local or cloud, uses its own `/api/chat`, because its OpenAI route can't set the context size and its default is only 4k on most computers. Replies stream, so only silence times out, never slowness; `think` is on where a model supports it, which keeps reasoning out of answers. Other providers use the OpenAI chat format. Older tool results shrink, since these models have no prompt cache to protect and a small context to fit. A tool call written as text is rescued only if it names a real tool. Approvals, field refusals and the rules after reading email all run in the interface, so they apply on every model.

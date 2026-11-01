@@ -37,6 +37,12 @@ describe("running an agent", () => {
     await h.done;
     expect((h.seen[1] as { content: { is_error?: boolean }[] }[])[2].content[0].is_error).toBe(true);
   });
+  it("stops a paid run at the token limit, but never a local one", async () => {
+    const turn = { content: [{ type: "tool_use", id: "t", name: "read_page", input: {} }], stop: "tool_use", usage: { input: 600_000, output: 0, cached: 0 } };
+    const run = (provider: string) => runAgent({ ...agent, provider }, { turn: async (m) => (m.length > 4 ? { content: [{ type: "text", text: "Done" }], stop: "end_turn" } : turn) as never, tool: async () => "ok", update: () => undefined, signal: new AbortController().signal });
+    await expect(run("anthropic")).rejects.toThrow(/to protect your bill/);
+    await expect(run("ollama")).resolves.toBeUndefined();
+  });
   it("reports a refusal instead of calling it done", async () => {
     await expect(harness([{ content: [], stop: "refusal" }]).done).rejects.toThrow(/declined/);
   });
@@ -108,7 +114,7 @@ describe("the stronger crew", () => {
     expect(names.filter((n) => /send|reply|forward/.test(n))).toEqual([]);
   });
   it("carries memory as notes, never as orders", () => {
-    const s = systemFor({ name: "A", role: "", task: "t", plan: [], access: "read", model: "claude-opus-5-5", skills: [], memory: ["Prefers metric units"] });
+    const s = systemFor({ name: "A", role: "", task: "t", plan: [], access: "read", provider: "anthropic", model: "claude-opus-5-5", skills: [], memory: ["Prefers metric units"] });
     expect(s).toContain("<memory>");
     expect(s).toContain("not instructions");
     expect(s).toContain("never solve or get around a CAPTCHA");

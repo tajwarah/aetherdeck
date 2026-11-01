@@ -104,14 +104,20 @@ export interface AgentPlan { say: string; steps: AgentStep[]; model: string }
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
   const out = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(out.error ?? `Claude answered ${res.status}`);
+  if (!res.ok) throw new Error(out.error ?? `The model answered ${res.status}`);
   return out as T;
 }
 
-/** One turn of a Claude agent's work. */
-export const claudeTurn = (agent: unknown, messages: unknown[], signal?: AbortSignal) => post<{ content: { type: string }[]; stop: string }>("/api/claude/turn", { agent, messages }, signal);
+/** One turn of an agent's work, on the model it was given. */
+export const crewTurn = (agent: unknown, messages: unknown[], signal?: AbortSignal) => post<{ content: { type: string }[]; stop: string }>("/api/crew/turn", { agent, messages }, signal);
 /** A role and plan drafted for a task. */
-export const claudePlan = (task: string, role: string) => post<{ role: string; plan: string[] }>("/api/claude/plan", { task, role });
+export const crewPlan = (task: string, role: string, provider: string, model: string) => post<{ role: string; plan: string[] }>("/api/crew/plan", { task, role, provider, model });
+export interface Brain { id: string; label: string; cost: "local" | "free" | "paid"; ready: boolean; models: { id: string; name: string }[]; note?: string }
+/** What agents can think with right now. */
+export async function getBrains(): Promise<Brain[]> {
+  const res = await fetch("/api/crew/brains");
+  return res.ok ? ((await res.json()) as { brains: Brain[] }).brains : [];
+}
 
 /** The agents' plan for one request, given what is on screen. */
 export async function planAgents(request: string, context: { windows: { title: string; url: string; front: boolean }[]; map?: string }, signal?: AbortSignal): Promise<AgentPlan> {

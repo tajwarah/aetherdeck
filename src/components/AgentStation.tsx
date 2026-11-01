@@ -1,46 +1,52 @@
-// The Agent Station: a starship bridge for a crew of Claude agents. Summon one, give it a name, a mission and powers,
+// The Agent Station: a starship bridge for a crew of agents, each on the model the person chose. Summon one, give it a name, a mission and powers,
 // then watch it work on deck. Several can run at once; each asks before anything that needs you.
-import { useEffect, useRef, useState } from "react";
-import { ACCESS, MODELS, ORDERS, SKILLS, moodOf, rankOf, skillsOf, stepText, type Agent, type Run, type Skill } from "../lib/agents.ts";
-import { claudePlan } from "../lib/api.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ACCESS, ORDERS, SKILLS, isLocal, moodOf, rankOf, skillsOf, stepText, type Agent, type Run, type Skill } from "../lib/agents.ts";
+import { crewPlan, getBrains, type Brain } from "../lib/api.ts";
 import { desktop } from "../lib/desktop.ts";
 import { Markdown } from "./Assistant.tsx";
 import { AgentAvatar } from "./AgentAvatar.tsx";
 import { AgentStage } from "./AgentStage.tsx";
 import { Logo } from "./Logo.tsx";
 
-const blank = (): Agent => ({ id: `a${Date.now().toString(36)}`, name: "", role: "", task: "", plan: [], access: "ask", model: MODELS[0].id, hue: 205, notes: [], skills: ["harvest"], memory: [], xp: 0 });
+const blank = (): Agent => ({ id: `a${Date.now().toString(36)}`, name: "", role: "", task: "", plan: [], access: "ask", provider: "", model: "", hue: 205, notes: [], skills: ["harvest"], memory: [], xp: 0 });
 
 
-/** The key, asked for in place. It goes to the keychain through Settings' own path and is never shown again. */
-function KeyGate({ provider, onSaved }: { provider?: string; onSaved: () => void }) {
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function save() {
-    setBusy(true);
-    setError("");
-    const check = await desktop!.invoke<{ error?: string }>("ai:models", "anthropic", key.trim());
-    if (check.error) { setBusy(false); setError(check.error); return; }
-    // Agents use this key; the AI that was already answering searches stays as it is.
-    await desktop!.invoke("app:setKeys", { ANTHROPIC_API_KEY: key.trim() }, undefined, provider ? { LLM_PROVIDER: provider } : undefined);
-    setKey("");
-    setBusy(false);
-    onSaved();
-  }
-  if (!desktop) return <p className="fine">Claude agents run in the desktop app.</p>;
+const COST: Record<Brain["cost"], string> = { local: "Free, on this computer", free: "Free tier or plan", paid: "Paid per use" };
+
+/** Choosing a mind: everything connected, cheapest first, with what each one costs. */
+function MindSelect({ brains, provider, model, onPick }: { brains: Brain[]; provider?: string; model: string; onPick: (provider: string, model: string) => void }) {
+  const ready = brains.filter((b) => b.ready);
+  const current = `${provider ?? "anthropic"}\n${model}`;
+  const known = ready.some((b) => b.id === (provider ?? "anthropic") && b.models.some((m) => m.id === model));
   return (
-    <form className="deck__key" onSubmit={(e) => { e.preventDefault(); if (key.trim()) void save(); }}>
-      <span><b>Power the deck.</b> Agents run on your own Anthropic account. Create a key at console.anthropic.com; it's encrypted in your keychain.</span>
-      <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-…" aria-label="Claude API key" autoComplete="off" data-keys />
-      <button className="deck__btn deck__btn--go" disabled={!key.trim() || busy}>{busy ? "Checking…" : "Connect"}</button>
-      {error && <p className="agents__error" role="alert">{error}</p>}
-    </form>
+    <select value={known ? current : ""} onChange={(e) => { const [p, m] = e.target.value.split("\n"); onPick(p, m); }}>
+      {!known && <option value="">{model ? `${model} (not connected)` : "Choose a model"}</option>}
+      {ready.map((b) => <optgroup key={b.id} label={`${b.label}: ${COST[b.cost]}`}>{b.models.map((m) => <option key={m.id} value={`${b.id}\n${m.id}`}>{m.name}</option>)}</optgroup>)}
+    </select>
+  );
+}
+
+/** Shown until some model is connected: the free ways first. */
+function ConnectGate({ brains, onRefresh, onSettings }: { brains: Brain[]; onRefresh: () => void; onSettings: () => void }) {
+  const open = (url: string) => void (desktop ? desktop.invoke("app:openExternal", url) : window.open(url));
+  const note = (id: string) => brains.find((b) => b.id === id)?.note;
+  return (
+    <div className="deck__key">
+      <span><b>Connect a model.</b> Agents can run free on your computer, on Ollama's cloud, or on your own API key.</span>
+      <ul className="deck__ways">
+        <li><b>Free on this computer</b> {note("ollama") ?? "Ollama is ready."}</li>
+        <li><b>Cloud without a big computer</b> {note("ollama-cloud") ?? "Ollama Cloud is ready."}</li>
+      </ul>
+      <button className="deck__btn" onClick={() => open("https://ollama.com/download")}>Get Ollama</button>
+      <button className="deck__btn" onClick={onSettings}>Add a key</button>
+      <button className="deck__btn deck__btn--go" onClick={onRefresh}>Check again</button>
+    </div>
   );
 }
 
 /** Three short steps: choose an order, give it a mission, grant its powers. Editing starts at the mission. */
-function Summon({ agent, isNew, onSave, onCancel, onDelete, claude }: { agent: Agent; isNew: boolean; onSave: (a: Agent) => void; onCancel: () => void; onDelete?: () => void; claude: boolean }) {
+function Summon({ agent, isNew, brains, onSave, onCancel, onDelete }: { agent: Agent; isNew: boolean; brains: Brain[]; onSave: (a: Agent) => void; onCancel: () => void; onDelete?: () => void }) {
   const [step, setStep] = useState(isNew ? 0 : 1);
   const [a, setA] = useState(agent);
   const [planText, setPlanText] = useState(agent.plan.join("\n"));
@@ -60,7 +66,7 @@ function Summon({ agent, isNew, onSave, onCancel, onDelete, claude }: { agent: A
     setDrafting(true);
     setError("");
     try {
-      const r = await claudePlan(a.task, a.role);
+      const r = await crewPlan(a.task, a.role, a.provider ?? "anthropic", a.model);
       if (!a.role) set({ role: r.role });
       setPlanText(r.plan.join("\n"));
     } catch (err) { setError((err as Error).message); }
@@ -110,13 +116,13 @@ function Summon({ agent, isNew, onSave, onCancel, onDelete, claude }: { agent: A
           <fieldset className="leash"><legend>How free is it?</legend>
             {ACCESS.map((o) => <label key={o.id} className={a.access === o.id ? "is-on" : ""}><input type="radio" name="access" checked={a.access === o.id} onChange={() => set({ access: o.id })} /><b>{o.label}</b><small>{o.hint}</small></label>)}
           </fieldset>
-          <label>Mind<select value={a.model} onChange={(e) => set({ model: e.target.value })}>{MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
+          <label>Model<MindSelect brains={brains} provider={a.provider} model={a.model} onPick={(provider, model) => set({ provider, model })} /></label>
           <label>Plan, one step per line<textarea rows={4} value={planText} onChange={(e) => setPlanText(e.target.value)} placeholder="Leave empty and the agent works it out" /></label>
           {error && <p className="agents__error" role="alert">{error}</p>}
           <footer className="summon__foot">
             <button className="deck__btn" onClick={() => setStep(1)}>Back</button>
-            <button className="deck__btn" disabled={!a.task.trim() || drafting || !claude} onClick={() => void draft()}>{drafting ? "Drafting…" : "Draft the plan"}</button>
-            <button className="deck__btn deck__btn--go" disabled={!ready || igniting} onClick={ignite}>{isNew ? "Bring aboard" : "Save"}</button>
+            <button className="deck__btn" disabled={!a.task.trim() || drafting || !a.model} onClick={() => void draft()}>{drafting ? "Drafting…" : "Draft the plan"}</button>
+            <button className="deck__btn deck__btn--go" disabled={!ready || !a.model || igniting} onClick={ignite}>{isNew ? "Bring aboard" : "Save"}</button>
           </footer>
         </div>
       )}
@@ -134,7 +140,7 @@ function EngineBar({ runs }: { runs: Record<string, Run> }) {
     const t = setInterval(read, 2000);
     return () => clearInterval(t);
   }, []);
-  const used = Object.values(runs).reduce((n, r) => ({ input: n.input + (r.used?.input ?? 0), cached: n.cached + (r.used?.cached ?? 0) }), { input: 0, cached: 0 });
+  const used = Object.values(runs).reduce((n, r) => ({ input: n.input + (r.used?.input ?? 0), output: n.output + (r.used?.output ?? 0), cached: n.cached + (r.used?.cached ?? 0) }), { input: 0, output: 0, cached: 0 });
   const seen = used.input + used.cached;
   return (
     <footer className="deck__engine" aria-label="Engine">
@@ -142,6 +148,7 @@ function EngineBar({ runs }: { runs: Record<string, Run> }) {
       <span><i>Queued</i>{s?.waiting ?? 0}</span>
       <span><i>Page memory</i>{s ? `${s.pageMemory} MB` : "–"}</span>
       <span><i>App memory</i>{s ? `${(s.total / 1024).toFixed(1)} GB` : "–"}</span>
+      <span><i>Tokens used</i>{(seen + used.output).toLocaleString("en")}</span>
       <span><i>From cache</i>{seen ? `${Math.round((used.cached / seen) * 100)}%` : "–"}</span>
     </footer>
   );
@@ -151,10 +158,8 @@ interface AppInfo { id: string; title: string; agent: string }
 interface Props {
   agents: Agent[];
   runs: Record<string, Run>;
-  claude: boolean;
-  provider?: string;
   reduced: boolean;
-  onKeySaved: () => void;
+  onSettings: () => void;
   onSave: (a: Agent) => void;
   onDelete: (id: string) => void;
   onStart: (a: Agent) => void;
@@ -163,10 +168,16 @@ interface Props {
   onClose: () => void;
 }
 
-export function AgentStation({ agents, runs, claude, provider, reduced, onKeySaved, onSave, onDelete, onStart, onStop, onOpenApp, onClose }: Props) {
+export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDelete, onStart, onStop, onOpenApp, onClose }: Props) {
   const [picked, setPicked] = useState<string | null>(agents[0]?.id ?? null);
   const [editing, setEditing] = useState<Agent | null>(agents.length ? null : blank());
   const [apps, setApps] = useState<AppInfo[]>([]);
+  const [brains, setBrains] = useState<Brain[] | null>(null);
+  const refresh = useCallback(() => { void getBrains().then(setBrains).catch(() => setBrains([])); }, []);
+  useEffect(refresh, [refresh]);
+  const ready = brains?.some((b) => b.ready) ?? false;
+  const runnable = (a: Agent) => !!brains?.some((b) => b.ready && b.id === (a.provider || "anthropic") && b.models.some((m) => m.id === a.model));
+  const fresh = () => { const b = brains?.find((x) => x.ready); return { ...blank(), provider: b?.id ?? "", model: b?.models[0]?.id ?? "" }; };
   const steps = useRef<HTMLOListElement>(null);
   const agent = agents.find((a) => a.id === picked);
   const run = agent && runs[agent.id];
@@ -185,10 +196,10 @@ export function AgentStation({ agents, runs, claude, provider, reduced, onKeySav
       <header className="deck__head">
         <Logo />
         <div><h2>Agent Station</h2><p>{agents.length ? `${agents.length} in your crew` : "Bring your first agent aboard"}</p></div>
-        <button className="deck__btn deck__btn--go" onClick={() => setEditing(blank())}>Summon</button>
+        <button className="deck__btn deck__btn--go" onClick={() => setEditing(fresh())}>Summon</button>
         <button className="deck__icon" onClick={onClose} aria-label="Close the Agent Station">×</button>
       </header>
-      {!claude && <KeyGate provider={provider} onSaved={onKeySaved} />}
+      {brains && !ready && <ConnectGate brains={brains} onRefresh={refresh} onSettings={onSettings} />}
       <div className="deck__body">
         <ul className="deck__crew">
           {agents.map((a) => {
@@ -207,7 +218,7 @@ export function AgentStation({ agents, runs, claude, provider, reduced, onKeySav
         </ul>
         <div className="deck__stage">
           <AgentStage agents={agents} runs={runs} picked={picked} reduced={reduced} onPick={(id) => { setPicked(id); setEditing(null); }} />
-          {editing && <Summon key={editing.id} agent={editing} isNew={!agents.some((a) => a.id === editing.id)} claude={claude} onCancel={() => setEditing(null)} onSave={(a) => { onSave(a); setPicked(a.id); setEditing(null); }}
+          {editing && <Summon key={editing.id} agent={editing.model ? editing : { ...editing, provider: brains?.find((b) => b.ready)?.id ?? "", model: brains?.find((b) => b.ready)?.models[0]?.id ?? "" }} isNew={!agents.some((a) => a.id === editing.id)} brains={brains ?? []} onCancel={() => setEditing(null)} onSave={(a) => { onSave(a); setPicked(a.id); setEditing(null); }}
             onDelete={agents.some((a) => a.id === editing.id) ? () => { onDelete(editing.id); setEditing(null); setPicked(null); } : undefined} />}
         </div>
         <section className="deck__side" style={{ ["--hue" as string]: agent?.hue ?? 205 }}>
@@ -215,11 +226,11 @@ export function AgentStation({ agents, runs, claude, provider, reduced, onKeySav
             <>
               <div className="deck__who">
                 <AgentAvatar hue={agent.hue} order={agent.order} mood={moodOf(agent, run)} size={56} />
-                <div><h3>{agent.name}</h3><p>{rankOf(agent.xp)} · {agent.xp ?? 0} XP</p></div>
+                <div><h3>{agent.name}</h3><p>{rankOf(agent.xp)} · {agent.model}{isLocal(agent) ? " · free" : ""}</p></div>
                 <button className="deck__btn" onClick={() => setEditing(agent)}>Edit</button>
                 {run?.status === "working"
                   ? <button className="deck__btn" onClick={() => onStop(agent.id)}>Stop</button>
-                  : <button className="deck__btn deck__btn--go" disabled={!claude} onClick={() => onStart(agent)}>Run</button>}
+                  : <button className="deck__btn deck__btn--go" disabled={!runnable(agent)} title={runnable(agent) ? undefined : "Its model isn't connected. Press Edit to choose another."} onClick={() => onStart(agent)}>Run</button>}
               </div>
               <p className="deck__task">{agent.task}</p>
               {run?.ask && (

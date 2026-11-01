@@ -21,7 +21,7 @@ import { MindMapView } from "./views/MindMapView.tsx";
 import { MediaView } from "./views/MediaView.tsx";
 import { ReadingView } from "./views/ReadingView.tsx";
 import type { ViewProps } from "./views/primitives.tsx";
-import { claudeTurn, exploreStream, getHealth, type Health } from "./lib/api.ts";
+import { crewTurn, exploreStream, getHealth, type Health } from "./lib/api.ts";
 import { layoutFor } from "./lib/layout.ts";
 import { usePrefs } from "./lib/prefs.ts";
 import { useReducedMotion, type Vec } from "./lib/spring.ts";
@@ -605,7 +605,7 @@ export function App() {
     }
   }, [minimizeAll, run, openUrl, openGroup]);
 
-  // ---- the Agent Station: Claude agents, running beside whatever the person is doing ----
+  // ---- the Agent Station: agents on any model, running beside whatever the person is doing ----
   const [stationOpen, setStationOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [board, setBoard] = useState<Board>(EMPTY_BOARD);
@@ -725,7 +725,7 @@ export function App() {
     workbench.current.set(agent.id, { data: new Map(), readMail: false, signal: ctrl.signal });
 
     runAgent(agent, {
-      turn: (messages) => claudeTurn({ name: agent.name, role: agent.role, task: agent.task, plan: agent.plan, access: agent.access, model: agent.model, skills: skillsOf(agent), memory: agent.memory ?? [] }, messages, ctrl.signal) as never,
+      turn: (messages) => crewTurn({ name: agent.name, role: agent.role, task: agent.task, plan: agent.plan, access: agent.access, provider: agent.provider ?? "anthropic", model: agent.model, skills: skillsOf(agent), memory: agent.memory ?? [] }, messages, ctrl.signal) as never,
       tool: (name, input, ask) => agentTool(agent, name, input, ask),
       update,
       signal: ctrl.signal,
@@ -926,7 +926,7 @@ export function App() {
       {library && desktop && <LibrarySheet tab={library} downloads={downloads} onTab={setLibrary} onClose={() => setLibrary(null)} onOpen={(url) => { setLibrary(null); openLink(url); }} />}
       {boardOpen && <ResearchBoard board={board} aiReady={!!health?.llm} onChange={keepBoard} onAsk={(q) => { setBoardOpen(false); minimizeAll(); void run(q, { fresh: true, at: field.current?.center() }); }}
         onOpenPages={(pages) => { setBoardOpen(false); void openTabs(pages); }} onConnectModel={() => { setBoardOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onClose={() => setBoardOpen(false)} />}
-      {stationOpen && <AgentStation reduced={reduced} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} agents={crew} runs={runs} claude={!!health?.claude} provider={health?.model?.provider} onKeySaved={() => void getHealth().then(setHealth)}
+      {stationOpen && <AgentStation reduced={reduced} onSettings={() => { setStationOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} agents={crew} runs={runs}
         onSave={(a) => keepCrew((c) => (c.some((x) => x.id === a.id) ? c.map((x) => (x.id === a.id ? a : x)) : [...c, a]))}
         onDelete={(id) => { stops.current.get(id)?.abort(); keepCrew((c) => c.filter((a) => a.id !== id)); }}
         onStart={startAgent} onStop={(id) => stops.current.get(id)?.abort()} onClose={() => setStationOpen(false)} />}

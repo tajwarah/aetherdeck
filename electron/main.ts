@@ -299,7 +299,7 @@ function handlers() {
     const { AI_PROVIDERS, listModels } = await import("../server/models.ts");
     const p = AI_PROVIDERS.find((x) => x.id === provider);
     if (!p) return { error: "Unknown provider" };
-    const apiKey = (typeof key === "string" && key.trim()) || store.keys()[p.keyEnv as KeyName] || process.env[p.keyEnv];
+    const apiKey = !p.keyEnv ? provider : (typeof key === "string" && key.trim()) || store.keys()[p.keyEnv as KeyName] || process.env[p.keyEnv];
     if (!apiKey) return { error: "Enter a key first." };
     try { return { models: await listModels(provider, apiKey) }; } catch (err) { return { error: (err as Error).message }; }
   });

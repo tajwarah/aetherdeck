@@ -8,7 +8,7 @@ Warpnaut is a free, open-source shell: you connect your own AI model, and your d
 |---|---|---|
 | History, bookmarks, agents, research board | JSON files in the app's data folder | Nothing |
 | API keys | Encrypted by the system keychain. Without a keychain they last until you quit and never reach the disk | Sent only to that key's provider |
-| Pages, email or files an agent or summary reads | On this computer | The text goes to the AI provider you connected, under your own key. Their terms decide how long they keep it |
+| Pages, email or files an agent or summary reads | On this computer | With a local model (Ollama, LM Studio), nothing. Otherwise the text goes to the AI provider you connected, under your own key, and their terms decide how long they keep it |
 | Search questions | On this computer | Goes to the search engine you chose, and to the open sources used for the map |
 | Synced windows | Encrypted in the app, AES-256-GCM, with the key only in your link | Encrypted data only, to the sync server you run |
 
@@ -22,7 +22,7 @@ A personal install needs no database: each kind of data is one small file, writt
 - Agents can't sign in, enter passwords or card numbers, buy, send email, or solve CAPTCHAs. Password and payment fields are refused in code.
 - After an agent reads email, anything that could carry data out needs your approval.
 - Apps built by agents run with no network and can't leave their own page.
-- Text from pages and email is marked as material for the model, never as instructions. This lowers prompt injection risk but can't remove it, so keep approvals on for agents that read private data.
+- Text from pages and email is marked as material for the model, never as instructions. This lowers prompt injection risk but can't remove it, and smaller models resist it less, so keep approvals on for agents that read private data.
 - Packaged builds turn off Electron's run-as-Node mode, `NODE_OPTIONS` and debug flags, encrypt cookies, and check the app archive's integrity.
 
 ## What isn't done yet

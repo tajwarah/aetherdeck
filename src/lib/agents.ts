@@ -1,4 +1,4 @@
-// The Agent Station's agents: who they are, where they're kept, and the loop that runs one. Claude decides each
+// The Agent Station's agents: who they are, where they're kept, and the loop that runs one. Their model decides each
 // step; the steps run here in the browser, in view. Clicks and typing that could change something out in the
 // world wait for the person.
 import { desktop } from "./desktop.ts";
@@ -15,6 +15,8 @@ export interface Agent {
   task: string;
   plan: string[];
   access: Access;
+  /** Which provider its model comes from. Agents made before this existed use Claude. */
+  provider?: string;
   model: string;
   hue: number;
   notes: { title: string; text: string; at: number }[];
@@ -89,11 +91,6 @@ export const rankOf = (xp = 0) => [...RANKS].reverse().find(([at]) => xp >= at)!
 
 export const skillsOf = (a: Pick<Agent, "skills">): Skill[] => a.skills ?? ["harvest"];
 
-export const MODELS = [
-  { id: "claude-opus-5-5", label: "Opus 5.5, most capable" },
-  { id: "claude-sonnet-5-5", label: "Sonnet 5.5, balanced" },
-  { id: "claude-haiku-5-5", label: "Haiku 5.5, fastest and cheapest" },
-];
 export const ACCESS: { id: Access; label: string; hint: string }[] = [
   { id: "read", label: "Read only", hint: "Opens and reads pages. Never clicks or types." },
   { id: "ask", label: "Ask me first", hint: "Asks before every click and every bit of typing." },
@@ -127,6 +124,10 @@ export interface Run {
 
 type Block = { type: string; id?: string; name?: string; input?: Record<string, unknown>; text?: string };
 const MAX_TURNS = 60;
+/** A runaway run stops here, on anything billed by use. Models on this computer cost nothing. */
+export const TOKEN_LIMIT = 500_000;
+const LOCAL = new Set(["ollama", "lmstudio"]);
+export const isLocal = (a: Pick<Agent, "provider">) => LOCAL.has(a.provider ?? "");
 /** Tools that only look: when Claude asks for several at once they run together. */
 export const PARALLEL = new Set(["list_windows", "fetch_page", "read_page", "see_page", "extract_data", "query_data", "watch_video", "read_inbox", "read_email"]);
 
@@ -150,10 +151,15 @@ export async function runAgent(agent: Agent, deps: {
   signal: AbortSignal;
 }) {
   const messages: { role: string; content: unknown }[] = [{ role: "user", content: `Task: ${agent.task}` }];
+  let spent = 0;
   for (let i = 0; i < MAX_TURNS; i++) {
     if (deps.signal.aborted) return deps.update((r) => ({ ...r, status: "stopped", ask: undefined }));
     const { content, stop, usage } = await deps.turn(messages);
-    if (usage) deps.update((r) => ({ ...r, used: { input: (r.used?.input ?? 0) + usage.input, output: (r.used?.output ?? 0) + usage.output, cached: (r.used?.cached ?? 0) + usage.cached } }));
+    if (usage) {
+      spent += usage.input + usage.output + usage.cached * 0.1; // cached reading costs about a tenth
+      deps.update((r) => ({ ...r, used: { input: (r.used?.input ?? 0) + usage.input, output: (r.used?.output ?? 0) + usage.output, cached: (r.used?.cached ?? 0) + usage.cached } }));
+      if (spent > TOKEN_LIMIT && !isLocal(agent)) throw new Error(`Stopped at ${TOKEN_LIMIT.toLocaleString("en")} tokens to protect your bill. Run it again to continue, or give it a cheaper model.`);
+    }
     if (deps.signal.aborted) return deps.update((r) => ({ ...r, status: "stopped", ask: undefined }));
     const said = content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
     if (said) deps.update((r) => ({ ...r, said }));

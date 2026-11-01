@@ -4,6 +4,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod/v4";
+import { totalmem } from "node:os";
 import { log } from "./log.ts";
 
 /** One piece of what the person hands the assistant: text, an image, or a PDF the model can read itself. */
@@ -96,6 +97,7 @@ export const PRESETS: Record<string, CompatPreset> = {
   groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", keyEnv: "GROQ_API_KEY", free: true, defaultModel: "openai/gpt-oss-120b" },
   gemini: { label: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", keyEnv: "GEMINI_API_KEY", free: true, defaultModel: "gemini-3-flash-preview", fallbackModels: ["gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"], extraBody: { reasoning_effort: "low" }, vision: true },
   moonshot: { label: "Moonshot (Kimi)", baseUrl: "https://api.moonshot.ai/v1", keyEnv: "MOONSHOT_API_KEY", free: false },
+  lmstudio: { label: "LM Studio", baseUrl: "http://127.0.0.1:1234/v1", keyEnv: "", free: true },
   custom: { label: "Custom endpoint", baseUrl: "", keyEnv: "LLM_API_KEY", free: false },
 };
 
@@ -270,6 +272,119 @@ export function compatBackend(presetName: string, preset: CompatPreset, apiKey: 
   };
 }
 
+// --- Ollama ---------------------------------------------------------------------
+
+/** Room for an agent's tools and a few pages, as much as the computer can hold. Ollama's own default is only 4k on most. */
+const CONTEXT = Number(process.env.OLLAMA_NUM_CTX) || (totalmem() > 48 * 2 ** 30 ? 65_536 : totalmem() > 24 * 2 ** 30 ? 32_768 : 16_384);
+export const ollamaUrl = () => (process.env.OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
+const OLLAMA_CLOUD = "https://ollama.com";
+/** Loading a model and reading a long prompt can take minutes on a small computer before the first word. */
+export const THINK_TIME = 240_000;
+
+/** Models that have said they can't separate their reasoning. Everything else is asked to, so it stays out of answers. */
+const NO_THINKING = new Set<string>();
+
+export interface OllamaReply { message: { content: string; tool_calls: { function: { name: string; arguments: Record<string, unknown> | string } }[] }; done_reason?: string; prompt_eval_count?: number; prompt_eval_cached_count?: number; eval_count?: number }
+
+/** Ollama's own chat API, on this computer or at ollama.com. Unlike its OpenAI route, it can set the context size.
+ *  The answer is streamed so a slow computer isn't mistaken for a stuck one: only `idle` ms with no new words gives up. */
+export async function ollamaChat(cloud: boolean, body: Record<string, unknown>, idle: number, fetchImpl: typeof fetch = fetch): Promise<OllamaReply> {
+  const model = String(body.model);
+  try {
+    return await ollamaStream(cloud, NO_THINKING.has(model) ? body : { ...body, think: true }, idle, fetchImpl);
+  } catch (err) {
+    if (NO_THINKING.has(model) || !/does not support thinking/i.test((err as Error).message)) throw err;
+    NO_THINKING.add(model);
+    return ollamaStream(cloud, body, idle, fetchImpl);
+  }
+}
+
+async function ollamaStream(cloud: boolean, body: Record<string, unknown>, idle: number, fetchImpl: typeof fetch): Promise<OllamaReply> {
+  const fail = (status: number, message: string) => Object.assign(new Error(message), { status });
+  const stop = new AbortController();
+  let timer = setTimeout(() => stop.abort(), idle);
+  const alive = () => { clearTimeout(timer); timer = setTimeout(() => stop.abort(), idle); };
+  const stalled = () => fail(504, "The model stopped answering. A smaller model may suit this computer better.");
+  try {
+    let res: Response;
+    try {
+      res = await fetchImpl(`${cloud ? OLLAMA_CLOUD : ollamaUrl()}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(cloud ? { Authorization: `Bearer ${process.env.OLLAMA_API_KEY}` } : {}) },
+        body: JSON.stringify({ stream: true, ...body, ...(cloud ? {} : { options: { num_ctx: CONTEXT } }) }),
+        signal: stop.signal,
+      });
+    } catch {
+      if (stop.signal.aborted) throw stalled();
+      throw fail(503, cloud ? "Ollama Cloud can't be reached." : "Ollama isn't running. Open the Ollama app and try again.");
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      const error = (() => { try { return String((JSON.parse(text) as { error?: string }).error ?? text); } catch { return text; } })().slice(0, 200);
+      if (res.status === 401 || res.status === 403) throw fail(res.status, "Ollama Cloud did not accept the API key.");
+      if (res.status === 429) throw fail(429, "You've reached Ollama Cloud's usage limit. See ollama.com/settings/usage.");
+      if (/does not support tools/i.test(error)) throw fail(400, `${body.model} can't use tools, so it can't run agents. Choose a model with tool support, such as qwen3.`);
+      if (res.status === 404) throw fail(404, cloud ? `Ollama Cloud doesn't offer ${body.model}.` : `${body.model} isn't on this computer. Run: ollama pull ${body.model}`);
+      throw fail(res.status >= 500 ? 502 : res.status, `Ollama answered: ${error}`);
+    }
+    const reply: OllamaReply = { message: { content: "", tool_calls: [] } };
+    const take = (line: string) => {
+      if (!line.trim()) return;
+      const part = JSON.parse(line) as Partial<Omit<OllamaReply, "message">> & { message?: { content?: string; tool_calls?: OllamaReply["message"]["tool_calls"] }; error?: string };
+      if (part.error) throw fail(502, `Ollama answered: ${part.error.slice(0, 200)}`);
+      reply.message.content += part.message?.content ?? "";
+      reply.message.tool_calls.push(...(part.message?.tool_calls ?? []));
+      Object.assign(reply, { done_reason: part.done_reason ?? reply.done_reason, prompt_eval_count: part.prompt_eval_count ?? reply.prompt_eval_count, prompt_eval_cached_count: part.prompt_eval_cached_count ?? reply.prompt_eval_cached_count, eval_count: part.eval_count ?? reply.eval_count });
+    };
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let rest = "";
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        alive();
+        rest += decoder.decode(value, { stream: true });
+        const lines = rest.split("\n");
+        rest = lines.pop()!;
+        lines.forEach(take);
+      }
+    } catch (err) {
+      if (stop.signal.aborted) throw stalled();
+      throw err;
+    }
+    take(rest);
+    return reply;
+  } finally { clearTimeout(timer); }
+}
+
+const noThink = (text = "") => text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+
+function ollamaBackend(cloud: boolean, fetchImpl: typeof fetch = fetch): ModelBackend {
+  const label = cloud ? "Ollama Cloud" : "Ollama";
+  const model = process.env.LLM_MODEL ?? "";
+  return {
+    provider: cloud ? "ollama-cloud" : "ollama",
+    free: !cloud,
+    vision: false,
+    label: () => `${model || "no model chosen"} (${label}${cloud ? "" : ", on this computer"})`,
+    async ask(system, history, parts) {
+      const text = parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("\n\n");
+      const r = await ollamaChat(cloud, { model, messages: [{ role: "system", content: system }, ...history.map((t) => ({ role: t.role, content: t.text })), { role: "user", content: text }] }, THINK_TIME, fetchImpl);
+      return noThink(r.message?.content);
+    },
+    async json(schema, system, user) {
+      const r = await ollamaChat(cloud, { model, format: z.toJSONSchema(schema), messages: [{ role: "system", content: `${system}\n\nReply with a single JSON object and nothing else.` }, { role: "user", content: user }] }, THINK_TIME, fetchImpl);
+      try {
+        const result = schema.safeParse(extractJson(r.message?.content ?? ""));
+        if (result.success) return result.data;
+      } catch { /* treated as no answer below */ }
+      log("warn", "llm_invalid_json", { provider: label, model });
+      return null;
+    },
+  };
+}
+
 // --- selection --------------------------------------------------------------------
 
 function select(): ModelBackend | null {
@@ -278,6 +393,9 @@ function select(): ModelBackend | null {
   if (explicit === "anthropic" || (!explicit && process.env.ANTHROPIC_API_KEY)) {
     return process.env.ANTHROPIC_API_KEY ? anthropicBackend() : null;
   }
+  if (explicit === "ollama") return ollamaBackend(false);
+  if (explicit === "ollama-cloud") return process.env.OLLAMA_API_KEY ? ollamaBackend(true) : null;
+  if (explicit === "lmstudio") return compatBackend("lmstudio", PRESETS.lmstudio, "lmstudio");
   const order = explicit ? [explicit] : ["openai", "openrouter", "groq", "gemini", "moonshot", "custom"];
   for (const name of order) {
     const preset = PRESETS[name];
@@ -312,6 +430,9 @@ export const AI_PROVIDERS = [
   { id: "openrouter", label: "OpenRouter", keyEnv: "OPENROUTER_API_KEY" },
   { id: "groq", label: "Groq", keyEnv: "GROQ_API_KEY" },
   { id: "gemini", label: "Google Gemini", keyEnv: "GEMINI_API_KEY" },
+  { id: "ollama", label: "Ollama", keyEnv: "" },
+  { id: "ollama-cloud", label: "Ollama Cloud", keyEnv: "OLLAMA_API_KEY" },
+  { id: "lmstudio", label: "LM Studio", keyEnv: "" },
 ] as const;
 
 const CHAT_MODEL = /^(gpt-|o\d|chatgpt-)/;
@@ -319,6 +440,17 @@ const NOT_CHAT = /(audio|realtime|tts|transcribe|image|embedding|search|moderati
 
 /** The models this key can use, newest first, for the model picker. Also proves the key works. */
 export async function listModels(provider: string, apiKey: string, fetchImpl: typeof fetch = fetch): Promise<{ id: string; name: string }[]> {
+  if (provider === "ollama" || provider === "ollama-cloud") {
+    const cloud = provider === "ollama-cloud";
+    let res: Response;
+    try {
+      res = await fetchImpl(`${cloud ? OLLAMA_CLOUD : ollamaUrl()}/api/tags`, { headers: cloud ? { Authorization: `Bearer ${apiKey}` } : {}, signal: AbortSignal.timeout(cloud ? 15_000 : 3000) });
+    } catch { throw new Error(cloud ? "Ollama Cloud can't be reached" : "Ollama isn't running on this computer"); }
+    if (res.status === 401 || res.status === 403) throw new Error("Ollama Cloud did not accept that key");
+    if (!res.ok) throw new Error(`Ollama answered HTTP ${res.status}`);
+    const body = (await res.json()) as { models?: { name: string }[] };
+    return (body.models ?? []).map((m) => ({ id: m.name, name: m.name }));
+  }
   if (provider === "anthropic") {
     const client = new Anthropic({ apiKey, timeout: 15_000, maxRetries: 0 });
     const out: { id: string; name: string }[] = [];
@@ -332,12 +464,12 @@ export async function listModels(provider: string, apiKey: string, fetchImpl: ty
   }
   const preset = PRESETS[provider];
   if (!preset) throw new Error(`Unknown provider ${provider}`);
-  const res = await fetchImpl(`${preset.baseUrl}/models`, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(15_000) });
+  const res = await fetchImpl(`${preset.baseUrl}/models`, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(provider === "lmstudio" ? 3000 : 15_000) }).catch(() => { throw new Error(`${preset.label} isn't running on this computer`); });
   if (res.status === 401 || res.status === 403) throw new Error(`${preset.label} did not accept that key`);
   if (!res.ok) throw new Error(`${preset.label} answered HTTP ${res.status}`);
   const body = (await res.json()) as { data?: { id: string; name?: string; created?: number }[] };
   let list = body.data ?? [];
   if (provider === "openai") list = list.filter((m) => CHAT_MODEL.test(m.id) && !NOT_CHAT.test(m.id));
-  if (provider === "gemini") list = list.map((m) => ({ ...m, id: m.id.replace(/^models\//, "") })).filter((m) => /gemini/.test(m.id) && !/(embedding|tts|image|aqa)/.test(m.id));
+  if (provider === "gemini") list = list.map((m) => ({ ...m, id: m.id.replace(/^models\//, "") })).filter((m) => /gemini/.test(m.id) && !/(embedding|tts|image|aqa|live|robotics|translate|computer-use)/.test(m.id));
   return list.sort((a, b) => (b.created ?? 0) - (a.created ?? 0)).map((m) => ({ id: m.id, name: m.name ?? m.id }));
 }

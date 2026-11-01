@@ -22,7 +22,19 @@ Windows and Linux update themselves. On macOS, Warpnaut tells you when a new ver
 
 ## Agents
 
-Open **Agents** in the dock, press **Summon** and pick a crew member. Each agent stands on the bridge as an astronaut that reacts to its work: it salutes a new task, reads, collects, hammers, raises a hand when it needs you, and cheers when it's done. Agents run on your own Claude API key and work through a pool of invisible pages or in front of you.
+Agents can run on the model you choose, one model per agent, so they don't have to cost anything:
+
+| Model | Cost | Setup |
+|---|---|---|
+| [Ollama](https://ollama.com/download) on your computer | Free. Nothing leaves your computer | Install it, then run `ollama pull qwen3`. A model must support tools |
+| LM Studio on your computer | Free | Start its local server |
+| Ollama Cloud | See [its plans](https://ollama.com/pricing) | Add a key from [ollama.com/settings/keys](https://ollama.com/settings/keys) in Settings, or sign in to Ollama and use a `:cloud` model |
+| Groq, Gemini, OpenRouter | Free tiers with daily limits | Add a key in Settings |
+| OpenAI, Anthropic Claude | Paid per use | Add a key in Settings |
+
+Local speed depends on your computer: on an M3 Mac with 16 GB, a small `qwen3:4b` took about 20 minutes for a two-step task, so use local models for background work and a cloud model when you're waiting. Weaker models make more mistakes. On a billed provider a run stops at 500,000 tokens, and the Agent Station shows what's been used.
+
+Open **Agents** in the dock, press **Summon** and pick a crew member. Each agent stands on the bridge as an astronaut that reacts to its work: it salutes a new task, reads, collects, hammers, raises a hand when it needs you, and cheers when it's done. Agents work through a pool of invisible pages or in front of you.
 
 | Power | What it does |
 |---|---|
@@ -212,7 +224,7 @@ An API key is not the same as a ChatGPT Plus or Claude subscription. Create it i
 ## Tests
 
 ```bash
-npm test             # 150 unit tests: the curved screen, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
+npm test             # 170 unit tests: the curved screen, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
                      # windows and groups, sync merge/encryption/links, the sync store
 npm run test:e2e     # 24 Playwright tests (desktop + mobile; 6 desktop-only) against sample data: orientation, research + provenance,
                      # location gate, action prepare/confirm/hand-off, privacy erase, keyboard + reduced motion, floating windows, groups, overview,

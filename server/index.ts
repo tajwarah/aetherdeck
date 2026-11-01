@@ -14,6 +14,7 @@ import { llmEnabled, llmInfo } from "./llm.ts";
 import { assist, AssistRequest } from "./assist.ts";
 import { TranscribeRequest, transcribe, voiceService } from "./voice.ts";
 import { AgentRequest, planAgents } from "./agent.ts";
+import { listBrains } from "./brains.ts";
 import { AgentTurn, agentTurn, claudeReady, DraftPlan, draftPlan } from "./claude.ts";
 import { getBackend } from "./models.ts";
 import { log } from "./log.ts";
@@ -173,8 +174,9 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
       }
     }
 
-    // Claude agents: one turn of an agent's work, and a plan drafted for a new agent.
-    if (url.pathname === "/api/claude/turn" && req.method === "POST") {
+    // Agents: what they can think with, one turn of their work, and a plan drafted for a new one.
+    if (url.pathname === "/api/crew/brains" && req.method === "GET") return send(res, 200, { brains: await listBrains() });
+    if (url.pathname === "/api/crew/turn" && req.method === "POST") {
       if (rateLimited(`claude:${ip}`, 60)) return send(res, 429, { error: "Too many requests — wait a moment." });
       const parsed = AgentTurn.safeParse(await readBody(req, 4 * 1024 * 1024));
       if (!parsed.success) return send(res, 400, { error: "Invalid request", issues: z.prettifyError(parsed.error) });
@@ -183,10 +185,10 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
       } catch (err) {
         const e = err as Error & { status?: number };
         log("warn", "claude_turn_failed", { error: e.message, status: e.status });
-        return send(res, e.status ?? 502, { error: e.status === 401 ? "Claude didn't accept this API key." : e.message });
+        return send(res, e.status ?? 502, { error: e.status === 401 ? e.message.replace(/^401.*/, "The model's provider didn't accept this API key.") : e.message });
       }
     }
-    if (url.pathname === "/api/claude/plan" && req.method === "POST") {
+    if (url.pathname === "/api/crew/plan" && req.method === "POST") {
       if (rateLimited(`claude:${ip}`, 60)) return send(res, 429, { error: "Too many requests — wait a moment." });
       const parsed = DraftPlan.safeParse(await readBody(req));
       if (!parsed.success) return send(res, 400, { error: "Describe the task first" });
@@ -195,7 +197,7 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
       } catch (err) {
         const e = err as Error & { status?: number };
         log("warn", "claude_plan_failed", { error: e.message, status: e.status });
-        return send(res, e.status ?? 502, { error: e.status === 401 ? "Claude didn't accept this API key." : "The plan couldn't be drafted. Try again, or write it yourself." });
+        return send(res, e.status ?? 502, { error: e.status === 401 ? "The model's provider didn't accept this API key." : "The plan couldn't be drafted. Try again, or write it yourself." });
       }
     }
 

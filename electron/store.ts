@@ -15,7 +15,7 @@ function writeJson(file: string, value: unknown) {
 }
 
 /** Keys the person can set in Settings. They become the server's environment when the app starts. */
-export const KEY_NAMES = ["BRAVE_API_KEY", "TAVILY_API_KEY", "YOUTUBE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY"] as const;
+export const KEY_NAMES = ["BRAVE_API_KEY", "TAVILY_API_KEY", "YOUTUBE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OLLAMA_API_KEY"] as const;
 export type KeyName = (typeof KEY_NAMES)[number];
 
 /** Settings that are not secret: which AI provider and model to use, and a SearXNG address. */
