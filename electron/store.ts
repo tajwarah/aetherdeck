@@ -19,7 +19,7 @@ export const KEY_NAMES = ["BRAVE_API_KEY", "TAVILY_API_KEY", "YOUTUBE_API_KEY", 
 export type KeyName = (typeof KEY_NAMES)[number];
 
 /** Settings that are not secret: which AI provider and model to use, and a SearXNG address. */
-export const CONFIG_NAMES = ["LLM_PROVIDER", "LLM_MODEL", "SEARXNG_URL", "HORUS_SEARCH_ENGINE", "HORUS_VOICE", "HORUS_SHIELDS"] as const;
+export const CONFIG_NAMES = ["LLM_PROVIDER", "LLM_MODEL", "SEARXNG_URL", "WARPNAUT_SEARCH_ENGINE", "WARPNAUT_VOICE", "WARPNAUT_SHIELDS"] as const;
 export type ConfigName = (typeof CONFIG_NAMES)[number];
 
 export interface HistoryEntry { url: string; title: string; at: number }
@@ -32,8 +32,10 @@ export class Store {
   history: HistoryEntry[];
   bookmarks: Bookmark[];
   agents: unknown[];
+  research: unknown;
   private settings: { keys: Partial<Record<KeyName, string>>; contact?: string; config?: Partial<Record<ConfigName, string>>; shieldsOff?: string[] };
   private timer: NodeJS.Timeout | null = null;
+  private sessionKeys: Partial<Record<KeyName, string>> = {};
 
   constructor(dir: string) {
     this.dir = dir;
@@ -41,6 +43,7 @@ export class Store {
     this.history = readJson(join(dir, "history.json"), []);
     this.bookmarks = readJson(join(dir, "bookmarks.json"), []);
     this.agents = readJson(join(dir, "agents.json"), []);
+    this.research = readJson(join(dir, "research.json"), null);
     this.settings = readJson(join(dir, "settings.json"), { keys: {} });
   }
 
@@ -86,6 +89,12 @@ export class Store {
     return Object.fromEntries(KEY_NAMES.map((k) => [k, Boolean(this.settings.keys[k])])) as Record<KeyName, boolean>;
   }
 
+  /** The research board. A small file is all one person's board needs. */
+  saveResearch(board: unknown) {
+    this.research = board;
+    writeJson(join(this.dir, "research.json"), board);
+  }
+
   /** The agents made in the Agent Station. They hold no keys. */
   saveAgents(agents: unknown[]) {
     this.agents = agents;
@@ -120,18 +129,20 @@ export class Store {
     for (const k of KEY_NAMES) {
       const v = this.settings.keys[k];
       if (!v) continue;
-      try { out[k] = safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(v, "base64")) : Buffer.from(v, "base64").toString("utf8"); } catch { /* unreadable on this machine: treat as unset */ }
+      try { out[k] = safeStorage.decryptString(Buffer.from(v, "base64")); } catch { /* unreadable on this machine: treat as unset */ }
     }
-    return out;
+    return { ...out, ...this.sessionKeys };
   }
 
-  /** Set (or, with an empty value, remove) keys. */
+  /** Set (or, with an empty value, remove) keys. With no keychain to protect them they last until the app quits and never reach the disk. */
   setKeys(update: Partial<Record<KeyName, string>>, contact?: string) {
     for (const k of KEY_NAMES) {
       if (!(k in update)) continue;
       const v = update[k]?.trim();
+      delete this.sessionKeys[k];
       if (!v) delete this.settings.keys[k];
-      else this.settings.keys[k] = (safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(v) : Buffer.from(v, "utf8")).toString("base64");
+      else if (safeStorage.isEncryptionAvailable()) this.settings.keys[k] = safeStorage.encryptString(v).toString("base64");
+      else { delete this.settings.keys[k]; this.sessionKeys[k] = v; }
     }
     if (contact !== undefined) this.settings.contact = contact.trim();
     writeJson(join(this.dir, "settings.json"), this.settings);

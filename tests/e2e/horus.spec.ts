@@ -4,7 +4,7 @@ import { test, expect, devices, type Page } from "@playwright/test";
 const ask = async (page: Page, q: string, from: "key" | "cursor" = "key") => {
   if (from === "cursor") await page.mouse.click(60, 300); // empty space, beside the planet
   else await page.keyboard.press("/");
-  const input = page.getByRole("searchbox").or(page.getByLabel("Ask Horus"));
+  const input = page.getByRole("searchbox").or(page.getByLabel("Ask Warpnaut"));
   await expect(input).toBeFocused();
   await input.fill(q);
   await input.press("Enter");
@@ -104,7 +104,7 @@ test("action: prepares a request, requires confirmation, and hands off without c
   await sheet.getByLabel(/I've reviewed this/).check();
   await call.click();
   await expect(sheet.getByText("Handed off — not sent.")).toBeVisible();
-  await expect(sheet.getByText(/Not sent by Horus/)).toBeVisible();
+  await expect(sheet.getByText(/Not sent by Warpnaut/)).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual(["tel:+8801700000000"]);
 });
 
@@ -130,7 +130,7 @@ test("keyboard and reduced motion: fully usable without animation or a mouse", a
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await page.keyboard.press("/");
-  await expect(page.getByLabel("Ask Horus")).toBeFocused();
+  await expect(page.getByLabel("Ask Warpnaut")).toBeFocused();
   await page.keyboard.type("Explain quantum computing");
   await page.keyboard.press("Enter");
   const node = page.getByRole("button", { name: /^How does it work\?, \d+ items?/ });
@@ -166,7 +166,7 @@ test("groups: a page added beside a window joins its group, and the group minimi
   await page.goto("/");
   await ask(page, "example.com");
   await page.getByRole("dialog", { name: "example.com" }).getByRole("button", { name: "Add a page beside, as a group" }).click();
-  const input = page.getByLabel("Ask Horus");
+  const input = page.getByLabel("Ask Warpnaut");
   await expect(input).toBeFocused();
   await input.fill("example.org");
   await input.press("Enter");
@@ -208,8 +208,8 @@ const local = (link: string) => `${BASE}/${new URL(link).hash}`;
 async function openGroup(page: Page) {
   await ask(page, "example.com");
   await page.getByRole("dialog", { name: "example.com" }).getByRole("button", { name: "Add a page beside, as a group" }).click();
-  await page.getByLabel("Ask Horus").fill("example.org");
-  await page.getByLabel("Ask Horus").press("Enter");
+  await page.getByLabel("Ask Warpnaut").fill("example.org");
+  await page.getByLabel("Ask Warpnaut").press("Enter");
   await expect(page.getByRole("group", { name: /^Group: example.com \+ example.org/ })).toBeVisible();
 }
 
@@ -271,8 +271,8 @@ test("sharing: a shared group reaches another person, their additions come back,
   await expect(me.getByRole("group", { name: /shared$/ }).getByRole("button", { name: /Shared · 1 here/ })).toBeVisible();
 
   await theirGroup.getByRole("button", { name: "Add a page to this group" }).click();
-  await friend.getByLabel("Ask Horus").fill("example.net");
-  await friend.getByLabel("Ask Horus").press("Enter");
+  await friend.getByLabel("Ask Warpnaut").fill("example.net");
+  await friend.getByLabel("Ask Warpnaut").press("Enter");
   await expect(me.getByRole("dialog", { name: "example.net" })).toBeVisible();
   await expect(me.getByRole("group", { name: /^Group: example.com \+ 2 more, shared$/ })).toBeVisible();
 
@@ -282,3 +282,39 @@ test("sharing: a shared group reaches another person, their additions come back,
   await expect(friend.getByRole("dialog", { name: "example.net" })).toBeVisible();
   await Promise.all([meCtx.close(), friendCtx.close()]);
 });
+
+test("research board: a search becomes a card that can be connected and grouped", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the board is a desktop tool");
+  await page.goto("/");
+  await ask(page, "Explain quantum computing and show me the original sources.");
+  await expect(page.getByRole("heading", { name: "Explain quantum computing and show me the original sources." })).toBeVisible();
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  await expect(page.locator(".rcard")).toHaveCount(1, { timeout: 10_000 });
+  await page.getByRole("button", { name: "Close the research board" }).click();
+  await ask(page, "Explain quantum computing");
+  await expect(page.getByRole("heading", { name: "Explain quantum computing", exact: true })).toBeVisible();
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: "Research", exact: true }).click();
+  await expect(page.locator(".rcard")).toHaveCount(2, { timeout: 20_000 });
+  const cards = page.locator(".rcard h3");
+  await page.locator(".rcard").first().getByRole("button", { name: /^Connect/ }).click();
+  await cards.nth(1).click();
+  await expect(page.locator(".board__links line")).toHaveCount(1);
+  await cards.first().click();
+  await cards.nth(1).click({ modifiers: ["Shift"] });
+  await page.getByLabel("Group name").fill("Computing");
+  await page.getByRole("button", { name: "Group", exact: true }).click();
+  await expect(page.locator(".board__group")).toHaveText("Computing");
+});
+
+test("every card on the map can open as its own tab", async ({ page, isMobile }) => {
+  test.skip(isMobile, "phones show one window at a time");
+  await page.goto("/");
+  await ask(page, "Explain quantum computing");
+  const all = page.getByRole("button", { name: /^Open all \d+ sites as tabs$/ });
+  await expect(all).toBeVisible({ timeout: 15_000 });
+  const count = Number((await all.textContent())!.match(/\d+/)![0]);
+  await all.click();
+  await expect(page.locator(".win")).toHaveCount(count, { timeout: 10_000 });
+});
+

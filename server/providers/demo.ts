@@ -1,6 +1,6 @@
 // Sample data for running without network access or credentials.
 // Everything here is marked freshnessStatus "sample" and shown as such in the interface.
-// Local results are deliberately placeholders: Horus never invents real-looking businesses.
+// Local results are deliberately placeholders: Warpnaut never invents real-looking businesses.
 import type { Provider } from "./types.ts";
 import type { SearchResult } from "../../shared/types.ts";
 

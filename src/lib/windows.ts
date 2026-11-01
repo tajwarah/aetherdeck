@@ -1,6 +1,7 @@
 // Floating windows: the model, and how a typed request becomes one. Pure; the layer that draws them is Windows.tsx.
 // One window shows one page. Windows that belong together form a group: linked by a thread of light,
 // moved, arranged, minimized and restored together.
+import { APP_SCHEME } from "../../shared/harvest.ts";
 
 export type TabKind = "web" | "video" | "videosearch" | "assistant" | "phone";
 
@@ -61,6 +62,7 @@ export function videoTab(id: string, title: string): Omit<Tab, "id"> {
  */
 export function parseOpenRequest(text: string): Omit<Tab, "id"> | null {
   const t = text.trim();
+  if (t.startsWith(`${APP_SCHEME}://`)) return { kind: "web", src: t, href: t, title: "Agent app", domain: "agent app" };
   const opened = t.replace(/^(open|go to|visit|browse)\s+/i, "");
   if (!/\s/.test(opened) && URL_RE.test(opened)) {
     const href = /^https?:\/\//i.test(opened) ? opened : `https://${opened}`;

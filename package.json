@@ -1,12 +1,11 @@
 {
-  "name": "horus",
+  "name": "warpnaut",
   "private": true,
   "version": "0.1.0",
-  "description": "A spatial web browser with a 360° room for your tabs.",
-  "homepage": "https://github.com/tajwarah/horus",
+  "homepage": "https://github.com/tajwarah/warpnaut",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tajwarah/horus.git"
+    "url": "git+https://github.com/tajwarah/warpnaut.git"
   },
   "type": "module",
   "engines": {
@@ -63,14 +62,14 @@
     "zod": "^3.25.76"
   },
   "main": "dist-electron/main.js",
-  "description": "Horus: a spatial web browser, with your tabs in a full circle around you.",
+  "description": "Warpnaut: a spatial web browser, with your tabs in a full circle around you.",
   "license": "MIT",
-  "author": "Horus contributors",
+  "author": "Warpnaut contributors",
   "build": {
-    "appId": "io.horus.browser",
-    "productName": "Horus",
-    "copyright": "Copyright © Horus contributors",
-    "artifactName": "Horus-${version}-${os}-${arch}.${ext}",
+    "appId": "io.warpnaut.browser",
+    "productName": "Warpnaut",
+    "copyright": "Copyright © Warpnaut contributors",
+    "artifactName": "Warpnaut-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -126,7 +125,7 @@
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Websites you allow can use the microphone.",
         "NSCameraUsageDescription": "Websites you allow can use the camera.",
-        "NSLocalNetworkUsageDescription": "Horus uses your local network to receive your iPhone’s screen through Screen Mirroring.",
+        "NSLocalNetworkUsageDescription": "Warpnaut uses your local network to receive your iPhone’s screen through Screen Mirroring.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "Web page",
@@ -167,12 +166,21 @@
         "x-scheme-handler/https",
         "text/html"
       ],
-      "maintainer": "Horus contributors"
+      "maintainer": "Warpnaut contributors"
     },
     "publish": [
       {
         "provider": "github"
       }
-    ]
+    ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    }
   }
 }

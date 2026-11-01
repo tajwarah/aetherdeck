@@ -1,6 +1,6 @@
 // The dock's contents: the person's own sites and tools, in their order. Kept in this browser's storage.
 
-export type DockAction = "files" | "ai" | "station" | "phone";
+export type DockAction = "files" | "ai" | "station" | "research" | "phone";
 
 export interface DockItem {
   id: string;
@@ -18,10 +18,11 @@ export const DEFAULT_DOCK: DockItem[] = [
   { id: "files", label: "Files", action: "files" },
   { id: "ai", label: "AI", action: "ai" },
   { id: "station", label: "Agents", action: "station" },
+  { id: "research", label: "Research", action: "research" },
   { id: "phone", label: "Phone", action: "phone" },
 ];
 
-const KEY = "horus.dock.v1";
+const KEY = "warpnaut.dock.v1";
 
 export function loadDock(): DockItem[] {
   try {
@@ -31,6 +32,7 @@ export function loadDock(): DockItem[] {
     const kept = items.filter((i) => i && typeof i.id === "string" && typeof i.label === "string" && (i.url || i.action));
     // A dock from before the Agent Station gets it once; after that, removing it is the person's choice.
     if (!localStorage.getItem(`${KEY}.station`) && !kept.some((i) => i.action === "station")) kept.push({ id: "station", label: "Agents", action: "station" });
+    if (!localStorage.getItem(`${KEY}.research`) && !kept.some((i) => i.action === "research")) kept.push({ id: "research", label: "Research", action: "research" });
     if (!localStorage.getItem(`${KEY}.phone`) && !kept.some((i) => i.action === "phone")) kept.push({ id: "phone", label: "Phone", action: "phone" });
     return kept;
   } catch {
@@ -41,7 +43,7 @@ export function loadDock(): DockItem[] {
 export function saveDock(items: DockItem[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(items));
-    for (const a of ["station", "phone"]) if (items.some((i) => i.action === a)) localStorage.setItem(`${KEY}.${a}`, "1");
+    for (const a of ["station", "research", "phone"]) if (items.some((i) => i.action === a)) localStorage.setItem(`${KEY}.${a}`, "1");
   } catch { /* storage unavailable: the dock lasts for this visit */ }
 }
 

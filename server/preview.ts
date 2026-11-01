@@ -39,7 +39,7 @@ export function robotsAllows(robots: string, path: string): boolean {
     const [, key, value] = m;
     if (key.toLowerCase() === "user-agent") {
       if (sawRuleForGroup) { applies = false; sawRuleForGroup = false; }
-      if (value === "*" || /horus/i.test(value)) applies = true;
+      if (value === "*" || /warpnaut/i.test(value)) applies = true;
     } else if (applies) {
       sawRuleForGroup = true;
       if (key.toLowerCase() === "disallow" && value) disallow.push(value);
@@ -74,7 +74,7 @@ export function frameAncestorsAllow(headers: { xfo?: string | null; csp?: string
 
 const frameCache = new Map<string, { at: number; value: { frameable: boolean; reason?: string; url: string } }>();
 
-/** Asks a site (HEAD, then GET) whether it allows being shown inside Horus. Same guards as the reading view. */
+/** Asks a site (HEAD, then GET) whether it allows being shown inside Warpnaut. Same guards as the reading view. */
 export async function frameCheck(input: string): Promise<{ frameable: boolean; reason?: string; url: string }> {
   const url = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`);
   const key = url.toString();

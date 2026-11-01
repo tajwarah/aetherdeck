@@ -1,4 +1,4 @@
-// Horus API — a small node:http server. Credentials stay here; the browser never sees them.
+// Warpnaut API — a small node:http server. Credentials stay here; the browser never sees them.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -77,6 +77,9 @@ const SECURITY_HEADERS = {
   "Permissions-Policy": "geolocation=(self), microphone=(self), camera=()",
 };
 
+/** The interface can reach the agent engine, so nothing it didn't ship with may run in it. */
+const INTERFACE_POLICY = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; media-src * data: blob:; connect-src 'self' blob: data:; font-src 'self' data:; frame-src *; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'";
+
 const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2" };
 
 async function serveStatic(DIST: string, path: string, res: ServerResponse) {
@@ -89,7 +92,7 @@ async function serveStatic(DIST: string, path: string, res: ServerResponse) {
   }
   try {
     const data = await readFile(file);
-    res.writeHead(200, { "Content-Type": MIME[extname(file)] ?? "application/octet-stream", ...(file.includes("/assets/") ? { "Cache-Control": "public, max-age=31536000, immutable" } : {}) });
+    res.writeHead(200, { "Content-Type": MIME[extname(file)] ?? "application/octet-stream", ...(file.endsWith(".html") ? { "Content-Security-Policy": INTERFACE_POLICY } : {}), ...(file.includes("/assets/") ? { "Cache-Control": "public, max-age=31536000, immutable" } : {}) });
     res.end(data);
   } catch {
     send(res, 404, { error: "Not built. Run npm run build, or use npm run dev." });
@@ -97,8 +100,8 @@ async function serveStatic(DIST: string, path: string, res: ServerResponse) {
 }
 
 const tokenOk = (req: IncomingMessage, token: string) => {
-  const cookie = /(?:^|;\s*)horus_token=([\w-]+)/.exec(req.headers.cookie ?? "")?.[1];
-  return cookie === token || req.headers["x-horus-token"] === token;
+  const cookie = /(?:^|;\s*)warpnaut_token=([\w-]+)/.exec(req.headers.cookie ?? "")?.[1];
+  return cookie === token || req.headers["x-warpnaut-token"] === token;
 };
 
 /** Starts the API (and, when built, the interface). Resolves with the port it listens on. */
@@ -219,7 +222,7 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
       }
     }
 
-    // Floating windows: can this page be shown inside Horus, or must it open in its own tab?
+    // Floating windows: can this page be shown inside Warpnaut, or must it open in its own tab?
     if (url.pathname === "/api/frameable" && req.method === "GET") {
       const q = z.string().trim().min(3).max(2000).safeParse(url.searchParams.get("url"));
       if (!q.success) return send(res, 400, { error: "Provide a web address" });
@@ -290,7 +293,7 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
   return new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(opts.port, opts.host, () => {
-      if (!contactConfigured) log("warn", "contact_missing", { hint: "Set HORUS_CONTACT (an email or URL). Wikimedia and OpenStreetMap ask API clients to identify themselves and throttle anonymous ones." });
+      if (!contactConfigured) log("warn", "contact_missing", { hint: "Set WARPNAUT_CONTACT (an email or URL). Wikimedia and OpenStreetMap ask API clients to identify themselves and throttle anonymous ones." });
       log("info", "listening", { port: opts.port, llm: llmInfo()?.provider ?? "off", demo: demoForced(), providers: providerStatus().filter((p) => p.configured).map((p) => p.id) });
       const addr = server.address();
       resolve({ port: typeof addr === "object" && addr ? addr.port : opts.port, close: () => server.close() });

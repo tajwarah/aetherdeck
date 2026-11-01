@@ -1,6 +1,6 @@
 // Surround mode's drawing, in the interface window's preload, where page frames arrive. One canvas, one WebGL
 // context: the room's backdrop, then every page on the wall around you. The interface says what to draw through
-// the canvas's data attributes and a "horus-scene" event; frames keep arriving here as they always do.
+// the canvas's data attributes and a "warpnaut-scene" event; frames keep arriving here as they always do.
 import { inView, type Panel, type View } from "../shared/surround.ts";
 
 const QUAD_VS = `#version 300 es
@@ -202,7 +202,7 @@ export function sceneBitmap(id: string, width: number, height: number, pixels: U
 }
 
 export function startSurround() {
-  document.addEventListener("horus-scene", () => {
+  document.addEventListener("warpnaut-scene", () => {
     const canvas = document.querySelector<HTMLCanvasElement>("canvas[data-surround]");
     if (!canvas) { if (scene) letGo(scene); scene = null; return; }
     if (scene?.canvas !== canvas) scene = build(canvas);

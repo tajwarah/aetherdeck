@@ -15,7 +15,7 @@ const NEVER = /(^|\.)(accounts\.google\.com|appleid\.apple\.com|login\.microsoft
 
 export interface ShieldStatus { on: boolean; ready: boolean; blocked: number; allowed: string[] }
 
-export function shields(deps: { dir: string; enabled: () => boolean; allowed: () => string[]; setAllowed: (sites: string[]) => void; report: (p: { wc: number; blocked: number }) => void }) {
+export function shields(deps: { dir: string; enabled: () => boolean; allowed: () => string[]; setAllowed: (sites: string[]) => void; report: (p: { wc: number; blocked: number }) => void; skip?: (webContentsId: number | undefined, resource: string) => boolean }) {
   let blocker: ElectronBlocker | null = null;
   let total = 0;
   const perPage = new Map<number, number>();
@@ -45,6 +45,7 @@ export function shields(deps: { dir: string; enabled: () => boolean; allowed: ()
 
   function attach(s: Session) {
     s.webRequest.onBeforeRequest((details, callback) => {
+      if (deps.skip?.(details.webContentsId, details.resourceType)) return callback({ cancel: true });
       const page = details.resourceType === "mainFrame";
       if (page) { perPage.set(details.webContentsId ?? -1, 0); }
       const from = page ? details.url : details.frame?.url || details.webContents?.getURL() || details.url;

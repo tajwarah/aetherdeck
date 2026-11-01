@@ -1,6 +1,6 @@
 // The agents: one spoken (or typed) request, planned by the person's model into steps for a small crew that
 // works the browser in front of them. Scout searches and maps, Navigator opens and arranges windows, Reader
-// reads pages and answers, Scribe writes. They act only inside Horus's own interface: they open, arrange, read
+// reads pages and answers, Scribe writes. They act only inside Warpnaut's own interface: they open, arrange, read
 // and write, and never sign in, buy, post, send or fill in a form; those stay with the person.
 import { z } from "zod/v4";
 import { extractJson, getBackend } from "./models.ts";
@@ -31,7 +31,7 @@ export type Step = z.infer<typeof Step>;
 export const Plan = z.object({ say: z.string().max(600).default(""), steps: z.array(Step).max(8).default([]) });
 export type Plan = z.infer<typeof Plan>;
 
-const SYSTEM = `You direct four agents that work the Horus web browser for the person, from one request.
+const SYSTEM = `You direct four agents that work the Warpnaut web browser for the person, from one request.
 Agents and what each may do:
 - scout: {"do":"search","query":"…"} lays a web search out as a mind map of every site found.
 - navigator: {"do":"open","url":"https://…"} opens one page in a window; {"do":"openMany","urls":[…]} opens several side by side as a group; {"do":"arrange"} lays the open windows side by side; {"do":"focus","match":"…"} brings the window whose title or address contains the words to the front; {"do":"close","match":"…"}; {"do":"minimizeAll"}; {"do":"fullscreen","match":"…"}.

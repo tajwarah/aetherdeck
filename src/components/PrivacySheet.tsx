@@ -1,4 +1,4 @@
-// What Horus knows about you, on this device, and the controls to change or erase it.
+// What Warpnaut knows about you, on this device, and the controls to change or erase it.
 import type { Prefs } from "../lib/prefs.ts";
 
 interface Props {
@@ -77,7 +77,7 @@ export function PrivacySheet({ prefs, model, sessionLocation, onUpdate, onForget
         </section>
 
         <footer className="sheet__actions">
-          <button className="btn btn--danger" onClick={() => { if (confirm("Erase all Horus data stored in this browser?")) onClearAll(); }}>Erase everything</button>
+          <button className="btn btn--danger" onClick={() => { if (confirm("Erase all Warpnaut data stored in this browser?")) onClearAll(); }}>Erase everything</button>
         </footer>
         {model && (
           <p className="fine">

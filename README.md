@@ -1,38 +1,63 @@
-# Horus
+# Warpnaut
 
-**A browser with a God's-eye view of the web.** Ask a question and Horus doesn't hand you a list of ten links: it finds the relevant websites and lays them out as a map you can see whole, zoom into, and open. Pages float as glass windows above a night-lit Earth; open many at once, group them, minimize them, and pick up where you left off on another device.
+**An open-source browser for the agent age: connect your own AI model and your crew does the rest.** Ask a question and Warpnaut doesn't hand you a list of ten links: it finds the relevant websites and lays them out as a map you can see whole, zoom into, and open. Pages float as glass windows above a night-lit Earth; open many at once, group them, minimize them, and pick up where you left off on another device.
 
 It is also a complete everyday browser: every site loads (it runs on Chromium), with tabs as windows, back and forward, an address bar, bookmarks, history, downloads, find in page, zoom, printing, private windows, permission prompts, full-screen video, and the option to be your default browser.
 
+Warpnaut was called Horus, and your data comes across the first time you open it.
+
 ## Download
 
-Get the installer for your computer from the [**Releases**](https://github.com/tajwarah/horus/releases/latest) page:
+Get the installer for your computer from the [**Releases**](https://github.com/tajwarah/warpnaut/releases/latest) page:
 
 | System | File | First launch |
 |---|---|---|
-| macOS (Apple silicon and Intel) | `Horus-x.y.z-mac-arm64.dmg` or `Horus-x.y.z-mac-x64.dmg` | The app isn't signed yet. Open it once, then go to **System Settings → Privacy & Security** and press **Open Anyway**. |
-| Windows 10 and 11 | `Horus-x.y.z-win-x64.exe` or `Horus-x.y.z-win-arm64.exe` | SmartScreen may warn about an unknown publisher: **More info → Run anyway**. |
-| Linux | `Horus-x.y.z-linux-x86_64.AppImage` or `Horus-x.y.z-linux-amd64.deb` | AppImage: `chmod +x` it and run. Debian/Ubuntu: `sudo apt install ./Horus-*.deb`. |
+| macOS (Apple silicon and Intel) | `Warpnaut-x.y.z-mac-arm64.dmg` or `Warpnaut-x.y.z-mac-x64.dmg` | The app isn't signed yet. Open it once, then go to **System Settings → Privacy & Security** and press **Open Anyway**. |
+| Windows 10 and 11 | `Warpnaut-x.y.z-win-x64.exe` or `Warpnaut-x.y.z-win-arm64.exe` | SmartScreen may warn about an unknown publisher: **More info → Run anyway**. |
+| Linux | `Warpnaut-x.y.z-linux-x86_64.AppImage` or `Warpnaut-x.y.z-linux-amd64.deb` | AppImage: `chmod +x` it and run. Debian/Ubuntu: `sudo apt install ./Warpnaut-*.deb`. |
 
-Windows and Linux update themselves. On macOS, Horus tells you when a new version is out (unsigned Mac apps can't replace themselves).
+Windows and Linux update themselves. On macOS, Warpnaut tells you when a new version is out (unsigned Mac apps can't replace themselves).
 
-**Make it yours:** open **Settings** (Cmd/Ctrl + ,). Add a free [Brave Search API](https://brave.com/search/api/) key for web results in the map, and optionally an AI key (OpenRouter, Groq and Gemini have free tiers) for organized, cited summaries. Keys are encrypted with your system keychain and used only from your computer. Without keys, Horus still works on open sources: Wikipedia, arXiv, OpenAlex, news and OpenStreetMap.
+**Make it yours:** open **Settings** (Cmd/Ctrl + ,). Add a free [Brave Search API](https://brave.com/search/api/) key for web results in the map, and optionally an AI key (OpenRouter, Groq and Gemini have free tiers) for organized, cited summaries. Keys are encrypted with your system keychain and used only from your computer. Without keys, Warpnaut still works on open sources: Wikipedia, arXiv, OpenAlex, news and OpenStreetMap.
+
+## Agents
+
+Open **Agents** in the dock, press **Summon** and pick a crew member. Each agent stands on the bridge as an astronaut that reacts to its work: it salutes a new task, reads, collects, hammers, raises a hand when it needs you, and cheers when it's done. Agents run on your own Claude API key and work through a pool of invisible pages or in front of you.
+
+| Power | What it does |
+|---|---|
+| Always | Search, read pages, arrange windows, keep notes, remember things between runs |
+| Harvest | Pull lists and tables from pages, crawl up to 40 pages politely, save CSV and JSON to Downloads/Agent Files |
+| Mail | Read your signed-in Gmail and open drafts for you to check. Agents can't send |
+| Video | Read a YouTube video's details, and its transcript when YouTube provides one |
+| Build | Make small apps that run in a window, sealed off from the internet |
+
+Agents never sign in, enter passwords or card details, buy anything, send anything, or solve a CAPTCHA. Those stay with you.
+
+## Research board
+
+After a search, **Open all as tabs** loads every site on the map in its own tab, a few at a time, and stops if memory reaches its limit. Every search also lands on **Research** in the dock as a card, with its own **Tabs** button. Drag cards around, press **Connect** to link two, or Shift-click several and name a group. A group can be summarized, compared, checked for gaps or asked any question by your own model: it reads the top pages, numbers every source, and any citation that points to no source is removed and counted. The board works without a model; only the summaries need one. It's kept in one file on your computer, and **Forget all** clears it.
+
+Search results come from the engine you choose, read off the results page in a window you can see. A captcha or consent screen stays in front for you to answer, and Warpnaut never solves one.
+
+## Security
+
+Warpnaut is a shell: you connect your own model, and there's no Warpnaut account, server or telemetry. A personal install needs no database. See [SECURITY.md](SECURITY.md) for where your data goes and what isn't done yet.
 
 ## How it works
 
-- **The cursor is the search box.** There is no search bar: click empty space (or press /) and a small field opens where you clicked; type, or press the microphone and speak. An address opens a window; anything else becomes a map. A window's address bar works too, or right-click selected text → *Explore in Horus*. Horus queries its sources and draws the question at the centre with the websites, papers and findings around it. Click any site to open it in a window; everything you open stays connected.
+- **The cursor is the search box.** There is no search bar: click empty space (or press /) and a small field opens where you clicked; type, or press the microphone and speak. An address opens a window; anything else becomes a map. A window's address bar works too, or right-click selected text → *Explore in Warpnaut*. Warpnaut queries its sources and draws the question at the centre with the websites, papers and findings around it. Click any site to open it in a window; everything you open stays connected.
 - **Windows, not tabs.** Each page is a glass pane with its own bar: back, forward, reload, address, bookmark, add a page beside, maximize, minimize, close. Drop one beside another to group them; groups move, minimize and restore together. A link a page opens in a new window appears beside it, in its group.
 - **Resize from any edge or corner**; double-click a window's bar to maximize.
 - **Your dock.** The bottom dock holds your own sites and tools. Drag to reorder, right-click to move or remove, **Add** to pin an address (or the pin button on any window's bar). Clicking a site that is already open brings its window forward. Minimized windows wait at the right of the dock as small pictures of themselves. The chevron holds all places, all windows, history, devices and Settings. Your dock is kept in this browser.
-- **Files and the assistant.** Drop a PDF, Word document, spreadsheet, text file or image anywhere (or press **Files** in the dock, Cmd/Ctrl + O) and it opens in its own window: read on your computer, with page count, a picture of the first page and the text Horus read. With an AI model connected, ask for a summary, key numbers or next steps, or ask your own questions. **AI** in the dock (Cmd/Ctrl + Shift + A) does the same for the page in front of you. The file's text is sent to your model only with a question you ask, and the window says which model. Nothing is kept or synced.
-- **Day and night.** The sun button switches between the warm night room and a pearl, champagne day room.
+- **Files and the assistant.** Drop a PDF, Word document, spreadsheet, text file or image anywhere (or press **Files** in the dock, Cmd/Ctrl + O) and it opens in its own window: read on your computer, with page count, a picture of the first page and the text Warpnaut read. With an AI model connected, ask for a summary, key numbers or next steps, or ask your own questions. **AI** in the dock (Cmd/Ctrl + Shift + A) does the same for the page in front of you. The file's text is sent to your model only with a question you ask, and the window says which model. Nothing is kept or synced.
 - **Private windows** (Cmd/Ctrl + Shift + N) use a separate session that disappears when you quit; they're never kept in history or synced.
 - **Shortcuts:** Cmd/Ctrl + O open a file, Shift + A ask AI about this page, T new, W close, Shift + T reopen closed, L address, F find, R reload, [ and ] back/forward, + / − / 0 zoom, D bookmark, Y history, Shift + J downloads, P print.
 
 ## Build it yourself
 
 ```bash
-git clone <this repository> && cd horus
+git clone <this repository> && cd warpnaut
 npm install
 npm run desktop:dev   # the desktop app with live reload
 npm run dist:mac      # or dist:win / dist:linux: installers in release/
@@ -40,7 +65,7 @@ npm run dist:mac      # or dist:win / dist:linux: installers in release/
 
 To publish a release: push a tag (`git tag v0.2.0 && git push --tags`). The **Release** workflow builds macOS, Windows and Linux installers on GitHub's machines and attaches them to a draft release; read it over and press **Publish**.
 
-Horus also still runs as a website (below), where pages that refuse to be framed open in a normal tab instead.
+Warpnaut also still runs as a website (below), where pages that refuse to be framed open in a normal tab instead.
 
 ## Run as a website (development)
 
@@ -49,36 +74,36 @@ npm install
 npm run dev          # API on :8787, app on http://localhost:5173
 ```
 
-Optional, in `horus/.env` (copy `.env.example`):
+Optional, in `warpnaut/.env` (copy `.env.example`):
 
 | Variable | What it turns on |
 |---|---|
-| `HORUS_CONTACT` | **Recommended.** An email or URL added to the User-Agent. Wikimedia and OpenStreetMap ask API clients to identify themselves and throttle anonymous ones (you will see `rate_limited` notices without it). |
+| `WARPNAUT_CONTACT` | **Recommended.** An email or URL added to the User-Agent. Wikimedia and OpenStreetMap ask API clients to identify themselves and throttle anonymous ones (you will see `rate_limited` notices without it). |
 | `BRAVE_API_KEY` | General web, news, images and video via Brave Search. Without it, news and media coverage is limited to open sources. |
 | **One** model key: `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MOONSHOT_API_KEY` or `ANTHROPIC_API_KEY` | AI intent planning, AI-organized evidence maps with verified citations, and AI-drafted requests. Free tiers work; see below. Without a key, a deterministic planner runs and findings are verbatim excerpts. |
 | `YOUTUBE_API_KEY` | Video search for "play …" in floating windows (YouTube Data API v3, free quota ≈ 100 searches a day). Pasted video links play without it. |
-| `PUBLIC_URL` | The address other devices use for sync and share links, once Horus is hosted (e.g. `https://horus.example.com`). Without it, links use this computer's Wi-Fi address. |
-| `HORUS_DATA_DIR` | Where encrypted sync spaces are stored (default `horus/data/sync`). |
-| `HORUS_DEMO=1` | Sample data only, for offline demos and tests. Shown as "Sample data" in the UI. |
+| `PUBLIC_URL` | The address other devices use for sync and share links, once Warpnaut is hosted (e.g. `https://warpnaut.example.com`). Without it, links use this computer's Wi-Fi address. |
+| `WARPNAUT_DATA_DIR` | Where encrypted sync spaces are stored (default `warpnaut/data/sync`). |
+| `WARPNAUT_DEMO=1` | Sample data only, for offline demos and tests. Shown as "Sample data" in the UI. |
 
 ### Running the AI layer for free
 
-Any OpenAI-compatible endpoint works, so free tiers are enough. Get a key yourself and put it in `horus/.env`:
+Any OpenAI-compatible endpoint works, so free tiers are enough. Get a key yourself and put it in `warpnaut/.env`:
 
-- **OpenRouter** (simplest): create a key at openrouter.ai/keys and set `OPENROUTER_API_KEY`. With `LLM_MODEL` empty, Horus reads OpenRouter's live model list at startup and picks a `:free` model. It prefers Kimi when one is offered, then DeepSeek, Qwen, gpt-oss, Nemotron and Gemma. The free roster changes often; in late October 2026 no Kimi model was free, so it picks the next best. Free use is capped per day.
+- **OpenRouter** (simplest): create a key at openrouter.ai/keys and set `OPENROUTER_API_KEY`. With `LLM_MODEL` empty, Warpnaut reads OpenRouter's live model list at startup and picks a `:free` model. It prefers Kimi when one is offered, then DeepSeek, Qwen, gpt-oss, Nemotron and Gemma. The free roster changes often; in late October 2026 no Kimi model was free, so it picks the next best. Free use is capped per day.
 - **Groq**: `GROQ_API_KEY`, default model `openai/gpt-oss-120b`.
 - **Google Gemini**: `GEMINI_API_KEY`, default `gemini-3-flash-preview`, falling back to Flash-Lite when overloaded. Free-tier content may be used to improve Google products.
 - **Kimi direct** (Moonshot): `MOONSHOT_API_KEY`. The newest Kimi K2 is auto-picked; a small top-up may be required.
 - **Anything else** OpenAI-compatible (a local Ollama or LM Studio server, Together, etc.): `LLM_PROVIDER=custom`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
 
-The backend asks for JSON-schema output. If an endpoint rejects that, it falls back to plain JSON mode, then to prompt-only. Every reply is validated against the schema, with one repair attempt; otherwise Horus falls back to verbatim excerpts. Every citation the model writes is checked against the retrieved text. "Your data" shows which model receives your questions. Your name is never sent to the model when drafting requests.
+The backend asks for JSON-schema output. If an endpoint rejects that, it falls back to plain JSON mode, then to prompt-only. Every reply is validated against the schema, with one repair attempt; otherwise Warpnaut falls back to verbatim excerpts. Every citation the model writes is checked against the retrieved text. "Your data" shows which model receives your questions. Your name is never sent to the model when drafting requests.
 
-Production: `npm run build && npm start` serves the built app and API from one Node process on `HORUS_API_PORT` (default 8787).
+Production: `npm run build && npm start` serves the built app and API from one Node process on `WARPNAUT_API_PORT` (default 8787).
 
 ## Try the three scenarios
 
 - **Research:** "Explain quantum computing and show me the original sources." This gives an evidence map: the question at the center, four sub-questions around it, findings along each spoke, and sources on the outer ring. Sources come from Wikipedia, OpenAlex (most-cited peer-reviewed work) and arXiv. Click a sub-question to zoom in, and click a finding to open its source with full provenance.
-- **Local action:** "Find an AC repair technician near me today." Horus first asks where to look (your device location, or a typed neighbourhood). It then compares real OpenStreetMap listings. **Prepare a request** drafts a message. You review it, confirm, and it opens on your own phone, mail app or browser. Horus never sends anything itself and never claims a booking was made.
+- **Local action:** "Find an AC repair technician near me today." Warpnaut first asks where to look (your device location, or a typed neighbourhood). It then compares real OpenStreetMap listings. **Prepare a request** drafts a message. You review it, confirm, and it opens on your own phone, mail app or browser. Warpnaut never sends anything itself and never claims a booking was made.
 - **Discovery:** "Find restaurants near me that serve kacchi biryani and compare them." This gives a distance map plus a comparison table. A place matched only by cuisine tag (not by name) says that serving kacchi is unverified.
 
 Also try: "What's happening in Bangladesh today?" (timeline), or "photos of the aurora" (media view, needs Brave).
@@ -87,7 +112,7 @@ Also try: "What's happening in Bangladesh today?" (timeline), or "photos of the 
 - **Open a page.** Pick a place in the dock, or press the grid for all of them (Wikipedia, World map, Live winds, Radio Garden, Archive…), or type an address into search. The planet's coastlines come from Natural Earth (public domain) via `world-atlas`; the pins' photos are Wikipedia lead images. It floats in a glass pane.
 - **Video.** "play lofi hip hop" opens video search (needs a free `YOUTUBE_API_KEY`); pasted YouTube links play without it.
 - **Group pages.** "＋" on a window opens a page beside it in the same group. Dropping one window next to another also links them. A group moves, arranges, minimizes and restores as one.
-- **Your phone.** Open *Devices and sharing* (the devices button in the dock), choose "Sync across devices", and scan the QR code. Groups you open on one device appear on the other, and closes travel too. Start Horus with `npm run dev:lan` so the phone can reach it on the same Wi-Fi.
+- **Your phone.** Open *Devices and sharing* (the devices button in the dock), choose "Sync across devices", and scan the QR code. Groups you open on one device appear on the other, and closes travel too. Start Warpnaut with `npm run dev:lan` so the phone can reach it on the same Wi-Fi.
 - **Share a group.** The share button on a group's ornament gives a link for that group only. Whatever either person adds, changes or closes in it reaches the other.
 - **See everything.** "See all windows" in the dock shows every window and group as a tile.
 - **Sites that refuse to be framed** (GitHub, Google…) say so and offer a browser tab, or a reading view in the space.
@@ -173,23 +198,23 @@ Results are ranked for the open web (`server/rank.ts`): relevance to the request
 
 In the desktop app: **Settings → AI model**. Choose Anthropic, OpenAI, OpenRouter, Groq or Gemini, paste an API key, press **Check key and list models** (this proves the key works and lists what it can use), pick a default model and **Connect**. It takes effect at once, no restart. The same model plans research maps, writes cited summaries, and answers questions about files and pages.
 
-An API key is not the same as a ChatGPT Plus or Claude subscription. Create it in the provider's console (links are in Settings); usage is billed there per request. OpenRouter, Groq and Gemini have free tiers. Keys are encrypted with the operating system's keychain and sent only to that provider. **Disconnect** removes the key; Horus keeps working without AI (verbatim excerpts instead of summaries, and files can still be opened and read).
+An API key is not the same as a ChatGPT Plus or Claude subscription. Create it in the provider's console (links are in Settings); usage is billed there per request. OpenRouter, Groq and Gemini have free tiers. Keys are encrypted with the operating system's keychain and sent only to that provider. **Disconnect** removes the key; Warpnaut keeps working without AI (verbatim excerpts instead of summaries, and files can still be opened and read).
 
 ## Trust and privacy
 
 - Every finding is either a **verbatim excerpt** or (with the AI layer) an **AI summary**, **inference**, **disagreement** or **gap**, and it is labeled as such. AI points must cite retrieved source ids and quote them. Quotes are checked against the retrieved text. Unverifiable citations are downgraded to "inference — unverified" (`verifyPoints` in `server/llm.ts`).
 - The inspector shows the publisher, canonical URL, publication date (or "no date given"), retrieval time, live/cached/sample status, the provider, every point the source supports, and its known limitations.
 - Location is asked for only when a local request needs it. It is never sent with other queries, and device coordinates are rounded to about 100 m. It is kept for the session only, unless you choose to remember it.
-- History is **off by default**. History, kept items and preferences live only in this browser, under **Your data**, with per-item delete and "Erase everything". The server stores no history. Its caches are in-memory: news for 3 minutes, places for 30 minutes, reference for 6 hours. Logs omit query text unless `HORUS_LOG_QUERIES=1`.
+- History is **off by default**. History, kept items and preferences live only in this browser, under **Your data**, with per-item delete and "Erase everything". The server stores no history. Its caches are in-memory: news for 3 minutes, places for 30 minutes, reference for 6 hours. Logs omit query text unless `WARPNAUT_LOG_QUERIES=1`.
 - Device sync and shared groups are **end-to-end encrypted**. Pages, titles and addresses are encrypted in the browser with a key that exists only after the "#" of the link, which browsers never send. The server stores ciphertext, a version and a hash of a write token derived from the key. Anyone with a link can read and change that space, so the sheet says to keep device links private. Nothing joins until you confirm.
 - Credentials stay on the server. The API validates every input with Zod, rate-limits per IP, caps body size, and requires an explicit `confirmed: true` before any hand-off.
 
 ## Tests
 
 ```bash
-npm test             # 109 unit tests: the curved screen, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
+npm test             # 150 unit tests: the curved screen, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
                      # windows and groups, sync merge/encryption/links, the sync store
-npm run test:e2e     # 22 Playwright tests (desktop + mobile; 4 desktop-only) against sample data: orientation, research + provenance,
+npm run test:e2e     # 24 Playwright tests (desktop + mobile; 6 desktop-only) against sample data: orientation, research + provenance,
                      # location gate, action prepare/confirm/hand-off, privacy erase, keyboard + reduced motion, floating windows, groups, overview,
                      # laptop-to-phone sync, sharing a group with another person
 npm run typecheck
@@ -204,21 +229,25 @@ E2E needs Playwright's browser once: `npx playwright install --only-shell chromi
 - **Not yet in the desktop browser:** a password manager (use your system's, or a password manager app), Chrome extensions, tab sync of open windows to other browsers, and reading-list/PDF annotation. Chromium's own PDF viewer, spellcheck and video playback work.
 - **Some sign-ins refuse embedded browsers.** Google may block sign-in inside apps built on Electron. "Open in your other browser" on the window bar is the way out.
 - **Unsigned builds.** The first release isn't code-signed, so macOS and Windows warn on first launch (see Download), and macOS can't update itself.
-- **Device sync in the desktop app** works between devices that can reach the same Horus server; the desktop app's built-in server is private to the computer. A hosted sync server is the next step for phone ↔ laptop sync of the downloadable app.
+- **Device sync in the desktop app** works between devices that can reach the same Warpnaut server; the desktop app's built-in server is private to the computer. A hosted sync server is the next step for phone ↔ laptop sync of the downloadable app.
 
-- **No proprietary index.** Horus searches what its providers expose. It does not crawl or index the web.
+- **No proprietary index.** Warpnaut searches what its providers expose. It does not crawl or index the web.
 - **News without Brave is thin.** GDELT rate-limits shared IPs, and the Wikipedia-curated sources lag real time. A "today" question says when nothing from today was found, and dates are shown on every item.
 - **Local data is OpenStreetMap.** Coverage of small businesses varies by city. There are no ratings, menus, prices or live availability, so none are shown. Distances are straight-line, not travel time.
 - **No booking integration.** The action workflow drafts and hands off to phone, email, the website or the OSM listing. Real booking needs a partner API, such as a reservation platform. The `prepareAction` / `confirmAction` boundary is where it would plug in.
 - **Without a model key,** sub-questions are fixed templates and findings are verbatim sentences picked by keyword cues. Disagreements are not detected. With the key, both are AI-organized and checked.
 - **Voice** uses the browser's Web Speech API (Chrome and Safari), which may send audio to the browser vendor's speech service.
-- **Sync needs a reachable server.** On your own computer, links work for devices on the same Wi-Fi (`npm run dev:lan` or `npm start`). To reach your phone anywhere, host Horus online and set `PUBLIC_URL`. There are no accounts: a link is the only key, and a lost link cannot be recovered.
+- **Sync needs a reachable server.** On your own computer, links work for devices on the same Wi-Fi (`npm run dev:lan` or `npm start`). To reach your phone anywhere, host Warpnaut online and set `PUBLIC_URL`. There are no accounts: a link is the only key, and a lost link cannot be recovered.
 - **Not built yet:** user accounts and server-side preferences (PostgreSQL), Redis, a background job queue, monitoring, or deployment config. None were needed for this milestone. Add them when traffic or features require it.
 - The AI paths have unit tests (model choice, JSON-mode fallback, repair, rate limits) and file analysis was run against Gemini's free tier. Anthropic and OpenAI were checked for key validation only (no paid calls were made in testing). Free models vary in JSON reliability; if one struggles, choose a stronger one in Settings.
 
 ## Suggested next steps
 
-1. Set `HORUS_CONTACT`, `BRAVE_API_KEY` and a free model key (e.g. `OPENROUTER_API_KEY`), then review AI evidence maps against the extractive ones.
+1. Set `WARPNAUT_CONTACT`, `BRAVE_API_KEY` and a free model key (e.g. `OPENROUTER_API_KEY`), then review AI evidence maps against the extractive ones.
 2. Add a reservation or messaging partner for one city to complete a true book-and-confirm flow.
 3. Add travel time with an OSRM or Valhalla routing provider, and opening-hours parsing to show "open now" from listed hours only.
 4. Run a performance pass on the spatial layer with 200+ nodes (DOM vs. canvas for marks).
+
+## License
+
+[MIT](LICENSE)

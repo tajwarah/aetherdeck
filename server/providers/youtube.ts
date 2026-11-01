@@ -1,5 +1,5 @@
 // YouTube Data API v3 search (free key, 10,000 units/day; one search costs 100). Optional: without a key,
-// Horus says so and offers YouTube's own search page instead. Nothing is scraped.
+// Warpnaut says so and offers YouTube's own search page instead. Nothing is scraped.
 import { z } from "zod/v4";
 import { TtlCache } from "../cache.ts";
 import { fetchJson } from "../http.ts";

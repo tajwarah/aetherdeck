@@ -25,7 +25,7 @@ export class ScrcpyVideo {
       const v = new DataView(this.buf.buffer, this.buf.byteOffset, 69);
       const name = new TextDecoder().decode(this.buf.subarray(1, 65)).replace(/\0.*$/s, "");
       const codec = v.getUint32(65);
-      if (codec !== H264) throw new Error(codec <= 1 ? "The phone couldn't start sending its screen" : "The phone sent a video format Horus can't read");
+      if (codec !== H264) throw new Error(codec <= 1 ? "The phone couldn't start sending its screen" : "The phone sent a video format Warpnaut can't read");
       this.buf = this.buf.subarray(69);
       this.started = true;
       this.emit({ kind: "device", name });

@@ -1,5 +1,5 @@
-// The desktop app's bridge (electron/preload.ts), when Horus runs as the downloadable browser. In a plain web
-// browser it is null and Horus falls back to framing pages that allow it.
+// The desktop app's bridge (electron/preload.ts), when Warpnaut runs as the downloadable browser. In a plain web
+// browser it is null and Warpnaut falls back to framing pages that allow it.
 
 export interface Bridge {
   platform: string;
@@ -8,7 +8,7 @@ export interface Bridge {
   pathFor(file: File): string;
 }
 
-export const desktop: Bridge | null = (globalThis as unknown as { horus?: Bridge }).horus ?? null;
+export const desktop: Bridge | null = (globalThis as unknown as { warpnaut?: Bridge }).warpnaut ?? null;
 
 export interface AppInfo { version: string; platform: string; keys: Record<string, boolean>; contact: string; config: Record<string, string>; isDefault: boolean; packaged: boolean }
 export interface HistoryEntry { url: string; title: string; at: number }

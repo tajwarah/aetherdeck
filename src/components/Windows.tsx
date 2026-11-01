@@ -71,7 +71,7 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
     document.documentElement.toggleAttribute("data-fullpage", !!fullscreen);
     if (!fullscreen) return;
     // Leaving full screen from the menu or the green button takes the page out of it too.
-    return desktop?.on("horus:fullscreen", (on) => { if (!on) { void desktop!.invoke("curve:exitFullscreen", fullscreen); setFullscreen(null); } });
+    return desktop?.on("warpnaut:fullscreen", (on) => { if (!on) { void desktop!.invoke("curve:exitFullscreen", fullscreen); setFullscreen(null); } });
   }, [fullscreen]);
   const [flat, setFlat] = useState<ReadonlySet<string>>(new Set()); // pages the curve engine couldn't take
   const [busy, setBusy] = useState(false); // while dragging, frames stop eating pointer events
@@ -416,7 +416,7 @@ function WebFrame({ tab, onRead }: { tab: Tab; onRead: (url: string) => void }) 
     return (
       <div className="win__state win__state--blocked">
         <p className="win__big">{tab.domain} asks not to be shown inside other apps.</p>
-        <p className="fine">{state.reason}. It will open in your own browser instead, or Horus can read its leading paragraphs in the space.</p>
+        <p className="fine">{state.reason}. It will open in your own browser instead, or Warpnaut can read its leading paragraphs in the space.</p>
         <div className="win__actions">
           <a className="btn btn--primary" href={tab.href} target="_blank" rel="noopener noreferrer">Open in a new tab</a>
           <button className="btn" onClick={() => onRead(tab.href)}>Read here</button>
@@ -450,7 +450,7 @@ function VideoSearch({ tab, onPick }: { tab: Tab; onPick: (v: Omit<Tab, "id">) =
     return (
       <div className="win__state win__state--blocked">
         <p className="win__big">{state.status === "unconfigured" ? "Video search needs a free YouTube API key." : state.status === "error" ? state.error : `No videos found for “${tab.src}”.`}</p>
-        <p className="fine">{state.status === "unconfigured" ? "Add YOUTUBE_API_KEY to horus/.env (see .env.example). Until then, search on YouTube itself; any video link you paste here still plays in a window." : "Try YouTube itself, or paste a video link here."}</p>
+        <p className="fine">{state.status === "unconfigured" ? "Add YOUTUBE_API_KEY to warpnaut/.env (see .env.example). Until then, search on YouTube itself; any video link you paste here still plays in a window." : "Try YouTube itself, or paste a video link here."}</p>
         <div className="win__actions"><a className="btn btn--primary" href={tab.href} target="_blank" rel="noopener noreferrer">Search on YouTube</a></div>
       </div>
     );

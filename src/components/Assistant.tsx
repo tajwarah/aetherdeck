@@ -112,7 +112,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
               </p>
             ) : (
               <div className="assist__connect">
-                <p>Connect an AI model to summarize and ask questions. Horus works without one; {ready && ready.kind !== "page" ? "you can still read the text below." : "nothing is sent anywhere."}</p>
+                <p>Connect an AI model to summarize and ask questions. Warpnaut works without one; {ready && ready.kind !== "page" ? "you can still read the text below." : "nothing is sent anywhere."}</p>
                 <button className="btn btn--small btn--primary" onClick={onConnect}>Connect AI</button>
               </div>
             )}
@@ -123,7 +123,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
               </div>
             )}
             {ready && ready.kind !== "page" && ready.text && (
-              <button className="link assist__peek" onClick={() => setShowText((v) => !v)}>{showText ? "Hide the text" : "Show the text Horus read"}</button>
+              <button className="link assist__peek" onClick={() => setShowText((v) => !v)}>{showText ? "Hide the text" : "Show the text Warpnaut read"}</button>
             )}
             {showText && ready && ready.kind !== "page" && <pre className="assist__text">{ready.text.slice(0, 20_000)}{ready.text.length > 20_000 ? "\n…" : ""}</pre>}
           </div>

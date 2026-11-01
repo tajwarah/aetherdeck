@@ -77,12 +77,9 @@ const ROUTES = (() => {
   return [...out, ...TRUNKS];
 })();
 
-/** Night: dark stone and warm city light. Day: pearl stone and white-gold lines. */
-const PALETTE = {
-  night: { halo: "255, 226, 186", body: ["#5a5047", "#2c2621", "#141110", "#090807"], land: "rgba(8, 6, 5, 0.42)", coast: "rgba(255, 226, 186, 0.13)", grid: "rgba(255, 228, 190, 0.045)", border: "rgba(255, 214, 160, 0.07)", fibre: "255, 216, 160", lights: 1, rim: "255, 230, 196" },
-  day: { halo: "255, 236, 206", body: ["#fffaf2", "#efe5d6", "#dccdb8", "#c9b79e"], land: "rgba(196, 170, 130, 0.28)", coast: "rgba(160, 120, 60, 0.28)", grid: "rgba(160, 120, 60, 0.07)", border: "rgba(160, 120, 60, 0.12)", fibre: "196, 146, 72", lights: 0.55, rim: "255, 255, 255" },
-};
-type Palette = (typeof PALETTE)["night"];
+/** Dark stone and platinum city light. */
+const PALETTE = { halo: "222, 230, 240", body: ["#4d535c", "#262a30", "#121417", "#08090b"], land: "rgba(5, 6, 8, 0.42)", coast: "rgba(224, 232, 242, 0.13)", grid: "rgba(224, 232, 242, 0.04)", border: "rgba(210, 222, 236, 0.07)", fibre: "208, 220, 234", lights: 1, rim: "232, 238, 245" };
+type Palette = typeof PALETTE;
 
 const topo = world as unknown as Topology<{ countries: GeometryCollection; land: GeometryCollection }>;
 const LAND = feature(topo, topo.objects.land);
@@ -126,7 +123,7 @@ function useViewport() {
 }
 
 /** A photograph for a starting point: the lead image of its Wikipedia article. */
-export function Planet({ dim, quiet, reduced, theme = "night", onSeed }: { dim: boolean; quiet: boolean; reduced: boolean; theme?: "night" | "day"; onSeed: (query: string) => void }) {
+export function Planet({ dim, quiet, reduced, onSeed }: { dim: boolean; quiet: boolean; reduced: boolean; onSeed: (query: string) => void }) {
   const { w: vw, h: vh } = useViewport();
   const { R, cx, cy } = globeGeometry(vw, vh);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -146,7 +143,7 @@ export function Planet({ dim, quiet, reduced, theme = "night", onSeed }: { dim: 
     canvas.height = Math.round((vh - top) * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, -top * dpr);
 
-    const scene = sceneFor(ctx, R, cx, cy, PALETTE[theme], vw, vh);
+    const scene = sceneFor(ctx, R, cx, cy, PALETTE, vw, vh);
 
     const onMove = (e: PointerEvent) => { tilt.current.tx = (e.clientX / window.innerWidth - 0.5) * 6; };
     window.addEventListener("pointermove", onMove);
@@ -184,7 +181,7 @@ export function Planet({ dim, quiet, reduced, theme = "night", onSeed }: { dim: 
     };
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); window.removeEventListener("pointermove", onMove); };
-  }, [reduced, R, cx, cy, vw, vh, dim, quiet, theme]);
+  }, [reduced, R, cx, cy, vw, vh, dim, quiet]);
 
   return (
     <div className={`planet ${dim ? "planet--dim" : ""}`} aria-hidden={dim}>
@@ -230,7 +227,7 @@ const SEED_P = new Float32Array(SEEDS.length * 3);
 const HORIZON_LIGHTS = Math.sin(0.02); // just inside the horizon, where d3's clipping ends the land
 const HORIZON_THREADS = Math.sin(0.03);
 
-/** What does not change from frame to frame for one size and theme: gradients and colours, built once. */
+/** What does not change from frame to frame for one size: gradients and colours, built once. */
 const bandTop = (R: number, cy: number) => Math.max(0, Math.floor(cy - R * 1.09) - 2);
 
 function sceneFor(ctx: CanvasRenderingContext2D, R: number, cx: number, cy: number, pal: Palette, vw: number, vh: number) {
@@ -343,10 +340,10 @@ function glowSprite() {
   c.width = c.height = 32;
   const g = c.getContext("2d")!;
   const r = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-  r.addColorStop(0, "rgba(255, 244, 214, 1)");
-  r.addColorStop(0.18, "rgba(255, 206, 128, 0.85)");
-  r.addColorStop(0.5, "rgba(255, 170, 80, 0.18)");
-  r.addColorStop(1, "rgba(255, 160, 60, 0)");
+  r.addColorStop(0, "rgba(246, 249, 252, 1)");
+  r.addColorStop(0.18, "rgba(214, 226, 240, 0.85)");
+  r.addColorStop(0.5, "rgba(170, 190, 214, 0.18)");
+  r.addColorStop(1, "rgba(160, 182, 208, 0)");
   g.fillStyle = r;
   g.fillRect(0, 0, 32, 32);
   return c;

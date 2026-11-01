@@ -1,4 +1,4 @@
-// Horus desktop: the spatial interface as a real browser. The interface runs in one window; every page is a
+// Warpnaut desktop: the spatial interface as a real browser. The interface runs in one window; every page is a
 // <webview> (its own Chromium process) placed in a glass pane, so any site loads, nothing is framed or proxied.
 // This process owns what a browser must: sessions and cookies, downloads, permission prompts, popups, the
 // context menu, history and bookmarks, keys kept in the OS keychain, default-browser links, and updates.
@@ -9,26 +9,29 @@ import { basename, extname, join } from "node:path";
 import electronUpdater from "electron-updater";
 import { CONFIG_NAMES, KEY_NAMES, Store, type ConfigName, type KeyName } from "./store.ts";
 import { curvedPages } from "./curved.ts";
+import { agentApps, registerAppScheme } from "./apps.ts";
+import { agentEngine } from "./engine.ts";
 import { phones } from "./phone.ts";
 import { shields } from "./shields.ts";
 import pkg from "../package.json" with { type: "json" };
 
-const DEV_URL = process.env.HORUS_DEV_URL; // `npm run desktop:dev`: the interface comes from Vite
+const DEV_URL = process.env.WARPNAUT_DEV_URL; // `npm run desktop:dev`: the interface comes from Vite
 const WEB = "persist:web";
-const PRIVATE = "horus-private"; // not persisted: gone when the app quits
+const PRIVATE = "warpnaut-private"; // not persisted: gone when the app quits
 const HOMEPAGE = (pkg as { homepage?: string }).homepage; // the GitHub page, once package.json names it
 
 let win: BrowserWindow | null = null;
 let store: Store;
 let curved: ReturnType<typeof curvedPages> | undefined;
 let shield: ReturnType<typeof shields>;
+let engine: ReturnType<typeof agentEngine> | undefined;
 let phone: ReturnType<typeof phones> | undefined;
 const pending: string[] = []; // links opened before the interface was ready
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
 // Sites see an ordinary Chrome, not "Electron" (some refuse to work otherwise).
-app.userAgentFallback = app.userAgentFallback.replace(/ Electron\/\S+/, "").replace(/ horus\/\S+/i, "");
+app.userAgentFallback = app.userAgentFallback.replace(/ Electron\/\S+/, "").replace(/ warpnaut\/\S+/i, "");
 
 const isUrl = (s: string) => /^https?:\/\//i.test(s);
 const send = (channel: string, payload?: unknown) => win?.webContents.send(channel, payload);
@@ -38,10 +41,10 @@ function openLink(url: string, from?: number) {
   if (!win) { pending.push(url); return; }
   if (win.isMinimized()) win.restore();
   win.focus();
-  send("horus:open", { url, from });
+  send("warpnaut:open", { url, from });
 }
 
-app.on("open-url", (e, url) => { e.preventDefault(); openLink(url); }); // macOS: Horus as the default browser
+app.on("open-url", (e, url) => { e.preventDefault(); openLink(url); }); // macOS: Warpnaut as the default browser
 app.on("second-instance", (_e, argv) => { for (const a of argv) if (isUrl(a)) openLink(a); if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 for (const a of process.argv.slice(1)) if (isUrl(a)) pending.push(a);
 
@@ -60,6 +63,7 @@ async function googleAccount() {
 
 function setUpSession(s: Session) {
   s.setPermissionRequestHandler((wc, permission, callback, details) => {
+    if (engine?.owns(wc.id)) return callback(false);
     if (ALWAYS.has(permission)) return callback(true);
     if (!ASK.has(permission) || !win) return callback(false);
     const origin = (() => { try { return new URL(details.requestingUrl ?? wc.getURL()).origin; } catch { return "this page"; } })();
@@ -68,11 +72,12 @@ function setUpSession(s: Session) {
     const id = ++askSeq;
     asked.set(id, (ok) => { remembered.set(key, ok); callback(ok); });
     const media = (details as { mediaTypes?: string[] }).mediaTypes;
-    send("horus:permission", { id, origin, permission, media });
+    send("warpnaut:permission", { id, origin, permission, media });
   });
   s.setPermissionCheckHandler((_wc, permission) => ALWAYS.has(permission));
 
-  s.on("will-download", (_e, item) => {
+  s.on("will-download", (e, item, wc) => {
+    if (wc && engine?.owns(wc.id)) return e.preventDefault();
     const dir = app.getPath("downloads");
     const name = item.getFilename() || "download";
     let path = join(dir, name);
@@ -83,7 +88,7 @@ function setUpSession(s: Session) {
     const report = (force = false) => {
       if (!force && Date.now() - last < 250) return;
       last = Date.now();
-      send("horus:download", { id, name: basename(path), path, url: item.getURL(), received: item.getReceivedBytes(), total: item.getTotalBytes(), state: item.getState(), paused: item.isPaused() });
+      send("warpnaut:download", { id, name: basename(path), path, url: item.getURL(), received: item.getReceivedBytes(), total: item.getTotalBytes(), state: item.getState(), paused: item.isPaused() });
     };
     downloads.set(id, item);
     report(true);
@@ -106,7 +111,9 @@ function setUpPage(wc: WebContents) {
   wc.on("context-menu", (_ev, p) => pageMenu(wc, p).popup());
   // Leaving the page for another scheme (mailto:, zoom:, …) goes to the app that handles it, after asking.
   wc.on("will-navigate", (ev, url) => {
-    if (/^(https?|about|blob|data):/i.test(url)) return;
+    // An app an agent built never leaves its page: a page's own navigation could otherwise carry its data away.
+    if (wc.getURL().startsWith("agent-app:") && !url.startsWith(wc.getURL())) return ev.preventDefault();
+    if (/^(https?|about|blob|data|agent-app):/i.test(url)) return;
     ev.preventDefault();
     void dialog.showMessageBox(win!, { type: "question", buttons: ["Open", "Cancel"], defaultId: 0, message: `Open this link in another app?`, detail: url }).then((r) => { if (r.response === 0) void shell.openExternal(url); });
   });
@@ -136,7 +143,7 @@ function pageMenu(wc: WebContents, p: Electron.ContextMenuParams) {
     t.push({ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }, { type: "separator" });
   } else if (p.selectionText) {
     const q = p.selectionText.trim().slice(0, 200);
-    t.push({ role: "copy" }, { label: `Explore “${q.length > 30 ? `${q.slice(0, 30)}…` : q}” in Horus`, click: () => send("horus:command", { name: "ask", value: q }) }, { type: "separator" });
+    t.push({ role: "copy" }, { label: `Explore “${q.length > 30 ? `${q.slice(0, 30)}…` : q}” in Warpnaut`, click: () => send("warpnaut:command", { name: "ask", value: q }) }, { type: "separator" });
   }
   t.push(
     { label: "Back", enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack() },
@@ -155,25 +162,26 @@ async function savePage(wc: WebContents) {
   if (!r.canceled && r.filePath) await wc.savePage(r.filePath, "HTMLComplete");
 }
 
-/** Horus used to be called NEXUS: history, bookmarks, agents and phone tools come across, once. */
+/** Warpnaut was called Horus, and NEXUS before that: history, bookmarks, agents, the research board and phone tools come across, once. */
 function bringOldData() {
-  const old = join(app.getPath("appData"), "nexus");
   const dir = app.getPath("userData");
-  if (!existsSync(old) || existsSync(join(dir, "library"))) return;
+  if (existsSync(join(dir, "library"))) return;
+  const old = ["Horus", "horus", "nexus"].map((n) => join(app.getPath("appData"), n)).find((d) => existsSync(join(d, "library")));
+  if (!old) return;
   for (const name of ["library", "phone"]) if (existsSync(join(old, name))) cpSync(join(old, name), join(dir, name), { recursive: true, verbatimSymlinks: true });
 }
 
 // ---------- the interface window ----------
-function command(name: string) { return () => send("horus:command", { name }); }
+function command(name: string) { return () => send("warpnaut:command", { name }); }
 
-/** One shortcut, from anywhere on the computer: Horus comes forward and the agents start listening. */
+/** One shortcut, from anywhere on the computer: Warpnaut comes forward and the agents start listening. */
 const AGENT_KEYS = "CommandOrControl+Shift+Space";
 function summonAgents() {
   if (!win) return;
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
-  send("horus:command", { name: "agent" });
+  send("warpnaut:command", { name: "agent" });
 }
 
 function appMenu() {
@@ -208,7 +216,7 @@ function appMenu() {
       { role: "togglefullscreen" },
       { label: "360° View", accelerator: "CmdOrCtrl+Shift+U", click: command("surround") },
       { label: "Developer Tools for Page", accelerator: mac ? "Alt+Cmd+I" : "Ctrl+Shift+I", click: command("devtools") },
-      ...(app.isPackaged ? [] : [{ role: "toggleDevTools" as const, label: "Developer Tools for Horus", accelerator: mac ? "Alt+Cmd+J" : "Ctrl+Shift+J" }]),
+      ...(app.isPackaged ? [] : [{ role: "toggleDevTools" as const, label: "Developer Tools for Warpnaut", accelerator: mac ? "Alt+Cmd+J" : "Ctrl+Shift+J" }]),
     ] },
     { label: "History", submenu: [
       { label: "Back", accelerator: "CmdOrCtrl+[", click: command("back") },
@@ -224,7 +232,7 @@ function appMenu() {
       { label: "Show Bookmarks", accelerator: "CmdOrCtrl+Shift+B", click: command("bookmarks") },
     ] },
     { role: "windowMenu" },
-    { role: "help", submenu: HOMEPAGE ? [{ label: "Horus on GitHub", click: () => void shell.openExternal(HOMEPAGE) }] : [] },
+    { role: "help", submenu: HOMEPAGE ? [{ label: "Warpnaut on GitHub", click: () => void shell.openExternal(HOMEPAGE) }] : [] },
   ];
   return Menu.buildFromTemplate(t);
 }
@@ -234,14 +242,14 @@ async function createWindow(target: string | Promise<string>) {
   let url = "";
   win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 720, minHeight: 520,
-    backgroundColor: "#0b0b0d", show: false, title: "Horus",
+    backgroundColor: "#0b0b0d", show: false, title: "Warpnaut",
     titleBarStyle: mac ? "hiddenInset" : "hidden",
     ...(mac ? { trafficLightPosition: { x: 18, y: 22 } } : { titleBarOverlay: { color: "#0b0b0d", symbolColor: "#f5f5f7", height: 44 } }),
     webPreferences: { preload: join(import.meta.dirname, "preload.cjs"), contextIsolation: true, sandbox: true, webviewTag: true, spellcheck: true },
   });
   win.once("ready-to-show", () => win?.show());
-  win.on("enter-full-screen", () => send("horus:fullscreen", true));
-  win.on("leave-full-screen", () => send("horus:fullscreen", false));
+  win.on("enter-full-screen", () => send("warpnaut:fullscreen", true));
+  win.on("leave-full-screen", () => send("warpnaut:fullscreen", false));
   win.on("closed", () => { win = null; curved?.closeAll(); phone?.stopAll(); });
 
   const wc = win.webContents;
@@ -282,7 +290,7 @@ function handlers() {
     for (const k of Object.keys(clean)) delete process.env[k];
     for (const k of CONFIG_NAMES) if (config && k in config) delete process.env[k];
     Object.assign(process.env, store.keys(), store.config());
-    if (typeof contact === "string") process.env.HORUS_CONTACT = contact.slice(0, 200);
+    if (typeof contact === "string") process.env.WARPNAUT_CONTACT = contact.slice(0, 200);
     (await import("../server/models.ts")).resetBackend();
     return keyStatus();
   });
@@ -305,6 +313,8 @@ function handlers() {
   ipcMain.handle("shields:status", () => shield.status());
   ipcMain.handle("shields:toggleSite", (_e, url: string) => shield.toggleSite(String(url)));
   ipcMain.handle("agents:list", () => store.agents);
+  ipcMain.handle("research:load", () => store.research);
+  ipcMain.handle("research:save", (_e, board: unknown) => { if (board && typeof board === "object" && JSON.stringify(board).length < 20_000_000) store.saveResearch(board); });
   ipcMain.handle("agents:save", (_e, agents: unknown[]) => { if (Array.isArray(agents)) store.saveAgents(agents.slice(0, 100)); });
   ipcMain.handle("app:fullscreen", (_e, on: boolean) => win?.setFullScreen(Boolean(on)));
   ipcMain.handle("app:toggleFullscreen", () => win?.setFullScreen(!win.isFullScreen()));
@@ -320,7 +330,7 @@ function handlers() {
   ipcMain.handle("data:clearSite", () => session.fromPartition(WEB).clearStorageData());
   // Google and YouTube: signed in once in a page, signed in everywhere (one browsing session, as in Chrome).
   // Only whether a Google sign-in cookie exists is checked; no cookie value ever leaves the session.
-  // The agents' voice: macOS asks the person once whether Horus may use the microphone.
+  // The agents' voice: macOS asks the person once whether Warpnaut may use the microphone.
   ipcMain.handle("app:microphone", async () => (process.platform === "darwin" ? systemPreferences.getMediaAccessStatus("microphone") === "granted" || systemPreferences.askForMediaAccess("microphone") : true));
   ipcMain.handle("account:google", () => googleAccount());
   ipcMain.handle("account:googleSignOut", async () => {
@@ -346,27 +356,31 @@ function updates() {
   const { autoUpdater } = electronUpdater;
   // Unsigned macOS builds cannot install updates themselves: tell the person instead.
   autoUpdater.autoDownload = process.platform !== "darwin";
-  autoUpdater.on("update-available", (i) => send("horus:update", { version: i.version, manual: process.platform === "darwin", url: HOMEPAGE ? `${HOMEPAGE}/releases/latest` : undefined }));
-  autoUpdater.on("update-downloaded", (i) => send("horus:update", { version: i.version, ready: true }));
+  autoUpdater.on("update-available", (i) => send("warpnaut:update", { version: i.version, manual: process.platform === "darwin", url: HOMEPAGE ? `${HOMEPAGE}/releases/latest` : undefined }));
+  autoUpdater.on("update-downloaded", (i) => send("warpnaut:update", { version: i.version, ready: true }));
   ipcMain.handle("app:installUpdate", () => autoUpdater.quitAndInstall());
   autoUpdater.checkForUpdates().catch(() => undefined);
 }
 
+registerAppScheme();
+
 app.whenReady().then(async () => {
   bringOldData();
-  app.setAboutPanelOptions({ applicationName: "Horus", applicationVersion: app.getVersion(), copyright: "Your tabs, all around you." });
+  app.setAboutPanelOptions({ applicationName: "Warpnaut", applicationVersion: app.getVersion(), copyright: "Your tabs, all around you." });
   store = new Store(join(app.getPath("userData"), "library"));
   // Development only: the project's .env (keys for trying things out). Released builds use Settings alone.
   if (!app.isPackaged && existsSync(join(import.meta.dirname, "..", ".env"))) process.loadEnvFile(join(import.meta.dirname, "..", ".env"));
   // The person's own keys, kept encrypted, become the server's environment.
   Object.assign(process.env, store.keys(), store.config());
-  if (store.contact()) process.env.HORUS_CONTACT = store.contact();
-  shield = shields({ dir: join(app.getPath("userData"), "library"), enabled: () => process.env.HORUS_SHIELDS !== "off", allowed: () => store.shieldsOff(), setAllowed: (sites) => store.setShieldsOff(sites), report: (p) => send("horus:shields", p) });
+  if (store.contact()) process.env.WARPNAUT_CONTACT = store.contact();
+  shield = shields({ dir: join(app.getPath("userData"), "library"), enabled: () => process.env.WARPNAUT_SHIELDS !== "off", allowed: () => store.shieldsOff(), setAllowed: (sites) => store.setShieldsOff(sites), report: (p) => send("warpnaut:shields", p), skip: (id, resource) => !!engine?.skips(id, resource) });
   void shield.load();
+  engine = agentEngine({ partition: WEB, guard: (wc) => shield.guard(wc), downloads: () => app.getPath("downloads") });
+  agentApps(join(app.getPath("userData"), "library", "apps")).serve(session.fromPartition(WEB));
   shield.attach(session.fromPartition(WEB));
   shield.attach(session.fromPartition(PRIVATE));
   setUpSession(session.fromPartition(WEB));
-  session.fromPartition(WEB).cookies.on("changed", (_e, c) => { if (c.name === "SID" || c.name === "LOGIN_INFO") void googleAccount().then((a) => send("horus:account", a)); });
+  session.fromPartition(WEB).cookies.on("changed", (_e, c) => { if (c.name === "SID" || c.name === "LOGIN_INFO") void googleAccount().then((a) => send("warpnaut:account", a)); });
   setUpSession(session.fromPartition(PRIVATE));
   handlers();
   curved = curvedPages({ host: () => win, setUpPage, partitions: new Set([WEB, PRIVATE]) });
@@ -376,23 +390,23 @@ app.whenReady().then(async () => {
   const ready = (async () => {
     const { startServer } = await import("../server/index.ts");
     if (DEV_URL) {
-      await startServer({ port: Number(process.env.HORUS_API_PORT ?? 8787), host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync") });
+      await startServer({ port: Number(process.env.WARPNAUT_API_PORT ?? 8787), host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync") });
       return DEV_URL;
     }
     const token = randomBytes(24).toString("base64url");
     const { port } = await startServer({ port: 0, host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync"), token });
     const url = `http://127.0.0.1:${port}/`;
-    await session.defaultSession.cookies.set({ url, name: "horus_token", value: token, httpOnly: true, sameSite: "strict" });
+    await session.defaultSession.cookies.set({ url, name: "warpnaut_token", value: token, httpOnly: true, sameSite: "strict" });
     return url;
   })();
   await createWindow(ready);
   const url = await ready;
   updates();
   // Another app may already own the keys; then the agents are still a click away in the top bar.
-  if (!globalShortcut.register(AGENT_KEYS, summonAgents)) console.warn("Horus: the agents shortcut is taken by another app");
+  if (!globalShortcut.register(AGENT_KEYS, summonAgents)) console.warn("Warpnaut: the agents shortcut is taken by another app");
   app.on("activate", () => { if (!win) void createWindow(url); });
 });
 
 app.on("will-quit", () => globalShortcut.unregisterAll());
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
-app.on("before-quit", () => { store?.flush(); phone?.stopAll(); });
+app.on("before-quit", () => { store?.flush(); phone?.stopAll(); engine?.close(); });

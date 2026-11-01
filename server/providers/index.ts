@@ -16,7 +16,7 @@ import { demo } from "./demo.ts";
 
 export const PROVIDERS: Record<Exclude<ProviderId, "direct" | "browser">, Provider> = { wikipedia, openalex, arxiv, gdelt, currents, osm, photon, brave, tavily, searxng, hackernews, stackexchange, demo };
 
-export const demoForced = () => process.env.HORUS_DEMO === "1";
+export const demoForced = () => process.env.WARPNAUT_DEMO === "1";
 
 export function providerStatus() {
   return Object.values(PROVIDERS)

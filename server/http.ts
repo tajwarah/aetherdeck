@@ -1,6 +1,6 @@
 // Outbound HTTP with timeouts and an identifying User-Agent (required by OSM and Wikimedia policies).
-const contact = process.env.HORUS_CONTACT?.trim();
-export const USER_AGENT = `Horus/0.1 (spatial search prototype${contact ? `; ${contact}` : "; contact not configured"})`;
+const contact = process.env.WARPNAUT_CONTACT?.trim();
+export const USER_AGENT = `Warpnaut/0.1 (spatial search prototype${contact ? `; ${contact}` : "; contact not configured"})`;
 export const contactConfigured = Boolean(contact);
 
 export class ProviderError extends Error {

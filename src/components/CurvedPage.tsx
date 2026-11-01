@@ -36,7 +36,7 @@ export function pageKey(id: string, type: "keyDown" | "keyUp", e: React.Keyboard
     void desktop?.invoke("curve:nav", id, e.key.toLowerCase() === "z" && e.shiftKey ? "redo" : EDIT[e.key.toLowerCase()]);
     return;
   }
-  if (e.metaKey && type === "keyDown") return; // other ⌘ shortcuts stay with Horus's menu
+  if (e.metaKey && type === "keyDown") return; // other ⌘ shortcuts stay with Warpnaut's menu
   e.preventDefault();
   const send = (event: Record<string, unknown>) => void desktop?.invoke("curve:input", id, event);
   const keyCode = KEYS[e.key] ?? (e.key.length === 1 ? e.key : e.key);
@@ -61,7 +61,7 @@ export function CurvedPage({ win, onState, onNavigate, onFocus, onFullscreen, on
     const el = canvas.current;
     if (!el || !desktop) return;
     const call = (ch: string, ...a: unknown[]) => desktop!.invoke(ch, id, ...a);
-    void desktop.invoke<number | false>("curve:open", id, liveSrc(win.page), el.clientWidth, el.clientHeight, devicePixelRatio, win.private ? "horus-private" : "persist:web").then((wc) => { if (wc === false) cb.current.onFail(); else wcId.current = wc; });
+    void desktop.invoke<number | false>("curve:open", id, liveSrc(win.page), el.clientWidth, el.clientHeight, devicePixelRatio, win.private ? "warpnaut-private" : "persist:web").then((wc) => { if (wc === false) cb.current.onFail(); else wcId.current = wc; });
     const resize = new ResizeObserver(() => void call("curve:resize", el.clientWidth, el.clientHeight));
     resize.observe(el);
     const offState = desktop.on("curve:state", (p) => {

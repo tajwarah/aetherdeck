@@ -58,7 +58,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     c.dataset.yaw = String(motion.current.yaw);
     c.dataset.fov = String(motion.current.fov);
     if (wedge.current) wedge.current.style.left = `${(turn(motion.current.yaw) / TAU + 0.5) * STRIP}px`;
-    document.dispatchEvent(new Event("horus-scene"));
+    document.dispatchEvent(new Event("warpnaut-scene"));
     pace();
   };
   /** The tab in use paints at full speed, the others in sight at a third, and those behind you barely at all. */
@@ -123,7 +123,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
       document.documentElement.toggleAttribute("data-surround", false);
       queueMicrotask(() => {
         if (document.documentElement.hasAttribute("data-surround")) return; // opened again straight away
-        document.dispatchEvent(new Event("horus-scene"));
+        document.dispatchEvent(new Event("warpnaut-scene"));
         void desktop?.invoke("curve:room", null);
         for (const w of wins) {
           void desktop?.invoke("curve:rate", w.id, 60);
@@ -151,7 +151,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     const c = canvas.current!;
     c.dataset.panels = JSON.stringify(panels);
     c.dataset.focus = focus ?? "";
-    document.dispatchEvent(new Event("horus-scene"));
+    document.dispatchEvent(new Event("warpnaut-scene"));
     pace();
     if (!panels.some((p) => p.id === focus) && panels.length) { const near = [...panels].sort((a, b) => Math.abs(turn(a.yaw - motion.current.yaw)) - Math.abs(turn(b.yaw - motion.current.yaw)))[0]; setFocus(near.id); lookAt(near.yaw); }
   }, [panels, focus]);

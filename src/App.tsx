@@ -37,8 +37,14 @@ import { LibrarySheet, PermissionPrompt, SettingsSheet, type LibraryTab } from "
 import { AccountMenu, useAccounts } from "./components/AccountMenu.tsx";
 import { AgentConsole } from "./components/AgentConsole.tsx";
 import { AgentStation } from "./components/AgentStation.tsx";
+import { RamBuddy } from "./components/RamBuddy.tsx";
+import type { RamStats } from "./lib/ram.ts";
+import { ResearchBoard } from "./components/ResearchBoard.tsx";
+import { addResearch, EMPTY_BOARD, fromEnvironment, loadBoard, saveBoard, type Board } from "./lib/research.ts";
 import { isPage } from "./components/Surround.tsx";
-import { clickScript, labelScript, loadAgents, needsApproval, runAgent, saveAgents, seeScript, typeScript, type Agent, type Run } from "./lib/agents.ts";
+import { clickScript, labelScript, leavesTrace, loadAgents, needsApproval, runAgent, saveAgents, seeScript, skillsOf, typeScript, type Agent, type Run } from "./lib/agents.ts";
+import { engineTool, inParts, type DataSets } from "./lib/agentTools.ts";
+import { appUrl } from "../shared/harvest.ts";
 import { askAssistant, type AgentStep } from "./lib/api.ts";
 
 // Opened from a sync or shared-group link: read it once, then take the key out of the address bar.
@@ -63,6 +69,8 @@ const VIEWS: Record<string, (p: ViewProps) => React.ReactNode> = {
 };
 
 let frameKey = 0;
+const TAB_BATCH = 3;
+const TAB_PAUSE = 900;
 
 export function App() {
   const reduced = useReducedMotion();
@@ -83,11 +91,13 @@ export function App() {
   const sync = useSync(wins, setWins);
   const [syncOpen, setSyncOpen] = useState<{ group?: string } | null>(null);
   const [invite, setInvite] = useState(initialInvite);
+  const keepResearch = useRef<(q: string, m: EnvironmentModel | null) => void>(() => undefined);
   const abort = useRef<AbortController | null>(null);
   const fitted = useRef<{ key: number; nodes: number; complete: boolean }>({ key: -1, nodes: 0, complete: false });
 
   const top = frames[frames.length - 1];
   const model = top?.model ?? null;
+  const sites = useMemo(() => (model?.visualization === "evidence" || model?.visualization === "clusters" ? model.sources.filter((s) => /^https?:/.test(s.canonicalUrl)).map((s) => ({ url: s.canonicalUrl, title: s.title })) : []), [model]);
   const modelRef = useRef(model);
   modelRef.current = model;
   const layout = useMemo(() => (model ? layoutFor(model) : null), [model]);
@@ -96,7 +106,7 @@ export function App() {
   // Desktop app: the person's search engine (Settings). Its results page opens in a window they can see.
   const [engine, setEngine] = useState<Engine | "off">("google");
   const loadEngine = useCallback(() => {
-    void desktop?.invoke<AppInfo>("app:info").then((i) => { const e = i.config.HORUS_SEARCH_ENGINE || "google"; setEngine(e in ENGINES ? (e as Engine) : "off"); });
+    void desktop?.invoke<AppInfo>("app:info").then((i) => { const e = i.config.WARPNAUT_SEARCH_ENGINE || "google"; setEngine(e in ENGINES ? (e as Engine) : "off"); });
   }, []);
   useEffect(loadEngine, [loadEngine]);
   const [engineAsk, setEngineAsk] = useState("");
@@ -105,7 +115,7 @@ export function App() {
 
   /**
    * Search with the person's engine as they would themselves: its results page opens in a window beside the map,
-   * Horus reads the results off that visible page, and the window goes to the dock. If the engine asks them
+   * Warpnaut reads the results off that visible page, and the window goes to the dock. If the engine asks them
    * something first (privacy choices, a check that they are a person) the window stays in front for them to
    * answer, and the map waits.
    */
@@ -179,14 +189,17 @@ export function App() {
         let needsLocation = false;
         const found = await findWithEngine(query, ctrl.signal);
         if (ctrl.signal.aborted) return;
+        let latest: EnvironmentModel | null = null;
         await exploreStream(
           { query, depth: opts.depth, ...(found ? { found } : {}), ...(loc ? { location: { lat: loc.lat, lon: loc.lon, label: loc.label, source: loc.source } } : {}) },
           (m) => {
+            latest = m;
             needsLocation = m.notices.some((n) => n.code === "location_required");
             setFrames((fs) => fs.map((f) => (f.key === key ? { ...f, model: m } : f)));
           },
           ctrl.signal,
         );
+        keepResearch.current(query, latest);
         // Location is sent only when a local request actually needs it, and only once the person has chosen one.
         if (needsLocation && !loc && location && !ctrl.signal.aborted) {
           setStreaming(false);
@@ -259,8 +272,8 @@ export function App() {
   const surroundRef = useRef(false);
   surroundRef.current = surround;
   const [newTab, setNewTab] = useState(0);
-  const roomFirst = useRef((() => { try { return localStorage.getItem("horus.view") !== "windows"; } catch { return true; } })());
-  const keepView = (room: boolean) => { roomFirst.current = room; try { localStorage.setItem("horus.view", room ? "room" : "windows"); } catch { /* per visit */ } };
+  const roomFirst = useRef((() => { try { return localStorage.getItem("warpnaut.view") !== "windows"; } catch { return true; } })());
+  const keepView = (room: boolean) => { roomFirst.current = room; try { localStorage.setItem("warpnaut.view", room ? "room" : "windows"); } catch { /* per visit */ } };
   const enterRoom = useCallback(() => {
     if (!desktop) return;
     keepView(true);
@@ -298,11 +311,10 @@ export function App() {
     hadTabs.current = surround && any;
   }, [wins, surround]);
 
-  const openGroup = useCallback((pages: { url: string; title: string }[]) => {
+  const openGroup = useCallback((pages: { url: string; title: string }[], group = uid("g")) => {
     const tabs = pages.flatMap((p) => { const t = parseOpenRequest(p.url); return t ? [{ ...t, title: p.title || t.title }] : []; });
     if (!tabs.length) return;
     setWins((ws) => {
-      const group = uid("g");
       let top = Math.max(0, ...ws.map((w) => w.z));
       const vw = window.innerWidth;
       const vh = window.innerHeight;
@@ -315,6 +327,20 @@ export function App() {
     setOverview(false);
     if (desktop && roomFirst.current) enterRoom();
   }, [enterRoom]);
+
+  /** Every site as its own tab. They arrive a few at a time, and stop if the app reaches the agent engine's memory limit. */
+  const openTabs = useCallback(async (pages: { url: string; title: string }[]) => {
+    const list = [...new Map(pages.map((p) => [p.url, p])).values()];
+    const group = uid("g");
+    for (let i = 0; i < list.length; i += TAB_BATCH) {
+      if (i) {
+        await new Promise((r) => setTimeout(r, TAB_PAUSE));
+        const s = await desktop?.invoke<RamStats>("engine:stats").catch(() => null);
+        if (s?.system && s.total > s.system * 0.5) return setError(`Opened ${i} of ${list.length} sites. Memory is near its limit, so the rest are still on the map.`);
+      }
+      openGroup(list.slice(i, i + TAB_BATCH), group);
+    }
+  }, [openGroup]);
   const minimizeAll = useCallback(() => {
     const ids = winsRef.current.filter((w) => !w.minimized).map((w) => w.id);
     // only the windows open now: one opened meanwhile (the engine's results) stays in front
@@ -325,13 +351,11 @@ export function App() {
   const [dock, setDock] = useState<DockItem[]>(loadDock);
   useEffect(() => saveDock(dock), [dock]);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [theme, setTheme] = useState<"night" | "day">(() => { try { return localStorage.getItem("horus.theme") === "day" ? "day" : "night"; } catch { return "night"; } });
-  useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem("horus.theme", theme); } catch { /* per visit */ } }, [theme]);
 
   /** An assistant window: for a file (read here, on this computer), a page's text, or nothing yet. */
   const openAssistant = useCallback((title: string, near?: { x: number; y: number }, beside?: string) => {
     const key = uid("a");
-    openTab({ kind: "assistant", src: key, href: "", title, domain: "horus" }, near, beside);
+    openTab({ kind: "assistant", src: key, href: "", title, domain: "warpnaut" }, near, beside);
     setWins((ws) => ws.map((w) => (w.page.src === key ? { ...w, w: Math.min(480, window.innerWidth - 32), h: Math.min(600, window.innerHeight - 160) } : w)));
     return key;
   }, [openTab]);
@@ -365,6 +389,7 @@ export function App() {
     if (item.action === "files") return fileInput.current?.click();
     if (item.action === "ai") return void openAI(at);
     if (item.action === "station") return setStationOpen((o) => !o);
+    if (item.action === "research") return setBoardOpen((o) => !o);
     if (item.action === "phone") {
       const open = winsRef.current.find((w) => w.page.kind === "phone");
       if (open) return setWins((ws) => { const top = Math.max(0, ...ws.map((w) => w.z)) + 1; return ws.map((w) => (w.id === open.id ? { ...w, minimized: false, z: top } : w)); });
@@ -452,11 +477,11 @@ export function App() {
     if (!desktop) return;
     document.documentElement.dataset.platform = desktop.platform;
     const offs = [
-      desktop.on("horus:open", (p) => { const { url, from } = p as { url: string; from?: number }; openLink(url, from); }),
-      desktop.on("horus:command", (p) => { const { name, value } = p as { name: string; value?: string }; runCommand.current(name, value); }),
-      desktop.on("horus:download", (p) => { const d = p as Download; setDownloads((ds) => [d, ...ds.filter((x) => x.id !== d.id)].slice(0, 100)); }),
-      desktop.on("horus:permission", (p) => setAsks((a) => [...a, p as PermissionAsk])),
-      desktop.on("horus:update", (p) => setAppUpdate(p as { version: string })),
+      desktop.on("warpnaut:open", (p) => { const { url, from } = p as { url: string; from?: number }; openLink(url, from); }),
+      desktop.on("warpnaut:command", (p) => { const { name, value } = p as { name: string; value?: string }; runCommand.current(name, value); }),
+      desktop.on("warpnaut:download", (p) => { const d = p as Download; setDownloads((ds) => [d, ...ds.filter((x) => x.id !== d.id)].slice(0, 100)); }),
+      desktop.on("warpnaut:permission", (p) => setAsks((a) => [...a, p as PermissionAsk])),
+      desktop.on("warpnaut:update", (p) => setAppUpdate(p as { version: string })),
     ];
     void desktop.invoke<string[]>("app:ready").then((urls) => urls.forEach((u) => openLink(u)));
     return () => offs.forEach((off) => off());
@@ -582,6 +607,12 @@ export function App() {
 
   // ---- the Agent Station: Claude agents, running beside whatever the person is doing ----
   const [stationOpen, setStationOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [board, setBoard] = useState<Board>(EMPTY_BOARD);
+  const boardLoaded = useRef(false);
+  useEffect(() => { void loadBoard().then((b) => { boardLoaded.current = true; setBoard(b); }); }, []);
+  const keepBoard = useCallback((change: (b: Board) => Board) => setBoard((b) => { const next = change(b); if (boardLoaded.current) saveBoard(next); return next; }), []);
+  keepResearch.current = (q, m) => { if (m?.sources.length) keepBoard((b) => (b.keep ? addResearch(b, fromEnvironment(q, m)) : b)); };
   const [crew, setCrew] = useState<Agent[]>([]);
   const [runs, setRuns] = useState<Record<string, Run>>({});
   const stops = useRef(new Map<string, AbortController>());
@@ -607,7 +638,25 @@ export function App() {
   };
   const fromPage = (url: string, text: string) => `<page_content source="${url.replace(/"/g, "")}">\n${text}\n</page_content>`;
 
+  /** What each running agent holds off the conversation: its data sets, and whether it has read email. */
+  const workbench = useRef(new Map<string, { data: DataSets; readMail: boolean; signal: AbortSignal }>());
+
   const agentTool = useCallback(async (agent: Agent, name: string, input: Record<string, unknown>, ask: (q: string) => Promise<boolean>): Promise<string> => {
+    const bench = workbench.current.get(agent.id)!;
+    if (bench.readMail && leavesTrace(name, input)) {
+      const target = String(input.url ?? input.fact ?? (name === "crawl_pages" ? "several pages" : "this page")).slice(0, 160);
+      if (!(await ask(`${agent.name} has read your email and now wants to use ${name.replace(/_/g, " ")}: ${target}. Allow it?`))) return "The person declined this.";
+    }
+    const engined = await engineTool(name, input, {
+      agent, data: bench.data, signal: bench.signal, openUrl,
+      markMail: () => { bench.readMail = true; },
+      remember: (fact) => keepCrew((c) => c.map((a) => (a.id === agent.id ? { ...a, memory: [fact.slice(0, 300), ...(a.memory ?? [])].slice(0, 30) } : a))),
+      livePage: async (window) => {
+        const p = await livePage(agentWindow(window).id);
+        return { url: p.url(), read: <T,>(script: string) => p.read<T>(script) };
+      },
+    });
+    if (engined !== null) return engined;
     switch (name) {
       case "list_windows":
         return JSON.stringify(winsRef.current.filter((w) => !w.private).map((w) => ({ id: w.id, title: pages.get(w.id)?.title() || w.page.title, url: pages.get(w.id)?.url() || w.page.href, minimized: !!w.minimized })));
@@ -630,7 +679,7 @@ export function App() {
       case "read_page": {
         const w = agentWindow(input.window);
         const p = await livePage(w.id);
-        return fromPage(p.url(), (await p.text()).slice(0, 30_000));
+        return inParts(p.url(), await p.text(), Number(input.offset) || 0);
       }
       case "see_page": {
         const p = await livePage(agentWindow(input.window).id);
@@ -670,18 +719,23 @@ export function App() {
     stops.current.get(agent.id)?.abort();
     const ctrl = new AbortController();
     stops.current.set(agent.id, ctrl);
-    const update = (patch: (r: Run) => Run) => setRuns((rs) => ({ ...rs, [agent.id]: patch(rs[agent.id]) }));
-    setRuns((rs) => ({ ...rs, [agent.id]: { agentId: agent.id, status: "working", steps: [], said: "" } }));
-    let report = "";
+    let current: Run = { agentId: agent.id, status: "working", steps: [], said: "" };
+    const update = (patch: (r: Run) => Run) => { current = patch(current); const next = current; setRuns((rs) => ({ ...rs, [agent.id]: next })); };
+    update((r) => r);
+    workbench.current.set(agent.id, { data: new Map(), readMail: false, signal: ctrl.signal });
+
     runAgent(agent, {
-      turn: (messages) => claudeTurn({ name: agent.name, role: agent.role, task: agent.task, plan: agent.plan, access: agent.access, model: agent.model }, messages, ctrl.signal) as never,
+      turn: (messages) => claudeTurn({ name: agent.name, role: agent.role, task: agent.task, plan: agent.plan, access: agent.access, model: agent.model, skills: skillsOf(agent), memory: agent.memory ?? [] }, messages, ctrl.signal) as never,
       tool: (name, input, ask) => agentTool(agent, name, input, ask),
-      update: (patch) => update((r) => { const next = patch(r); report = next.report ?? report; return next; }),
+      update,
       signal: ctrl.signal,
     }).then(() => {
-      if (report) keepCrew((c) => c.map((a) => (a.id === agent.id ? { ...a, last: { at: Date.now(), report } } : a)));
+      const { report, steps } = current;
+      if (report) keepCrew((c) => c.map((a) => (a.id === agent.id ? { ...a, last: { at: Date.now(), report }, xp: (a.xp ?? 0) + steps.filter((s) => s.status === "done").length } : a)));
     }).catch((err) => {
       update((r) => ({ ...r, status: ctrl.signal.aborted ? "stopped" : "failed", error: ctrl.signal.aborted ? undefined : (err as Error).message, ask: undefined }));
+    }).finally(() => {
+      if (stops.current.get(agent.id) === ctrl) workbench.current.delete(agent.id); // a run's data goes with it
     });
   }, [agentTool, keepCrew]);
   const working = crew.filter((a) => runs[a.id]?.status === "working");
@@ -709,7 +763,7 @@ export function App() {
         onKeyAsk={() => askAtBar()}
         onEscape={onEscape}
         backdrop={<>
-          <Planet dim={frames.length > 0 || surround} quiet={browsing} reduced={reduced} theme={theme} onSeed={(q) => { minimizeAll(); run(q, { fresh: true, at: field.current?.center() }); }} />
+          <Planet dim={frames.length > 0 || surround} quiet={browsing} reduced={reduced} onSeed={(q) => { minimizeAll(); run(q, { fresh: true, at: field.current?.center() }); }} />
         </>}
       >
         {model && layout && View && (
@@ -720,9 +774,9 @@ export function App() {
       </Field>
 
       <header className="topbar" data-ui>
-        <button className="wordmark" onClick={resetAll} aria-label="Horus — return to the beginning">
+        <button className="wordmark" onClick={resetAll} aria-label="Warpnaut — return to the beginning">
           <Logo />
-          <span className="wordmark__name">Horus</span>
+          <span className="wordmark__name">Warpnaut</span>
         </button>
         {frames.length > 0 && (
           <nav className="trail" aria-label="Exploration path">
@@ -736,13 +790,9 @@ export function App() {
         )}
         <div className="topbar__right">
           {dataMode !== "live" && <span className={`mode mode--${dataMode}`}>{dataMode === "sample" ? "Sample data" : dataMode === "mixed" ? "Live + sample" : ""}</span>}
+          <RamBuddy />
           <Clock />
           <span className="topbar__sep" aria-hidden="true" />
-          <button className="voice" onClick={() => setTheme((t) => (t === "day" ? "night" : "day"))} aria-label={theme === "day" ? "Switch to night" : "Switch to day"} title={theme === "day" ? "Night" : "Day"}>
-            {theme === "day"
-              ? <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10Z" /></svg>
-              : <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="3.6" /><path d="M12 2.8v2.4M12 18.8v2.4M4.2 12H1.8M22.2 12h-2.4M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M5.6 18.4l1.7-1.7M16.7 7.3l1.7-1.7" /></svg>}
-          </button>
           <button className={`avatar ${accounts?.google ? "is-signed-in" : ""}`} onClick={() => setAccountOpen((o) => !o)} aria-label="Accounts" aria-expanded={accountOpen}
             title={accounts?.google ? "Signed in to Google" : "Accounts: sign in with Google"}>
             {prefs.preferences.name ? prefs.preferences.name.trim().charAt(0).toUpperCase()
@@ -846,6 +896,9 @@ export function App() {
         onAttach={(w, f) => { setWins((ws) => ws.map((x) => (x.id === w.id ? { ...x, page: { ...x.page, title: f.name } } : x))); loadFileInto(w.page.src, f); }}
         onPin={togglePin} pinned={isPinned} />
 
+      {sites.length > 1 && !browsing && !surround && (
+        <button className="tabs-all" data-ui onClick={() => void openTabs(sites)}>Open all {sites.length} sites as tabs</button>
+      )}
       <ControlBar wins={wins} home={home} items={dock} onItems={setDock} onItem={onDockItem} aiReady={!!health?.llm}
         onLibrary={desktop ? () => setLibrary((l) => (l ? null : "history")) : undefined} onSettings={desktop ? () => setSettingsOpen(true) : () => setPrivacyOpen(true)}
         downloading={downloads.filter((d) => d.state === "progressing").length} overview={overview} onOverview={setOverview} onPlace={openPlace}
@@ -871,12 +924,14 @@ export function App() {
       )}
 
       {library && desktop && <LibrarySheet tab={library} downloads={downloads} onTab={setLibrary} onClose={() => setLibrary(null)} onOpen={(url) => { setLibrary(null); openLink(url); }} />}
-      {stationOpen && <AgentStation agents={crew} runs={runs} claude={!!health?.claude} provider={health?.model?.provider} onKeySaved={() => void getHealth().then(setHealth)}
+      {boardOpen && <ResearchBoard board={board} aiReady={!!health?.llm} onChange={keepBoard} onAsk={(q) => { setBoardOpen(false); minimizeAll(); void run(q, { fresh: true, at: field.current?.center() }); }}
+        onOpenPages={(pages) => { setBoardOpen(false); void openTabs(pages); }} onConnectModel={() => { setBoardOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onClose={() => setBoardOpen(false)} />}
+      {stationOpen && <AgentStation reduced={reduced} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} agents={crew} runs={runs} claude={!!health?.claude} provider={health?.model?.provider} onKeySaved={() => void getHealth().then(setHealth)}
         onSave={(a) => keepCrew((c) => (c.some((x) => x.id === a.id) ? c.map((x) => (x.id === a.id ? a : x)) : [...c, a]))}
         onDelete={(id) => { stops.current.get(id)?.abort(); keepCrew((c) => c.filter((a) => a.id !== id)); }}
         onStart={startAgent} onStop={(id) => stops.current.get(id)?.abort()} onClose={() => setStationOpen(false)} />}
       {!stationOpen && working.length > 0 && (
-        <button className={`station-pill ${needsYou ? "is-ask" : ""}`} data-ui onClick={() => setStationOpen(true)}>
+        <button className={`station-pill is-working ${needsYou ? "is-ask" : ""}`} data-ui onClick={() => setStationOpen(true)}>
           {working.slice(0, 5).map((a) => <span key={a.id} className="mm__dot is-working" style={{ ["--hue" as string]: a.hue }} aria-hidden="true" />)}
           {needsYou ? "An agent needs you" : `${working.length} agent${working.length > 1 ? "s" : ""} working`}
         </button>
@@ -888,7 +943,7 @@ export function App() {
       {asks[0] && <PermissionPrompt key={asks[0].id} ask={asks[0]} onAnswer={(ok) => { void desktop?.invoke("permission:answer", asks[0].id, ok); setAsks((a) => a.slice(1)); }} />}
       {appUpdate && (
         <p className="update-note" data-ui role="status">
-          Horus {appUpdate.version} {appUpdate.ready ? "is ready." : "is available."}
+          Warpnaut {appUpdate.version} {appUpdate.ready ? "is ready." : "is available."}
           {appUpdate.ready ? <button className="btn btn--small btn--primary" onClick={() => void desktop?.invoke("app:installUpdate")}>Restart to update</button>
             : appUpdate.manual && appUpdate.url && <button className="btn btn--small" onClick={() => void desktop?.invoke("app:openExternal", appUpdate.url)}>Download</button>}
           <button className="icon-btn icon-btn--small" aria-label="Dismiss" onClick={() => setAppUpdate(null)}>×</button>
@@ -923,7 +978,7 @@ function Clock() {
   );
 }
 
-const SPACE_KEY = "horus.space.v1";
+const SPACE_KEY = "warpnaut.space.v1";
 
 function loadSpace(): Win[] {
   try {

@@ -12,7 +12,7 @@ export interface Health {
   claude?: boolean;
   providers: { id: string; label: string; configured: boolean }[];
   sync?: boolean;
-  /** Where other devices can reach this Horus (PUBLIC_URL), and this computer's Wi-Fi addresses. */
+  /** Where other devices can reach this Warpnaut (PUBLIC_URL), and this computer's Wi-Fi addresses. */
   publicUrl?: string | null;
   lan?: string[];
 }

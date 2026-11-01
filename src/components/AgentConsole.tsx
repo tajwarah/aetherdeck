@@ -75,7 +75,7 @@ export function AgentConsole({ listen, voice, model, context, act, onConnect, on
       rec.current = await record(() => void finish());
       setPhase("listening");
     } catch {
-      setError("The microphone isn't available. Allow it for Horus in your system settings, or type instead.");
+      setError("The microphone isn't available. Allow it for Warpnaut in your system settings, or type instead.");
     }
   }
 

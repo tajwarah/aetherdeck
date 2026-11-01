@@ -9,7 +9,7 @@ interface Curved { osr: BrowserWindow; inFlight: number; input: Promise<unknown>
 const CURSORS: Record<string, string> = { pointer: "default", hand: "pointer", ibeam: "text", wait: "wait", progress: "progress", crosshair: "crosshair", move: "move", "not-allowed": "not-allowed", grab: "grab", grabbing: "grabbing", "e-resize": "ew-resize", "w-resize": "ew-resize", "n-resize": "ns-resize", "s-resize": "ns-resize", "ew-resize": "ew-resize", "ns-resize": "ns-resize", "col-resize": "col-resize", "row-resize": "row-resize", help: "help", "zoom-in": "zoom-in", "zoom-out": "zoom-out" };
 
 /** Linux's shared textures depend on the driver, so frames there are copied through the CPU: slower, but sure. */
-const sharedFrames = () => process.platform !== "linux" && !process.env.HORUS_CURVE_COPY;
+const sharedFrames = () => process.platform !== "linux" && !process.env.WARPNAUT_CURVE_COPY;
 
 export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage: (wc: WebContents) => void; partitions: Set<string> }) {
   const all = new Map<string, Curved>();
@@ -27,7 +27,7 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
   };
 
   ipcMain.handle("curve:open", (_e, id: string, url: string, w: number, h: number, scale: number, partition: string) => {
-    if (!/^https?:\/\//i.test(url) || !deps.partitions.has(partition)) return false;
+    if (!/^(https?|agent-app):\/\//i.test(url) || !deps.partitions.has(partition)) return false;
     all.get(id)?.osr.destroy(); // the interface reloaded: its window starts over
     all.delete(id);
     const size = room ?? { w, h };

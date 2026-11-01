@@ -43,7 +43,7 @@ export const openalex: Provider = {
       "per-page": String(Math.min(q.limit, 10)),
       select: "id,doi,title,publication_date,cited_by_count,type,authorships,primary_location,abstract_inverted_index",
     });
-    const contact = process.env.HORUS_CONTACT?.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+    const contact = process.env.WARPNAUT_CONTACT?.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
     if (contact) params.set("mailto", contact); // OpenAlex "polite pool"
     const raw = await fetchJson(`https://api.openalex.org/works?${params}`, { timeoutMs: 9000 });
     const retrievedAt = new Date().toISOString();
