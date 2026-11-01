@@ -48,8 +48,9 @@ export function extractScript(kind: ExtractKind, selector = ""): string {
       });
     }
     return items.map((e) => {
-      const a = e.matches('a[href]') ? e : e.querySelector('a[href]');
       const h = e.querySelector('h1,h2,h3,h4,h5,[class*=title i],[class*=name i]');
+      /* the item's own link: the one in its title, else the one with the most words, not a vote or login link that comes first */
+      const a = e.matches('a[href]') ? e : (h && (h.closest('a[href]') || h.querySelector('a[href]'))) || [...e.querySelectorAll('a[href]')].sort((p, q) => q.innerText.length - p.innerText.length)[0];
       const text = clean(e.innerText);
       const price = text.match(/[$€£¥₹]\\s?\\d[\\d,.]*|\\d[\\d,.]*\\s?(?:USD|EUR|GBP|INR)\\b/);
       const row = { title: clean((h && h.innerText) || (a && a.innerText)) || text.slice(0, 120), url: a ? a.href : '', text };
@@ -59,9 +60,12 @@ export function extractScript(kind: ExtractKind, selector = ""): string {
 }
 
 export const INBOX_READY = "tr.zA, td.TC";
-export const inboxScript = (limit: number) => `[...document.querySelectorAll('tr.zA')].slice(0, ${Math.min(limit, 50)}).map((r) => { const t = (s) => (r.querySelector(s)?.innerText || '').replace(/\\s+/g, ' ').trim();
-  return { thread: r.querySelector('[data-legacy-thread-id]')?.getAttribute('data-legacy-thread-id') || '', from: r.querySelector('.yW [email]')?.getAttribute('name') || t('.yW'), subject: t('.bog'), snippet: t('.y2').replace(/^[-\\s]+/, ''), date: r.querySelector('.xW span[title]')?.title || t('.xW'), unread: r.classList.contains('zE') }; })`;
+/** The rows, and whether a real inbox was on the page: an empty inbox and no inbox at all are different answers. */
+export const inboxScript = (limit: number) => `({ ready: !!document.querySelector(${JSON.stringify(INBOX_READY)}), rows: [...document.querySelectorAll('tr.zA')].slice(0, ${Math.min(limit, 50)}).map((r) => { const t = (s) => (r.querySelector(s)?.innerText || '').replace(/\\s+/g, ' ').trim();
+  return { thread: r.querySelector('[data-legacy-thread-id]')?.getAttribute('data-legacy-thread-id') || '', from: r.querySelector('.yW [email]')?.getAttribute('name') || t('.yW'), subject: t('.bog'), snippet: t('.y2').replace(/^[-\\s]+/, ''), date: r.querySelector('.xW span[title]')?.title || t('.xW'), unread: r.classList.contains('zE') }; }) })`;
 export const THREAD_READY = ".a3s";
+/** Signed out, Gmail sends visitors to sign-in or to a page about Gmail. */
+export const inGmail = (url: string) => /^https:\/\/mail\.google\.com\/mail\//.test(url);
 export const threadScript = `(() => ({ subject: document.querySelector('h2.hP')?.innerText || document.title, messages: [...document.querySelectorAll('.adn')].map((m) => ({ from: m.querySelector('.gD')?.getAttribute('email') || '', name: m.querySelector('.gD')?.getAttribute('name') || '', date: m.querySelector('.g3')?.title || '', text: (m.querySelector('.a3s')?.innerText || '').slice(0, 8000) })) }))()`;
 
 /** A video's title, description and transcript: its caption track when the page offers one, else YouTube's transcript panel. */

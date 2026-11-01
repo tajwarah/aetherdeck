@@ -110,6 +110,7 @@ describe("Ollama", () => {
     vi.stubEnv("OLLAMA_API_KEY", "k");
     await expect(run(async () => json({ error: "no" }, 401), "ollama-cloud")).rejects.toThrow(/did not accept/);
     await expect(run(async () => json({ error: "no" }, 429), "ollama-cloud")).rejects.toThrow(/usage limit/);
+    await expect(run(async () => json({ error: "no" }, 402))).rejects.toThrow(/free plan/);
   });
 });
 
@@ -145,6 +146,10 @@ describe("listing what agents can think with", () => {
     expect(brains[0]).toMatchObject({ id: "ollama", cost: "local", ready: true, models: [{ id: "qwen3" }] });
     expect(brains.find((b) => b.id === "anthropic")).toMatchObject({ ready: false, cost: "paid" });
     expect(brains.find((b) => b.id === "ollama-cloud")?.note).toMatch(/Add an Ollama key/);
+  });
+  it("labels a cloud model the local Ollama offers", async () => {
+    const f = async (url: string) => (url.endsWith("/api/tags") ? json({ models: [{ name: "gemma4:31b-cloud" }] }) : url.endsWith("/api/show") ? json({ capabilities: ["tools"] }) : Promise.reject(new Error("offline")));
+    expect((await listBrains(f as never))[0].models[0].name).toMatch(/Ollama's cloud/);
   });
   it("says how to start when Ollama isn't installed", async () => {
     const brains = await listBrains((async () => { throw new Error("no"); }) as never);

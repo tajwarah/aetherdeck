@@ -323,6 +323,7 @@ async function ollamaStream(cloud: boolean, body: Record<string, unknown>, idle:
       const error = (() => { try { return String((JSON.parse(text) as { error?: string }).error ?? text); } catch { return text; } })().slice(0, 200);
       if (res.status === 401 || res.status === 403) throw fail(res.status, "Ollama Cloud did not accept the API key.");
       if (res.status === 429) throw fail(429, "You've reached Ollama Cloud's usage limit. See ollama.com/settings/usage.");
+      if (res.status === 402) throw fail(402, `${body.model} isn't in Ollama's free plan. Choose a free model such as gemma4:31b-cloud, or add credit at ollama.com/settings.`);
       if (/does not support tools/i.test(error)) throw fail(400, `${body.model} can't use tools, so it can't run agents. Choose a model with tool support, such as qwen3.`);
       if (res.status === 404) throw fail(404, cloud ? `Ollama Cloud doesn't offer ${body.model}.` : `${body.model} isn't on this computer. Run: ollama pull ${body.model}`);
       throw fail(res.status >= 500 ? 502 : res.status, `Ollama answered: ${error}`);

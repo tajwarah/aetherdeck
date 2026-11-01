@@ -28,7 +28,7 @@ Agents can run on the model you choose, one model per agent, so they don't have 
 |---|---|---|
 | [Ollama](https://ollama.com/download) on your computer | Free. Nothing leaves your computer | Install it, then run `ollama pull qwen3`. A model must support tools |
 | LM Studio on your computer | Free | Start its local server |
-| Ollama Cloud | See [its plans](https://ollama.com/pricing) | Add a key from [ollama.com/settings/keys](https://ollama.com/settings/keys) in Settings, or sign in to Ollama and use a `:cloud` model |
+| Ollama Cloud | Free plan includes `gemma4:31b-cloud`; other models need [credit or a plan](https://ollama.com/pricing) | Sign in to Ollama and run `ollama pull gemma4:31b-cloud`, or add a key from [ollama.com/settings/keys](https://ollama.com/settings/keys) in Settings |
 | Groq, Gemini, OpenRouter | Free tiers with daily limits | Add a key in Settings |
 | OpenAI, Anthropic Claude | Paid per use | Add a key in Settings |
 
@@ -224,7 +224,7 @@ An API key is not the same as a ChatGPT Plus or Claude subscription. Create it i
 ## Tests
 
 ```bash
-npm test             # 170 unit tests: the curved screen, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
+npm test             # 173 unit tests: the curved screen, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
                      # windows and groups, sync merge/encryption/links, the sync store
 npm run test:e2e     # 24 Playwright tests (desktop + mobile; 6 desktop-only) against sample data: orientation, research + provenance,
                      # location gate, action prepare/confirm/hand-off, privacy erase, keyboard + reduced motion, floating windows, groups, overview,

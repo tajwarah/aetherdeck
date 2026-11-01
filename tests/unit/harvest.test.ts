@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APP_ID, APP_POLICY, isHumanCheck, paceFor, robotsAllow, robotsRules, safeFileName, toCsv } from "../../shared/harvest.ts";
+import { APP_ID, APP_POLICY, inboxScript, inGmail, isHumanCheck, paceFor, robotsAllow, robotsRules, safeFileName, toCsv } from "../../shared/harvest.ts";
 import { keepRows, inParts } from "../../src/lib/agentTools.ts";
 
 describe("robots.txt", () => {
@@ -49,3 +49,14 @@ describe("apps agents build", () => {
   });
   it("only take plain ids", () => { expect(APP_ID.test("a1b2c3")).toBe(true); expect(APP_ID.test("../x")).toBe(false); expect(APP_ID.test("ABC")).toBe(false); });
 });
+
+describe("telling a signed-out Gmail from an empty inbox", () => {
+  it("only trusts Gmail's own address", () => {
+    expect(inGmail("https://mail.google.com/mail/u/0/#inbox")).toBe(true);
+    expect(inGmail("https://workspace.google.com/intl/en/gmail/")).toBe(false);
+    expect(inGmail("https://accounts.google.com/signin")).toBe(false);
+    expect(inGmail("https://mail.google.com.evil.test/mail/")).toBe(false);
+  });
+  it("says whether an inbox was on the page", () => { expect(inboxScript(5)).toContain("ready:"); });
+});
+

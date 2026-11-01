@@ -114,13 +114,16 @@ export function brainTurn(provider: string, model: string, system: string, tools
   return compatTurn(provider, model, system, tools, messages, maxTokens, fetchImpl);
 }
 
+/** A model the local Ollama hands to its cloud once you've signed in. It takes no space, and its text leaves this computer. */
+const isCloud = (id: string) => /[:-]cloud$/.test(id);
+
 /** Ollama says which models can use tools; agents can't work without them. Older versions don't say, so those stay listed. */
 async function withTools(models: { id: string; name: string }[], fetchImpl: typeof fetch) {
   const checked = await Promise.all(models.map(async (m) => {
     try {
       const r = await fetchImpl(`${ollamaUrl()}/api/show`, { method: "POST", body: JSON.stringify({ model: m.id }), signal: AbortSignal.timeout(3000) });
       const caps = ((await r.json()) as { capabilities?: string[] }).capabilities;
-      return !caps || caps.includes("tools") ? [m] : [];
+      return !caps || caps.includes("tools") ? [isCloud(m.id) ? { ...m, name: `${m.id}, runs in Ollama's cloud` } : m] : [];
     } catch { return [m]; }
   }));
   return checked.flat();

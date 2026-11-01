@@ -127,7 +127,7 @@ const MAX_TURNS = 60;
 /** A runaway run stops here, on anything billed by use. Models on this computer cost nothing. */
 export const TOKEN_LIMIT = 500_000;
 const LOCAL = new Set(["ollama", "lmstudio"]);
-export const isLocal = (a: Pick<Agent, "provider">) => LOCAL.has(a.provider ?? "");
+export const isLocal = (a: Pick<Agent, "provider" | "model">) => LOCAL.has(a.provider ?? "") && !/[:-]cloud$/.test(a.model);
 /** Tools that only look: when Claude asks for several at once they run together. */
 export const PARALLEL = new Set(["list_windows", "fetch_page", "read_page", "see_page", "extract_data", "query_data", "watch_video", "read_inbox", "read_email"]);
 

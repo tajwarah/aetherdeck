@@ -8,7 +8,7 @@ Warpnaut is a free, open-source shell: you connect your own AI model, and your d
 |---|---|---|
 | History, bookmarks, agents, research board | JSON files in the app's data folder | Nothing |
 | API keys | Encrypted by the system keychain. Without a keychain they last until you quit and never reach the disk | Sent only to that key's provider |
-| Pages, email or files an agent or summary reads | On this computer | With a local model (Ollama, LM Studio), nothing. Otherwise the text goes to the AI provider you connected, under your own key, and their terms decide how long they keep it |
+| Pages, email or files an agent or summary reads | On this computer | With a model on your computer (Ollama, LM Studio), nothing. A model marked as running in Ollama's cloud is not local. Otherwise the text goes to the AI provider you connected, under your own key, and their terms decide how long they keep it |
 | Search questions | On this computer | Goes to the search engine you chose, and to the open sources used for the map |
 | Synced windows | Encrypted in the app, AES-256-GCM, with the key only in your link | Encrypted data only, to the sync server you run |
 

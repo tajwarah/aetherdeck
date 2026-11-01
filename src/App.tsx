@@ -119,7 +119,7 @@ export function App() {
    * something first (privacy choices, a check that they are a person) the window stays in front for them to
    * answer, and the map waits.
    */
-  const findWithEngine = useCallback(async (query: string, signal: AbortSignal): Promise<ExploreRequest["found"]> => {
+  const findWithEngine = useCallback(async (query: string, signal: AbortSignal, patient: boolean): Promise<ExploreRequest["found"]> => {
     if (!desktop || engine === "off") return undefined;
     const url = serpUrl(engine, query, navigator.language.split("-")[0] || "en");
     const existing = winsRef.current.find((w) => w.page.href === url);
@@ -135,7 +135,7 @@ export function App() {
     const started = Date.now();
     let asked = false;
     try {
-      while (!signal.aborted && Date.now() - started < (asked ? 180_000 : 20_000)) {
+      while (!signal.aborted && Date.now() - started < (asked && patient ? 180_000 : 20_000)) {
         await new Promise((r) => setTimeout(r, 350));
         let read: PageRead | null = null;
         try { read = (await pages.get(id)?.read<PageRead>(SERP_READ[engine])) ?? null; } catch { /* the page is between loads */ }
@@ -163,7 +163,7 @@ export function App() {
 
   const runRef = useRef<(q: string, o?: { fresh?: boolean }) => void>(() => undefined);
   const run = useCallback(
-    async (query: string, opts: { push?: boolean; fresh?: boolean; at?: { x: number; y: number }; loc?: ChosenLocation | null; depth?: "glance" | "standard" | "deep" } = {}) => {
+    async (query: string, opts: { push?: boolean; fresh?: boolean; unattended?: boolean; at?: { x: number; y: number }; loc?: ChosenLocation | null; depth?: "glance" | "standard" | "deep" } = {}) => {
       abort.current?.abort();
       const ctrl = new AbortController();
       abort.current = ctrl;
@@ -187,7 +187,7 @@ export function App() {
       const loc = opts.loc === undefined ? null : opts.loc;
       try {
         let needsLocation = false;
-        const found = await findWithEngine(query, ctrl.signal);
+        const found = await findWithEngine(query, ctrl.signal, !opts.unattended);
         if (ctrl.signal.aborted) return;
         let latest: EnvironmentModel | null = null;
         await exploreStream(
@@ -556,7 +556,7 @@ export function App() {
       case "search":
         if (!step.query) throw new Error("No search was given");
         minimizeAll();
-        await run(step.query, { fresh: true });
+        await run(step.query, { fresh: true, unattended: true }); // a person may not be watching, so a prompt from the engine can't hold the run
         return;
       case "open":
         if (!step.url) throw new Error("No address was given");

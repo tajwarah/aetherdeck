@@ -1,7 +1,7 @@
 // The tools that go beyond a visible window: reading pages through the agent engine, data sets, Gmail, YouTube, files,
 // apps and memory. Big results stay here on the workbench and only a short preview enters the conversation, so a long
 // run neither grows the app's memory nor pays again for rows Claude has already seen.
-import { appUrl, extractScript, inboxScript, INBOX_READY, ROWS_LIMIT, stamp, TEXT_LIMIT, threadScript, THREAD_READY, toCsv, videoScript, type ExtractKind, type Row } from "../../shared/harvest.ts";
+import { appUrl, extractScript, inboxScript, inGmail, INBOX_READY, ROWS_LIMIT, stamp, TEXT_LIMIT, threadScript, THREAD_READY, toCsv, videoScript, type ExtractKind, type Row } from "../../shared/harvest.ts";
 import { desktop } from "./desktop.ts";
 import type { Agent } from "./agents.ts";
 
@@ -90,14 +90,15 @@ export async function engineTool(name: string, input: Record<string, unknown>, c
       c.markMail();
       const q = String(input.search ?? "").trim();
       const url = `https://mail.google.com/mail/u/0/#${q ? `search/${encodeURIComponent(q)}` : "inbox"}`;
-      const v = await run<Row[]>(url, inboxScript(Number(input.limit) || 20), { waitFor: INBOX_READY });
-      if (/accounts\.google\.com/.test(v.url)) return "Gmail isn't signed in here. Tell the person to open Gmail in a window and sign in; agents never sign in.";
-      return wrap("gmail", JSON.stringify(v.result));
+      const v = await run<{ ready: boolean; rows: Row[] }>(url, inboxScript(Number(input.limit) || 20), { waitFor: INBOX_READY });
+      if (!inGmail(v.url)) return "Gmail isn't signed in here. Tell the person to open Gmail in a window and sign in; agents never sign in.";
+      if (!v.result.ready) return "Gmail didn't show an inbox, so nothing is known about the person's email. Say so; don't report it as empty.";
+      return wrap("gmail", JSON.stringify(v.result.rows));
     }
     case "read_email": {
       c.markMail();
       const v = await run<unknown>(`https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(String(input.thread ?? ""))}`, threadScript, { waitFor: THREAD_READY });
-      if (/accounts\.google\.com/.test(v.url)) return "Gmail isn't signed in here. Tell the person to sign in; agents never sign in.";
+      if (!inGmail(v.url)) return "Gmail isn't signed in here. Tell the person to sign in; agents never sign in.";
       return inParts("gmail", JSON.stringify(v.result), offset);
     }
     case "draft_email": {
