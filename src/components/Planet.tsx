@@ -151,10 +151,11 @@ export function Planet({ dim, quiet, reduced, onSeed }: { dim: boolean; quiet: b
     let raf = 0;
     let last = -1e9;
     const frame = (now: number) => {
-      // Dimmed behind an exploration: paint once, then hold still. Otherwise at most 30 frames a second (a globe
-      // turning this slowly gains nothing from more, and the interface keeps the rest), and 15 behind windows.
-      if (!dim) raf = requestAnimationFrame(frame);
-      if (now - last < (quiet ? 62 : 30)) return;
+      // Dimmed behind an exploration, or behind the pages you're browsing: paint once, then hold still. A turning globe
+      // behind a window made its glass blur again every frame, which browsing paid for. Otherwise at most 30 frames
+      // a second: a globe turning this slowly gains nothing from more, and the interface keeps the rest.
+      if (!dim && !quiet) raf = requestAnimationFrame(frame);
+      if (now - last < 30) return;
       last = now;
       const t = tilt.current;
       t.x += (t.tx - t.x) * 0.05;
@@ -184,7 +185,7 @@ export function Planet({ dim, quiet, reduced, onSeed }: { dim: boolean; quiet: b
   }, [reduced, R, cx, cy, vw, vh, dim, quiet]);
 
   return (
-    <div className={`planet ${dim ? "planet--dim" : ""}`} aria-hidden={dim}>
+    <div className={`planet ${dim ? "planet--dim" : ""} ${dim || quiet ? "planet--still" : ""}`} aria-hidden={dim}>
       <canvas ref={canvasRef} className="planet__canvas" style={{ top: bandTop(R, cy), width: vw, height: vh - bandTop(R, cy) }} aria-hidden="true" />
       {SEEDS.map((s, i) => (
         <button key={s.label} ref={(el) => { pinsRef.current[i] = el; }} className="seed" data-node data-hint="Explore" onClick={() => onSeed(s.query)} aria-label={`Explore: ${s.query}`}>

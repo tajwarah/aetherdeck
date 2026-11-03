@@ -37,6 +37,7 @@ import { LibrarySheet, PermissionPrompt, SettingsSheet, type LibraryTab } from "
 import { AccountMenu, useAccounts } from "./components/AccountMenu.tsx";
 import { AgentConsole } from "./components/AgentConsole.tsx";
 import { AgentStation } from "./components/AgentStation.tsx";
+import { ExtensionsHub } from "./components/Extensions.tsx";
 import { RamBuddy } from "./components/RamBuddy.tsx";
 import type { RamStats } from "./lib/ram.ts";
 import { ResearchBoard } from "./components/ResearchBoard.tsx";
@@ -937,6 +938,7 @@ export function App() {
       {library && desktop && <LibrarySheet tab={library} downloads={downloads} onTab={setLibrary} onClose={() => setLibrary(null)} onOpen={(url) => { setLibrary(null); openLink(url); }} />}
       {boardOpen && <ResearchBoard board={board} aiReady={!!health?.llm} onChange={keepBoard} onAsk={(q) => { setBoardOpen(false); minimizeAll(); void run(q, { fresh: true, at: field.current?.center() }); }}
         onOpenPages={(pages) => { setBoardOpen(false); void openTabs(pages); }} onConnectModel={() => { setBoardOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onClose={() => setBoardOpen(false)} />}
+      <ExtensionsHub onOpenUrl={openUrl} />
       {stationOpen && <AgentStation reduced={reduced} onSettings={() => { setStationOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} agents={crew} runs={runs}
         onSave={(a) => keepCrew((c) => (c.some((x) => x.id === a.id) ? c.map((x) => (x.id === a.id ? a : x)) : [...c, a]))}
         onDelete={(id) => { stops.current.get(id)?.abort(); keepCrew((c) => c.filter((a) => a.id !== id)); }}

@@ -11,6 +11,7 @@ import { basename, extname, join } from "node:path";
 import electronUpdater from "electron-updater";
 import { CONFIG_NAMES, KEY_NAMES, Store, type ConfigName, type KeyName } from "./store.ts";
 import { curvedPages } from "./curved.ts";
+import { extensions } from "./extensions.ts";
 import { agentApps, registerAppScheme } from "./apps.ts";
 import { agentEngine } from "./engine.ts";
 import { phones } from "./phone.ts";
@@ -26,6 +27,7 @@ let win: BrowserWindow | null = null;
 let store: Store;
 let curved: ReturnType<typeof curvedPages> | undefined;
 let shield: ReturnType<typeof shields>;
+let exts: ReturnType<typeof extensions> | null = null;
 let engine: ReturnType<typeof agentEngine> | undefined;
 let phone: ReturnType<typeof phones> | undefined;
 const pending: string[] = []; // links opened before the interface was ready
@@ -115,7 +117,7 @@ function setUpPage(wc: WebContents) {
   wc.on("will-navigate", (ev, url) => {
     // An app an agent built never leaves its page: a page's own navigation could otherwise carry its data away.
     if (wc.getURL().startsWith("agent-app:") && !url.startsWith(wc.getURL())) return ev.preventDefault();
-    if (/^(https?|about|blob|data|agent-app):/i.test(url)) return;
+    if (/^(https?|about|blob|data|agent-app):/i.test(url) || exts?.owns(url)) return;
     ev.preventDefault();
     void dialog.showMessageBox(win!, { type: "question", buttons: ["Open", "Cancel"], defaultId: 0, message: `Open this link in another app?`, detail: url }).then((r) => { if (r.response === 0) void shell.openExternal(url); });
   });
@@ -262,7 +264,10 @@ async function createWindow(target: string | Promise<string>) {
     prefs.contextIsolation = true;
     prefs.sandbox = true;
     prefs.webSecurity = true;
-    const okSrc = /^(https?:|about:blank)/i.test(params.src ?? "");
+    // An extension's own page (its popup, its options) only in the browsing session it was added to.
+    const extension = params.partition === WEB && !!exts?.owns(params.src ?? "");
+    const okSrc = /^(https?:|about:blank)/i.test(params.src ?? "") || extension;
+    if (extension && exts) prefs.preload = exts.shim; // only an extension's own page gets it, never a site
     if (!okSrc || (params.partition !== WEB && params.partition !== PRIVATE)) e.preventDefault();
   });
   // The interface itself never navigates away; its links open as panes.
@@ -386,6 +391,8 @@ app.whenReady().then(async () => {
   setUpSession(session.fromPartition(PRIVATE));
   handlers();
   curved = curvedPages({ host: () => win, setUpPage, partitions: new Set([WEB, PRIVATE]) });
+  exts = extensions({ session: () => session.fromPartition(WEB), host: () => win });
+  void exts.start();
   phone = phones({ dir: join(app.getPath("userData"), "phone"), send });
   Menu.setApplicationMenu(appMenu());
 

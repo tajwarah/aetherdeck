@@ -1,6 +1,6 @@
 // Widgets in the 360° room: small panes of glass hung on the wall beside the tabs (a clock, a note, the computer's
 // memory, the crew). They turn with the room: every time the room is drawn they are placed again, straight in the
-// DOM, by the same geometry as the pages (shared/surround.ts). Drag one by its top to hang it somewhere else.
+// DOM, by the same geometry as the pages (shared/surround.ts). Drag one anywhere but its text to hang it elsewhere.
 import { useEffect, useRef, useState } from "react";
 import { onWall, toWall, type Panel, type View } from "../../shared/surround.ts";
 import { desktop } from "../lib/desktop.ts";
@@ -83,7 +83,7 @@ export function RoomWidgets({ canvas, panels, saved, onSaved, crew, onCrew }: Pr
     return toWall(v, ((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2);
   };
   const grab = (id: WidgetId, e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest("button")) return;
+    if ((e.target as HTMLElement).closest("button, textarea, input, a")) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const w = wallAt(e);
     const p = placeOf(id);
@@ -99,8 +99,9 @@ export function RoomWidgets({ canvas, panels, saved, onSaved, crew, onCrew }: Pr
   const hide = (id: WidgetId) => { const s = { ...saved, shown: saved.shown.filter((x) => x !== id) }; onSaved(s); keep(s); };
 
   const frame = (id: WidgetId, title: string, body: React.ReactNode) => (
-    <section key={id} className={`rw rw--${id}`} ref={(el) => { if (el) els.current.set(id, el); else els.current.delete(id); }} aria-label={title}>
-      <header className="rw__head" onPointerDown={(e) => grab(id, e)} onPointerMove={pull} onPointerUp={drop} onPointerCancel={drop} title="Drag to hang it somewhere else">
+    <section key={id} className={`rw rw--${id}`} ref={(el) => { if (el) els.current.set(id, el); else els.current.delete(id); }} aria-label={title}
+      onPointerDown={(e) => grab(id, e)} onPointerMove={pull} onPointerUp={drop} onPointerCancel={drop} title="Drag to hang it somewhere else">
+      <header className="rw__head">
         <span>{title}</span>
         <button className="rw__x" aria-label={`Hide the ${title.toLowerCase()} widget`} title="Hide" onClick={() => hide(id)}>×</button>
       </header>

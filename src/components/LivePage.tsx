@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { desktop, pages } from "../lib/desktop.ts";
 import { parseOpenRequest, type Tab, type Win } from "../lib/windows.ts";
+import { openExtensions, PuzzleGlyph, storeIdIn } from "./Extensions.tsx";
 
 export interface LiveState { loading: boolean; back: boolean; fwd: boolean; url: string; bookmarked?: boolean; error?: string }
 
@@ -224,6 +225,8 @@ export function LiveControls({ win, live, onAsk, focusSeq }: { win: Win; live?: 
           </button>
         )}
       </label>
+      {!win.private && storeIdIn(url) && <button className="xt-add" onClick={() => openExtensions({ action: "store", id: storeIdIn(url)! })}><PuzzleGlyph />Add to Warpnaut</button>}
+      {!win.private && <button className="orn" aria-label="Extensions" title="Extensions" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openExtensions({ action: "shelf", x: r.left + r.width / 2, y: r.bottom, wc: page()?.wcId() }); }}><PuzzleGlyph /></button>}
     </>
   );
 }

@@ -10,3 +10,5 @@ const common = { bundle: true, platform: "node", target: "node22", external: ["e
 await build({ ...common, entryPoints: ["electron/main.ts"], outfile: "dist-electron/main.js", format: "esm",
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" } });
 await build({ ...common, entryPoints: ["electron/preload.ts"], outfile: "dist-electron/preload.cjs", format: "cjs" });
+// Its function is copied into extensions by its source text, so it must stand alone: no minifying, no name helpers.
+await build({ bundle: true, platform: "node", target: "node22", external: ["electron"], logLevel: "warning", entryPoints: ["electron/extension-shim.ts"], outfile: "dist-electron/extension-shim.cjs", format: "cjs" });

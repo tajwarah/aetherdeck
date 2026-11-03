@@ -8,6 +8,12 @@ interface Curved { osr: BrowserWindow; inFlight: number; input: Promise<unknown>
 
 const CURSORS: Record<string, string> = { pointer: "default", hand: "pointer", ibeam: "text", wait: "wait", progress: "progress", crosshair: "crosshair", move: "move", "not-allowed": "not-allowed", grab: "grab", grabbing: "grabbing", "e-resize": "ew-resize", "w-resize": "ew-resize", "n-resize": "ns-resize", "s-resize": "ns-resize", "ew-resize": "ew-resize", "ns-resize": "ns-resize", "col-resize": "col-resize", "row-resize": "row-resize", help: "help", "zoom-in": "zoom-in", "zoom-out": "zoom-out" };
 
+/**
+ * Pages in the room are drawn at most of the screen's sharpness, not all of it: a page hangs on the wall at about three
+ * quarters of its own size (shared/surround.ts), so at 0.8 its text still meets the screen's pixels one to one, and
+ * each frame has a third fewer pixels to draw, copy and upload.
+ */
+const ROOM_SHARPNESS = 0.8;
 /** Linux's shared textures depend on the driver, so frames there are copied through the CPU: slower, but sure. */
 const sharedFrames = () => process.platform !== "linux" && !process.env.WARPNAUT_CURVE_COPY;
 
@@ -47,7 +53,7 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
     const osr = new BrowserWindow({
       // Frameless, so a page's own full-screen button can't take this hidden window full screen and show it.
       show: false, frame: false, skipTaskbar: true, width: Math.max(200, Math.round(size.w)), height: Math.max(150, Math.round(size.h)),
-      webPreferences: { partition, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, offscreen: { useSharedTexture: sharedFrames(), deviceScaleFactor: sharedFrames() ? Math.min(3, Math.max(1, scale)) : 1 } },
+      webPreferences: { partition, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, offscreen: { useSharedTexture: sharedFrames(), deviceScaleFactor: sharedFrames() ? Math.min(3, Math.max(1, scale * ROOM_SHARPNESS)) : 1 } },
     });
     const wc = osr.webContents;
     wc.setFrameRate(sharedFrames() ? 60 : 30);

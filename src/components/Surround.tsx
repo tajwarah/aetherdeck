@@ -65,6 +65,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     if (wedge.current) wedge.current.style.left = `${(turn(motion.current.yaw) / TAU + 0.5) * STRIP}px`;
     document.dispatchEvent(new Event("warpnaut-scene"));
     pace();
+    hint();
   };
   /** The tab in use paints at full speed, the others in sight at a third, and those out of sight not at all. */
   const rates = useRef(new Map<string, number>());
@@ -104,14 +105,39 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     m.raf = requestAnimationFrame(step);
   };
   const lookAt = (yaw: number) => { motion.current.spin = 0; motion.current.target = yaw; run(); };
-  /** Settles on the tab you've turned most of the way to. Out on the empty wall, you stay where you are. */
+  /**
+   * Settles on the tab you've turned most of the way to. Beside your tabs (where the widgets hang) you stay where
+   * you are; but a turn never leaves you facing bare wall with every tab out of sight: it comes back to the nearest.
+   */
   const snap = () => {
     const m = motion.current;
-    const near = panelsNow.current.find((p) => Math.abs(turn(m.yaw - p.yaw)) < p.width * 0.62);
+    const list = panelsNow.current;
+    const near = list.find((p) => Math.abs(turn(m.yaw - p.yaw)) < p.width * 0.62)
+      ?? (list.some((p) => Math.abs(turn(m.yaw - p.yaw)) < p.width / 2 + halfView() * 0.6) ? undefined : nearest(m.yaw));
     if (!near || Math.abs(turn(m.yaw - near.yaw)) < 0.002) return false;
     m.raf = 0;
     lookAt(near.yaw);
     return true;
+  };
+  /** Half the width of what you can see, as an angle. */
+  const halfView = () => { const r = canvas.current?.getBoundingClientRect(); return Math.atan(Math.tan(motion.current.fov / 2) * ((r?.width ?? 16) / (r?.height ?? 10))); };
+  const nearest = (yaw: number, side = 0) => [...panelsNow.current]
+    .filter((p) => !side || Math.sign(turn(p.yaw - yaw)) === side)
+    .sort((a, b) => Math.abs(turn(a.yaw - yaw)) - Math.abs(turn(b.yaw - yaw)))[0];
+  // Tabs out of sight are counted at the edge they're nearest, so none is ever lost: press one to turn that way.
+  const hints = useRef<{ left: HTMLButtonElement | null; right: HTMLButtonElement | null }>({ left: null, right: null });
+  const hint = () => {
+    const yaw = motion.current.yaw;
+    const half = halfView();
+    const out = panelsNow.current.filter((p) => Math.abs(turn(p.yaw - yaw)) > half + p.width * 0.3);
+    for (const side of ["left", "right"] as const) {
+      const el = hints.current[side];
+      if (!el) continue;
+      const n = out.filter((p) => (side === "left" ? turn(p.yaw - yaw) < 0 : turn(p.yaw - yaw) > 0)).length;
+      el.hidden = !n;
+      el.dataset.count = String(n);
+      el.setAttribute("aria-label", `${n} tab${n === 1 ? "" : "s"} to the ${side}`);
+    }
   };
 
   // The room opens with every page painted fresh into it, and closes the same way, back to their windows.
@@ -374,6 +400,12 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { gesture.current = null; }} onPointerLeave={() => setHover(null)}
         onContextMenu={(e) => e.preventDefault()} onKeyDown={(e) => keys("keyDown", e)} onKeyUp={(e) => keys("keyUp", e)} />
       {!panels.length && <p className="surround__empty">Press + on the bar to open a tab.</p>}
+      {(["left", "right"] as const).map((side) => (
+        <button key={side} hidden className={`surround__hint surround__hint--${side}`} ref={(el) => { hints.current[side] = el; }}
+          onClick={() => { const p = nearest(motion.current.yaw, side === "left" ? -1 : 1); if (p) go2(p); }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={side === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} /></svg>
+        </button>
+      ))}
       <RoomWidgets canvas={canvas} panels={panels} saved={widgets} onSaved={setWidgets} crew={crew} onCrew={onCrew} />
       {widgetMenu && (
         <div className="surround__skies surround__widgets" role="dialog" aria-label="Widgets">
@@ -381,7 +413,8 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
           <div className="surround__skylist">
             {WIDGETS.map((w) => <button key={w.id} className={`surround__fav ${widgets.shown.includes(w.id) ? "is-on" : ""}`} aria-pressed={widgets.shown.includes(w.id)} onClick={() => toggleWidget(w.id)}>{w.label}</button>)}
           </div>
-          <p className="fine">Widgets hang on the wall beside your tabs. Drag one by its top to move it.</p>
+          <p className="fine">Widgets hang on the wall beside your tabs. Drag one to move it anywhere on the wall.</p>
+          {Object.keys(widgets.at).length > 0 && <button className="btn" onClick={() => { const next = { ...widgets, at: {} }; setWidgets(next); try { localStorage.setItem("warpnaut.roomWidgets", JSON.stringify(next)); } catch { /* this visit only */ } }}>Put them back beside the tabs</button>}
         </div>
       )}
       {adding && (
