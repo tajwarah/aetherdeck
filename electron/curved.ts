@@ -51,8 +51,9 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
     all.delete(id);
     const size = room ?? { w, h };
     const osr = new BrowserWindow({
-      // Frameless, so a page's own full-screen button can't take this hidden window full screen and show it.
-      show: false, frame: false, skipTaskbar: true, width: Math.max(200, Math.round(size.w)), height: Math.max(150, Math.round(size.h)),
+      // Never full screen: on macOS a hidden window that goes full screen gets a Space of its own, and the person is
+      // taken to it: an empty screen. A page's own full-screen button (a video's) fills its panel instead.
+      show: false, frame: false, skipTaskbar: true, fullscreenable: false, width: Math.max(200, Math.round(size.w)), height: Math.max(150, Math.round(size.h)),
       webPreferences: { partition, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, offscreen: { useSharedTexture: sharedFrames(), deviceScaleFactor: sharedFrames() ? Math.min(3, Math.max(1, scale * ROOM_SHARPNESS)) : 1 } },
     });
     const wc = osr.webContents;
@@ -96,7 +97,8 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
     wc.on("render-process-gone", (_e, d) => { if (d.reason !== "clean-exit") state(id, { gone: true }); });
     wc.on("found-in-page", (_e, r) => send("curve:found", { id, active: r.activeMatchOrdinal, total: r.matches }));
     // The page's own full-screen button (a video's, say) fills the curved screen; this window stays out of sight.
-    wc.on("enter-html-full-screen", () => { if (osr.isVisible()) osr.hide(); send("curve:fullscreen", { id, on: true }); });
+    wc.on("enter-html-full-screen", () => { if (osr.isFullScreen()) osr.setFullScreen(false); if (osr.isVisible()) osr.hide(); send("curve:fullscreen", { id, on: true }); });
+    osr.on("enter-full-screen", () => osr.setFullScreen(false));
     wc.on("leave-html-full-screen", () => send("curve:fullscreen", { id, on: false }));
     osr.on("show", () => osr.hide());
     void wc.loadURL(url).catch(() => undefined);

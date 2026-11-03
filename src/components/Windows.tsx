@@ -311,7 +311,11 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onNewTa
                   : bent ? <CurvedPage win={win} bend={bend} finding={findIn === win.id} onFindClose={onFindClose} onState={(st) => setLive((l) => ({ ...l, [win.id]: st }))}
                       onNavigate={(p) => update((ws) => ws.map((w) => (w.id === win.id ? { ...w, page: { ...w.page, ...p } } : w)))}
                       onFocus={() => raise(win.group ? [...membersOf(wins, win.group).filter((m) => m.id !== win.id).map((m) => m.id), win.id] : ids)}
-                      onFullscreen={(on) => { if (surround) return; setFullscreen(on ? win.id : null); void desktop!.invoke("app:fullscreen", on); }}
+                      onFullscreen={(on) => {
+                        // In the room a video's full screen fills its panel: the app goes full screen and turns to face it.
+                        if (surround) { if (on) raise([win.id]); void desktop!.invoke("app:fullscreen", on); return; }
+                        setFullscreen(on ? win.id : null); void desktop!.invoke("app:fullscreen", on);
+                      }}
                       onFail={() => setFlat((f) => new Set(f).add(win.id))} />
                   : desktop ? <LivePage win={win} finding={findIn === win.id} onFindClose={onFindClose}
                       onState={(st) => setLive((l) => ({ ...l, [win.id]: st }))}
