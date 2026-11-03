@@ -33,12 +33,14 @@ export interface Win extends Rect {
   restore?: Rect;
   /** Private window (desktop app): its own short-lived session; never in history, never synced. */
   private?: boolean;
+  /** Tabs: windows sharing a stack are the tabs of one browser window, shown one at a time. */
+  stack?: string;
 }
 
 /** Ids are random: windows and groups travel between devices, so they must not collide with another device's. */
 export const uid = (p: string) => `${p}${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(36).padStart(2, "0")).join("")}`;
 
-const URL_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/\S*)?$/i;
+const URL_RE = /^(https?:\/\/)?(([a-z0-9-]+\.)+[a-z]{2,}|localhost|\d{1,3}(\.\d{1,3}){3})(:\d+)?(\/\S*)?$/i;
 const YT_ID = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{6,})/i;
 
 export function domainOf(href: string) {
@@ -65,7 +67,8 @@ export function parseOpenRequest(text: string): Omit<Tab, "id"> | null {
   if (t.startsWith(`${APP_SCHEME}://`)) return { kind: "web", src: t, href: t, title: "Agent app", domain: "agent app" };
   const opened = t.replace(/^(open|go to|visit|browse)\s+/i, "");
   if (!/\s/.test(opened) && URL_RE.test(opened)) {
-    const href = /^https?:\/\//i.test(opened) ? opened : `https://${opened}`;
+    const local = /^(localhost|127\.|\d{1,3}(\.\d{1,3}){3})/i.test(opened); // a local server usually speaks plain http
+    const href = /^https?:\/\//i.test(opened) ? opened : `${local ? "http" : "https"}://${opened}`;
     const embed = youtubeEmbed(href);
     if (embed) return { kind: "video", src: embed, href, title: "YouTube", domain: "youtube.com" };
     return { kind: "web", src: href, href, title: domainOf(href), domain: domainOf(href) };
@@ -195,10 +198,37 @@ export function placeBeside(ws: Win[], anchor: Win, vw: number, vh: number): Rec
   return { x: Math.min(vw - w - 16, anchor.x + 40), y: Math.min(vh - h - BOTTOM, anchor.y + 40), w, h, fits: false };
 }
 
-/** How far a window turns toward the viewer: windows off to the side curve in, like panes arranged around you. */
-export function curveOf(r: Rect, vw: number) {
-  const offset = (r.x + r.w / 2 - vw / 2) / (vw / 2);
-  return Math.max(-12, Math.min(12, -offset * 12));
+/** A browser window's tabs: the windows that share its stack, in the order they were opened. */
+export const tabsOf = (ws: Win[], w: Win) => (w.stack ? ws.filter((x) => x.stack === w.stack) : [w]);
+
+/** The tabs waiting out of sight: in each browser window only the tab in front shows. */
+export function awayTabs(ws: Win[]): Set<string> {
+  const shown = new Map<string, Win>();
+  for (const w of ws) if (w.stack && !w.minimized && (shown.get(w.stack)?.z ?? -Infinity) < w.z) shown.set(w.stack, w);
+  return new Set(ws.filter((w) => w.stack && !w.minimized && shown.get(w.stack) !== w).map((w) => w.id));
+}
+
+/** Brings a tab to the front of its window, in the window's place and at its size. */
+export function showTab(ws: Win[], id: string): Win[] {
+  const tab = ws.find((w) => w.id === id);
+  if (!tab) return ws;
+  const away = awayTabs(ws);
+  const now = tab.stack ? ws.find((w) => w.stack === tab.stack && !w.minimized && !away.has(w.id)) : undefined;
+  const top = Math.max(0, ...ws.map((w) => w.z)) + 1;
+  const frame = now && now.id !== id ? { x: now.x, y: now.y, w: now.w, h: now.h, restore: now.restore } : {};
+  return ws.map((w) => (w.id === id ? { ...w, ...frame, minimized: false, z: top } : w));
+}
+
+/** Closes one tab; when it was the one showing, its neighbour takes its place. */
+export function closeTab(ws: Win[], id: string): Win[] {
+  const tab = ws.find((w) => w.id === id);
+  if (!tab) return ws;
+  const tabs = tabsOf(ws, tab);
+  const rest = ws.filter((w) => w.id !== id);
+  if (tabs.length < 2 || awayTabs(ws).has(id) || tab.minimized) return rest;
+  const i = tabs.indexOf(tab);
+  const next = tabs[i + 1] ?? tabs[i - 1];
+  return showTab(rest.map((w) => (w.id === next.id ? { ...w, x: tab.x, y: tab.y, w: tab.w, h: tab.h, restore: tab.restore } : w)), next.id);
 }
 
 /**

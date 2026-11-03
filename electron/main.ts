@@ -5,6 +5,8 @@
 import { app, BrowserWindow, Menu, globalShortcut, systemPreferences, clipboard, dialog, ipcMain, session, shell, webContents, type MenuItemConstructorOptions, type Session, type WebContents } from "electron";
 import { randomBytes } from "node:crypto";
 import { cpSync, existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { basename, extname, join } from "node:path";
 import electronUpdater from "electron-updater";
 import { CONFIG_NAMES, KEY_NAMES, Store, type ConfigName, type KeyName } from "./store.ts";
@@ -387,6 +389,23 @@ app.whenReady().then(async () => {
   phone = phones({ dir: join(app.getPath("userData"), "phone"), send });
   Menu.setApplicationMenu(appMenu());
 
+  /**
+   * The interface keeps one address from launch to launch: what it keeps in the browser's storage (the dock, the
+   * agents, the research board, the room's background) belongs to that address, and a new one would start empty.
+   */
+  async function interfacePort() {
+    const file = join(app.getPath("userData"), "interface-port");
+    const saved = Number(await readFile(file, "utf8").catch(() => "")) || 0;
+    const free = (port: number) => new Promise<number>((resolve) => {
+      const probe = createServer();
+      probe.once("error", () => resolve(0));
+      probe.listen(port, "127.0.0.1", () => { const a = probe.address(); probe.close(() => resolve(typeof a === "object" && a ? a.port : 0)); });
+    });
+    const port = (saved && (await free(saved))) || (await free(0));
+    if (port !== saved) await writeFile(file, String(port)).catch(() => undefined);
+    return port;
+  }
+
   const ready = (async () => {
     const { startServer } = await import("../server/index.ts");
     if (DEV_URL) {
@@ -394,7 +413,7 @@ app.whenReady().then(async () => {
       return DEV_URL;
     }
     const token = randomBytes(24).toString("base64url");
-    const { port } = await startServer({ port: 0, host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync"), token });
+    const { port } = await startServer({ port: await interfacePort(), host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync"), token });
     const url = `http://127.0.0.1:${port}/`;
     await session.defaultSession.cookies.set({ url, name: "warpnaut_token", value: token, httpOnly: true, sameSite: "strict" });
     return url;

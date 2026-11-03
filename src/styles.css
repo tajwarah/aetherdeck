@@ -616,11 +616,11 @@ kbd { font: 500 11px var(--sans); border: 1px solid var(--hair-strong); border-r
 
 .win {
   position: absolute; pointer-events: auto;
-  transform: rotateY(var(--curve, 0deg)) scale(0.97); filter: brightness(0.9) saturate(0.92);
+  transform: scale(0.985); filter: brightness(0.9) saturate(0.92);
   transition: left 0.32s var(--ease), top 0.32s var(--ease), width 0.32s var(--ease), height 0.32s var(--ease), transform 0.5s var(--ease), filter 0.5s var(--ease);
   animation: pop-win 0.5s var(--ease) both;
 }
-.win.is-front { transform: rotateY(calc(var(--curve, 0deg) * 0.5)); filter: none; }
+.win.is-front { transform: none; filter: none; }
 .win.is-max { transform: none; filter: none; }
 .windows.is-busy .win { transition: transform 0.5s var(--ease), filter 0.5s var(--ease); } /* follow the pointer exactly */
 /* a window zooms out of the point that opened it, then settles */
@@ -658,6 +658,23 @@ kbd { font: 500 11px var(--sans); border: 1px solid var(--hair-strong); border-r
 .win.is-front .win__tools, .win:hover .win__tools, .win:focus-within .win__tools { opacity: 1; }
 @container (max-width: 470px) { .win__addr { display: none; } .win__spacer { display: block; } }
 .win__body { position: absolute; left: 7px; right: 7px; top: 46px; bottom: 7px; border-radius: 15px; overflow: hidden; background: #0d0b09; }
+/* a browser window's tabs, along its top edge; the strip is also a handle to move the window */
+.win__tabs { position: absolute; left: 0; right: 0; top: 0; height: 38px; display: flex; align-items: center; gap: 4px; padding: 6px 8px 0; box-sizing: border-box; cursor: grab; touch-action: none; user-select: none; }
+.win__tablist { display: flex; gap: 2px; min-width: 0; flex: 0 1 auto; overflow-x: auto; scrollbar-width: none; }
+.win__tablist::-webkit-scrollbar { display: none; }
+.win__tab { flex: 0 1 200px; min-width: 64px; display: flex; align-items: center; height: 30px; border-radius: 9px; color: var(--ink-2); transition: background 0.12s; }
+.win__tab:hover { background: var(--hover, rgba(255, 255, 255, 0.06)); }
+.win__tab.is-on { background: var(--fill-on, rgba(255, 255, 255, 0.12)); color: var(--ink); }
+.win__tab > button:first-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 4px 0 9px; border: 0; background: none; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
+.win__tab .win__mark { width: 15px; height: 15px; border-radius: 4px; font-size: 8px; }
+.win__tabname { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.win__tabx { flex: none; width: 20px; height: 20px; margin-right: 5px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: inherit; opacity: 0; cursor: pointer; }
+.win__tab:hover .win__tabx, .win__tab.is-on .win__tabx, .win__tabx:focus-visible { opacity: 0.7; }
+.win__tabx:hover { opacity: 1; background: var(--hover, rgba(255, 255, 255, 0.08)); }
+.win__newtab { flex: none; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--ink-2); cursor: pointer; }
+.win__newtab:hover { background: var(--hover, rgba(255, 255, 255, 0.08)); color: var(--ink); }
+.win.has-tabs .win__bar { top: 36px; height: 42px; }
+.win.has-tabs .win__body { top: 78px; }
 .win__frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
 .win__state { position: absolute; inset: 0; margin: 0; display: grid; place-content: center; text-align: center; padding: 24px; font-size: 13px; color: var(--ink-3); background: var(--surface-solid); pointer-events: none; }
 .win__state--blocked { pointer-events: auto; gap: 8px; }
@@ -1158,30 +1175,9 @@ html[data-platform="win32"] .topbar, html[data-platform="linux"] .topbar { paddi
 .mm__group-btn:hover { background: color-mix(in oklab, var(--thread) 30%, transparent); }
 .world[data-lod="0"] .mm__site { width: 230px; }
 
-/* =====================================================================================================
-   A maximized or full-screen window becomes a curved screen: bowed top and bottom edges, the sides standing
-   taller, glass at the corners, and the bend shaded across a page that stays flat and sharp.
-   ===================================================================================================== */
-.win.is-curved .win__glass { background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
-/* No frost behind the curved screen: a blurred, clipped band as wide as the screen cost a quarter of the frame
-   rate (measured: ~45 fps against 60). Its glass is a denser tint instead, so the bar stays legible. */
-.win.is-curved .win__frost { display: none; }
-.win__shell { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; filter: drop-shadow(0 40px 70px rgba(0, 0, 0, 0.6)); animation: shell-in 0.45s var(--ease) both; }
-.win__shell path { stroke: var(--pearl-edge); stroke-width: 1.2; stroke-linejoin: round; }
-.win__shell-edge { stop-color: rgb(128, 116, 103); stop-opacity: 0.86; }
-.win__shell-mid { stop-color: rgb(62, 55, 48); stop-opacity: 0.9; }
-@keyframes shell-in { from { opacity: 0; transform: scaleY(0.96); } }
-.win.is-curved .win__bar { top: var(--sag); }
-.win.is-curved .win__body { top: calc(var(--sag) + 46px); bottom: calc(var(--sag) + 7px); border-radius: 10px; }
-.win.is-curved.is-fullscreen .win__body { top: 0; bottom: 0; left: 0; right: 0; border-radius: 0; }
-/* full screen is the page and nothing else, wrapped around you in the dark */
-:root[data-fullpage] .topbar, :root[data-fullpage] .dock, :root[data-fullpage] .controlbar, :root[data-fullpage] .group-orn, :root[data-fullpage] .win__shell { display: none; }
+/* full screen is the page and nothing else */
+:root[data-fullpage] .topbar, :root[data-fullpage] .dock, :root[data-fullpage] .controlbar, :root[data-fullpage] .group-orn { display: none; }
 :root[data-fullpage] .win.is-fullscreen { background: #000; }
-/* the bend, shaded: the sides turn toward you and catch less light; a faint sheen runs down the middle */
-.win.is-curved .win__body::after {
-  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit;
-  background: linear-gradient(90deg, rgba(20, 14, 8, 0.22), rgba(20, 14, 8, 0) 13%, rgba(222, 230, 240, 0.035) 50%, rgba(20, 14, 8, 0) 87%, rgba(20, 14, 8, 0.22));
-}
 .engine-ask {
   margin: 0 auto 8px; max-width: 520px; padding: 9px 16px; border-radius: 99px; text-align: center; font-size: 13px; color: var(--ink);
   background: var(--surface); backdrop-filter: blur(14px); border: 1px solid var(--thread); box-shadow: var(--lift), 0 0 26px -8px var(--thread);
@@ -1223,9 +1219,6 @@ html[data-platform="win32"] .topbar, html[data-platform="linux"] .topbar { paddi
 .mm__site { background: var(--lg-sheen), var(--surface); border-color: var(--lg-line); }
 .mm__branch { background: var(--lg-sheen), var(--surface); }
 .sheet { background: color-mix(in oklab, var(--surface-solid) 82%, transparent); backdrop-filter: blur(24px) saturate(1.6); border-color: var(--lg-line); box-shadow: var(--lg-rim), var(--lift-strong); }
-.win__shell-edge { stop-color: rgb(150, 140, 128); stop-opacity: 0.62; }
-.win__shell-mid { stop-color: rgb(40, 35, 30); stop-opacity: 0.74; }
-.win__shell path { stroke: rgba(255, 255, 255, 0.55); }
 
 /* ---------- accounts: one Google sign-in for every Google site ---------- */
 .acct__scrim { position: fixed; inset: 0; z-index: 44; }
@@ -1469,7 +1462,6 @@ input, select, textarea { accent-color: var(--accent); }
 .dk__item:active { transform: scale(0.94); }
 .dk__label { font-size: 11px; font-weight: 500; }
 .dk__brand, .dk__site { filter: none; }
-.win__shell { filter: none; }
 .link--glow { filter: none; opacity: 0.2; }
 @keyframes pop-win { from { opacity: 0; transform: scale(0.9); } }
 
@@ -1484,6 +1476,13 @@ input, select, textarea { accent-color: var(--accent); }
 .surround__tab.is-on { background: var(--fill-on); }
 .surround__fav { background: var(--fill); border: 0; border-radius: 8px; }
 .surround__fav:hover { background: var(--fill-on); }
+.surround__fav.is-on { background: var(--fill-on); box-shadow: 0 0 0 1px var(--accent); }
+.surround__skies { position: absolute; right: max(10px, calc(50vw - 620px)); bottom: 62px; width: min(380px, calc(100vw - 32px)); box-sizing: border-box; padding: 14px; display: grid; gap: 10px; background: var(--mat); backdrop-filter: var(--blur); border: 0.5px solid var(--mat-line); border-radius: 13px; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.45); color: var(--ink); animation: fade 0.14s both; }
+.surround__skies .fine { margin: 0; }
+.surround__skyhead { margin: 0; font-size: 13px; font-weight: 600; }
+.surround__skylist { display: flex; flex-wrap: wrap; gap: 6px; }
+.surround__skyfile { cursor: pointer; }
+.surround__skynote { color: var(--ink); }
 .orn { border-radius: 8px; transition: background 0.12s; }
 .orn:hover { background: var(--hover); }
 

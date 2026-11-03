@@ -1,6 +1,6 @@
-// Floating windows, arranged like panes around you. Each window is one page in a glass pane whose top
-// bar carries the site's icon, its address and the window's controls; drag the bar to move it. Windows off to the side curve
-// toward you; the ones behind the window you are using recede. Windows dropped beside each other link into a
+// Floating windows. A browser window holds tabs, shown one at a time: its tab strip on top, then a bar with the
+// address and the window's controls; drag either to move it. The windows behind the one you are using recede.
+// Windows dropped beside each other link into a
 // group, drawn as a thread of light, and the group moves, arranges, minimizes and restores together.
 // Sites that refuse to be framed say so and open in the person's own browser instead; nothing is proxied.
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
@@ -11,7 +11,7 @@ import { CurvedPage } from "./CurvedPage.tsx";
 import type { DockItem } from "../lib/dock.ts";
 import { PhoneScreen } from "./PhoneScreen.tsx";
 import { Surround } from "./Surround.tsx";
-import { arrangeGroup, boundsOf, curveOf, edgeGap, groupName, membersOf, overviewTiles, regroupAfterDrop, SNAP, toggleMaximize, videoTab, type Tab, type Win } from "../lib/windows.ts";
+import { arrangeGroup, awayTabs, boundsOf, closeTab, edgeGap, groupName, membersOf, overviewTiles, regroupAfterDrop, showTab, SNAP, tabsOf, toggleMaximize, videoTab, type Tab, type Win } from "../lib/windows.ts";
 
 interface Props {
   wins: Win[];
@@ -20,6 +20,8 @@ interface Props {
   onOverview: (on: boolean) => void;
   /** "+": open the composer to add a page beside this window, in its group. */
   onAddPage: (win: Win) => void;
+  /** The + on a window's tab strip: a new tab in that window. */
+  onNewTab: (win: Win) => void;
   /** Read a page inside the space instead (the reading view), for sites that cannot be framed. */
   onRead: (url: string) => void;
   /** Groups shared with other people (see useSync): they keep together and show who is there. */
@@ -64,7 +66,7 @@ type Gesture = {
 /** Resize handles: every edge and corner (n, s, e, w and the four between). */
 const EDGES = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
-export function Windows({ wins, update, overview, onOverview, onAddPage, onRead, shared, sharePeers, onShare, onAsk, findIn, onFindClose, addressFocus, ai, onConnectAI, onAttach, onPin, pinned, surround, onRoomHome, onFloating, onOpenUrl, dock, onDock, newTab }: Props) {
+export function Windows({ wins, update, overview, onOverview, onAddPage, onNewTab, onRead, shared, sharePeers, onShare, onAsk, findIn, onFindClose, addressFocus, ai, onConnectAI, onAttach, onPin, pinned, surround, onRoomHome, onFloating, onOpenUrl, dock, onDock, newTab }: Props) {
   const [live, setLive] = useState<Record<string, LiveState>>({});
   const [fullscreen, setFullscreen] = useState<string | null>(null);
   useEffect(() => {
@@ -81,7 +83,8 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
   const stageRef = useRef<HTMLDivElement>(null);
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const visible = wins.filter((w) => !w.minimized);
+  const away = surround ? new Set<string>() : awayTabs(wins); // tabs behind the one showing in their window; in the room every tab shows
+  const visible = wins.filter((w) => !w.minimized && !away.has(w.id));
   const front = visible.reduce<Win | undefined>((a, w) => (!a || w.z > a.z ? w : a), undefined);
   const tiles = overview ? overviewTiles(visible, vw, vh) : null;
 
@@ -130,7 +133,6 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
       if (!s || !el) continue;
       if (g.kind === "size") Object.assign(el.style, { left: `${w.x}px`, top: `${w.y}px`, width: `${w.w}px`, height: `${w.h}px` });
       else el.style.translate = `${w.x - s.x}px ${w.y - s.y}px`;
-      el.style.setProperty("--curve", `${curveOf(w, vw)}deg`);
     }
     for (const l of linksOf(now)) for (const path of stage.querySelectorAll<SVGPathElement>(`[data-link="${l.key}"]`)) path.setAttribute("d", l.d);
     for (const [group, el] of [...stage.querySelectorAll<HTMLElement>("[data-group]")].map((el) => [el.dataset.group!, el] as const)) {
@@ -179,7 +181,9 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
   };
 
   const nudge = (win: Win, dx: number, dy: number) => update((ws) => regroupAfterDrop(ws.map((w) => (w.id === win.id ? { ...w, x: w.x + dx, y: w.y + dy, restore: undefined } : w)), win.id, shared));
-  const setMin = (ids: string[], minimized: boolean) => {
+  const setMin = (list: string[], minimized: boolean) => {
+    const stacks = new Set(wins.filter((w) => list.includes(w.id) && w.stack).map((w) => w.stack));
+    const ids = wins.filter((w) => list.includes(w.id) || (w.stack && stacks.has(w.stack))).map((w) => w.id); // a window minimizes with all its tabs
     const apply = () => update((ws) => ws.map((w) => (ids.includes(w.id) ? { ...w, minimized } : w)));
     if (minimized) void captureBeforeMinimize(ids).then(apply); else apply();
   };
@@ -205,19 +209,18 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
           const tile = tiles?.get(win.id);
           const isAssistant = t.kind === "assistant";
           const isPhone = t.kind === "phone";
-          // Maximized or full screen: the pane becomes a curved screen (see `shellPath`).
           const isFull = fullscreen === win.id;
-          const curved = (!!win.restore || isFull) && !tile;
-          const cw = isFull ? vw : win.w;
-          const ch = isFull ? vh : win.h;
-          const sag = Math.round(Math.max(16, Math.min(46, cw * 0.03)));
-          // Desktop app: every page is drawn on the curve (CurvedPage), gently in a small window, fully on a full screen.
-          const bent = !!desktop && (t.kind === "web" || t.kind === "video" || t.kind === "videosearch") && !flat.has(win.id);
-          const bend = curved ? 1 : Math.round(Math.min(0.8, Math.max(0.3, win.w / vw)) * 100) / 100;
+          const isWeb = t.kind === "web" || t.kind === "video" || t.kind === "videosearch";
+          // Pages are flat, real pages in their windows; only in the 360° view are they drawn on the wall around you.
+          const bent = !!desktop && surround && isWeb && !flat.has(win.id);
+          const bend = win.restore ? 1 : Math.round(Math.min(0.8, Math.max(0.3, win.w / vw)) * 100) / 100;
+          const hidden = win.minimized || away.has(win.id);
+          const tabbed = !!desktop && isWeb && !isFull;
+          const tabs = tabbed ? tabsOf(wins, win) : [];
           return (
-            <section key={win.id} aria-hidden={win.minimized || undefined} className={`win ${win.minimized ? "is-min" : ""} ${fullscreen === win.id ? "is-fullscreen" : ""} ${win.private ? "is-private" : ""} ${isFront ? "is-front" : ""} ${isPhone ? "is-bent" : ""} ${grouped ? "is-grouped" : ""} ${win.group && shared.has(win.group) ? "is-shared" : ""} ${snapTo === win.id ? "is-snap" : ""} ${win.restore ? "is-max" : ""} ${curved ? "is-curved" : ""} ${bent ? "is-bent" : ""}`}
+            <section key={win.id} aria-hidden={hidden || undefined} className={`win ${hidden ? "is-min" : ""} ${fullscreen === win.id ? "is-fullscreen" : ""} ${win.private ? "is-private" : ""} ${isFront ? "is-front" : ""} ${isPhone ? "is-bent" : ""} ${grouped ? "is-grouped" : ""} ${win.group && shared.has(win.group) ? "is-shared" : ""} ${snapTo === win.id ? "is-snap" : ""} ${win.restore ? "is-max" : ""} ${bent ? "is-bent" : ""} ${tabbed ? "has-tabs" : ""}`}
               data-window={win.id} role="dialog" aria-label={t.title}
-              style={{ left: win.x, top: win.y, width: win.w, height: win.h, zIndex: win.z, ["--curve" as string]: `${curveOf(win, vw)}deg`, ["--sag" as string]: `${sag}px`,
+              style={{ left: win.x, top: win.y, width: win.w, height: win.h, zIndex: win.z,
                 transformOrigin: tile ? "0 0" : win.origin ? `${win.origin.x - win.x}px ${win.origin.y - win.y}px` : undefined,
                 transform: tile ? `translate(${tile.dx}px, ${tile.dy}px) scale(${tile.s})` : undefined }}
               onPointerDownCapture={() => { if (overview) return; raise(win.group ? [...membersOf(wins, win.group).filter((m) => m.id !== win.id).map((m) => m.id), win.id] : ids); }}
@@ -225,18 +228,29 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
               onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setMin(win.group ? membersOf(wins, win.group).map((m) => m.id) : ids, true); } }}>
 
               {/* the frost: the backdrop blurred only where the glass shows (bar and rim), not behind the page */}
-              {curved && (
-                <svg className="win__shell" width={cw} height={ch} viewBox={`0 0 ${cw} ${ch}`} aria-hidden="true">
-                  <defs>
-                    <linearGradient id={`shell-${win.id}`} x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0" className="win__shell-edge" /><stop offset="0.5" className="win__shell-mid" /><stop offset="1" className="win__shell-edge" />
-                    </linearGradient>
-                  </defs>
-                  <path d={shellPath(cw, ch, sag)} fill={`url(#shell-${win.id})`} />
-                </svg>
-              )}
               <span className="win__frost" aria-hidden="true"><i /><i /><i /><i /></span>
               <div className="win__glass">
+                {tabbed && (
+                  <nav className="win__tabs" aria-label="Tabs"
+                    onPointerDown={(e) => { if (!(e.target as HTMLElement).closest("button")) begin(e, "move", win.id, ids); }}
+                    onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest("button")) update((ws) => ws.map((w) => (w.id === win.id ? toggleMaximize(w, vw, vh) : w))); }}>
+                    <span className="win__tablist" role="tablist">
+                      {tabs.map((x) => (
+                        <span key={x.id} className={`win__tab ${x.id === win.id ? "is-on" : ""}`}>
+                          <button role="tab" aria-selected={x.id === win.id} title={x.page.title} onClick={() => update((ws) => showTab(ws, x.id))}>
+                            <Favicon tab={x.page} /><span className="win__tabname">{x.page.title}</span>
+                          </button>
+                          <button className="win__tabx" aria-label={`Close ${x.page.title}`} title="Close tab" onClick={() => update((ws) => closeTab(ws, x.id))}>
+                            <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 7l10 10M17 7 7 17" /></svg>
+                          </button>
+                        </span>
+                      ))}
+                    </span>
+                    <button className="win__newtab" aria-label="New tab" title="New tab" onClick={() => onNewTab(win)}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                    </button>
+                  </nav>
+                )}
                 <header className="win__bar"
                   onPointerDown={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, label")) begin(e, "move", win.id, ids); }}
                   onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, label")) update((ws) => ws.map((w) => (w.id === win.id ? toggleMaximize(w, vw, vh) : w))); }}>
@@ -247,7 +261,7 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
                       const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
                       if (d) { e.preventDefault(); nudge(win, d[0], d[1]); }
                     }}>
-                    <Favicon tab={t} />
+                    {!tabbed && <Favicon tab={t} />}
                     {/* a web page's address says where it is; its title only when that adds something */}
                     {isAssistant || isPhone ? <span className="win__title">{t.title}</span>
                     : !desktop && (t.kind !== "web" || t.title !== t.domain) && <span className="win__title">{t.kind === "web" ? t.title : t.kind === "video" ? "YouTube" : `YouTube · ${t.src}`}</span>}
@@ -281,7 +295,7 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
                     <Orn label="Minimize" onClick={() => setMin(ids, true)}>
                       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 12h12" /></svg>
                     </Orn>
-                    <button className="orn orn--close" aria-label="Close window" title="Close" onClick={() => update((ws) => ws.filter((w) => w.id !== win.id))}>
+                    <button className="orn orn--close" aria-label="Close window" title={tabs.length > 1 ? "Close the window and its tabs" : "Close"} onClick={() => update((ws) => ws.filter((w) => w.id !== win.id && !(win.stack && w.stack === win.stack)))}>
                       <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 7l10 10M17 7 7 17" /></svg>
                     </button>
                   </span>
@@ -335,18 +349,10 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onRead,
         })}
       </div>
       {surround && <Surround wins={wins} dock={dock} newTab={newTab} onFocus={(id) => raise([id])} onOpen={onOpenUrl} onDock={onDock} onHome={onRoomHome} onFloating={onFloating}
-        onClose={(id) => update((ws) => ws.filter((w) => w.id !== id))}
+        onClose={(id) => update((ws) => closeTab(ws, id))}
         controls={(w) => <LiveControls win={w} live={live[w.id]} onAsk={onAsk} focusSeq={addressFocus?.id === w.id ? addressFocus.seq : 0} />} />}
     </div>
   );
-}
-
-/**
- * A curved screen, as seen from its centre: its top and bottom edges bow toward the middle, so the sides stand
- * taller, the way a wraparound display reads in a headset. The page is drawn on the same bend inside it
- */
-function shellPath(w: number, h: number, sag: number) {
-  return `M0 0 Q${w / 2} ${sag * 2} ${w} 0 L${w} ${h} Q${w / 2} ${h - sag * 2} 0 ${h} Z`;
 }
 
 /** Threads of light between neighbours in each group, edge to edge. */

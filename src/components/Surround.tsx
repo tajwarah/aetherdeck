@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { FOV, hitPanel, inView, layoutPanels, onPanel, TAU, turn, type Panel, type View } from "../../shared/surround.ts";
 import { desktop } from "../lib/desktop.ts";
 import type { DockItem } from "../lib/dock.ts";
+import { chooseSky, chosenSky, forgetPhoto, keepPhoto, savedPhoto, SKIES, type SkyId } from "../lib/roomSky.ts";
 import { parseOpenRequest, type Win } from "../lib/windows.ts";
 import { BUTTON, mods, pageKey } from "./CurvedPage.tsx";
 
@@ -143,6 +144,36 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // The background: built in, or the person's own 360° photo, kept on this computer.
+  const [sky, setSky] = useState<SkyId>(chosenSky);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [skies, setSkies] = useState(false);
+  const [skyNote, setSkyNote] = useState("");
+  useEffect(() => {
+    let url: string | null = null;
+    void savedPhoto().then((b) => { if (b) { url = URL.createObjectURL(b); setPhoto(url); } });
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, []);
+  useEffect(() => {
+    canvas.current!.dataset.sky = sky === "photo" && photo ? `photo:${photo}` : sky === "photo" ? "night" : sky;
+    document.dispatchEvent(new Event("warpnaut-scene"));
+  }, [sky, photo]);
+  const pickSky = (id: SkyId) => { setSky(id); chooseSky(id); setSkyNote(""); };
+  const addPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setSkyNote("Fitting your photo to the room…");
+    const blob = await keepPhoto(file).catch(() => undefined);
+    if (blob === undefined) return setSkyNote("Warpnaut couldn’t read that image. Use a JPEG, PNG or WebP.");
+    if (!blob) return setSkyNote("That photo doesn’t go all the way round. Use a 360° photo, or a panorama at least twice as wide as it is tall.");
+    setPhoto((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(blob); });
+    pickSky("photo");
+  };
+  const removePhoto = () => {
+    void forgetPhoto();
+    setPhoto((old) => { if (old) URL.revokeObjectURL(old); return null; });
+    if (sky === "photo") pickSky("night");
+  };
+
   useEffect(() => { if (adding) canvas.current?.blur(); }, [adding]);
   const newTabSeen = useRef(newTab);
   useEffect(() => { if (newTab !== newTabSeen.current) { newTabSeen.current = newTab; setAdding(true); } }, [newTab]);
@@ -168,19 +199,48 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   const pagePoint = (_panel: Panel, u: number, v: number) => ({ x: Math.round(u * sizeNow.current.w), y: Math.round(v * sizeNow.current.h) });
   const send = (id: string, event: Record<string, unknown>) => void desktop?.invoke("curve:input", id, event);
   const pendingMove = useRef<{ id: string; event: Record<string, unknown> } | null>(null);
+  /** A move still waiting for its frame goes now, so it can never arrive after the press or release that follows it. */
+  const flushMove = () => { const m = pendingMove.current; pendingMove.current = null; if (m) send(m.id, m.event); };
+  // Pointer events carry no click count, so double and triple clicks are counted here: quick presses in one spot.
+  const presses = useRef({ t: 0, x: 0, y: 0, n: 0 });
+  const countPress = (e: React.PointerEvent) => {
+    const c = presses.current;
+    c.n = e.timeStamp - c.t < 450 && Math.hypot(e.clientX - c.x, e.clientY - c.y) < 6 ? (c.n % 3) + 1 : 1;
+    Object.assign(c, { t: e.timeStamp, x: e.clientX, y: e.clientY });
+    return c.n;
+  };
+  // The page under the pointer says what the pointer should look like (a hand over a link, a bar over text).
+  const hover = useRef<string | null>(null);
+  const setHover = (id: string | null, wall = false) => {
+    if (hover.current === id) return;
+    hover.current = id;
+    if (!id && canvas.current) canvas.current.style.cursor = wall ? "grab" : "default";
+  };
+  useEffect(() => desktop?.on("curve:cursor", (p) => {
+    const c = p as { id: string; cursor: string };
+    if (c.id === hover.current && canvas.current && gesture.current?.kind !== "turn") canvas.current.style.cursor = c.cursor;
+  }), []);
 
   const down = (e: React.PointerEvent) => {
     canvas.current!.focus();
     canvas.current!.setPointerCapture(e.pointerId);
     motion.current.spin = 0;
     motion.current.target = null;
+    flushMove();
     const p = ndc(e);
     const hit = hitPanel(view(), panelsNow.current, p.x, p.y);
-    if (!hit) { gesture.current = { kind: "turn", x: e.clientX, yaw: motion.current.yaw, lastX: e.clientX, lastT: e.timeStamp }; return; }
+    if (!hit) {
+      gesture.current = { kind: "turn", x: e.clientX, yaw: motion.current.yaw, lastX: e.clientX, lastT: e.timeStamp };
+      canvas.current!.style.cursor = "grabbing";
+      return;
+    }
     gesture.current = { kind: "page", panel: hit.panel };
     setFocus(hit.panel.id);
     onFocus(hit.panel.id);
-    send(hit.panel.id, { type: "mouseDown", ...pagePoint(hit.panel, hit.u, hit.v), button: BUTTON[e.button] ?? "left", clickCount: Math.max(1, e.detail), modifiers: mods(e) });
+    const at = pagePoint(hit.panel, hit.u, hit.v);
+    // the page first learns where the pointer is, as it would from a real mouse, then gets the press
+    send(hit.panel.id, { type: "mouseMove", ...at, modifiers: mods(e) });
+    send(hit.panel.id, { type: "mouseDown", ...at, button: BUTTON[e.button] ?? "left", clickCount: countPress(e), modifiers: mods(e) });
   };
   const move = (e: React.PointerEvent) => {
     const g = gesture.current;
@@ -196,6 +256,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     const p = ndc(e);
     const v = view();
     const at = g?.kind === "page" ? { panel: g.panel, ...onPanel(v, g.panel, p.x, p.y) } : hitPanel(v, panelsNow.current, p.x, p.y);
+    setHover(at?.panel.id ?? null, true);
     if (!at) return;
     const event = { type: "mouseMove", ...pagePoint(at.panel, at.u, at.v), button: BUTTON[e.button] ?? "left", clickCount: 0, modifiers: [...mods(e), ...(e.buttons & 1 ? ["leftButtonDown"] : [])] };
     if (!pendingMove.current) requestAnimationFrame(() => { const m = pendingMove.current; pendingMove.current = null; if (m) send(m.id, m.event); });
@@ -204,10 +265,11 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   const up = (e: React.PointerEvent) => {
     const g = gesture.current;
     gesture.current = null;
-    if (g?.kind === "turn") { motion.current.snap = true; return run(); }
+    if (g?.kind === "turn") { canvas.current!.style.cursor = "grab"; motion.current.snap = true; return run(); }
     if (g?.kind !== "page") return;
+    flushMove();
     const p = onPanel(view(), g.panel, ndc(e).x, ndc(e).y);
-    send(g.panel.id, { type: "mouseUp", ...pagePoint(g.panel, p.u, p.v), button: BUTTON[e.button] ?? "left", clickCount: Math.max(1, e.detail), modifiers: mods(e) });
+    send(g.panel.id, { type: "mouseUp", ...pagePoint(g.panel, p.u, p.v), button: BUTTON[e.button] ?? "left", clickCount: presses.current.n || 1, modifiers: mods(e) });
   };
 
   // A pinch zooms the room, a sideways swipe turns you, and an up-and-down one scrolls the page under the pointer.
@@ -292,7 +354,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   return createPortal(
     <div className="surround" data-ui>
       <canvas ref={canvas} className="surround__room" data-surround data-keys tabIndex={0} aria-label={`Surround room with ${panels.length} page${panels.length === 1 ? "" : "s"} around you. Option and the arrow keys turn to the next page.`}
-        onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { gesture.current = null; }}
+        onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { gesture.current = null; }} onPointerLeave={() => setHover(null)}
         onContextMenu={(e) => e.preventDefault()} onKeyDown={(e) => keys("keyDown", e)} onKeyUp={(e) => keys("keyUp", e)} />
       {!panels.length && <p className="surround__empty">Press + on the bar to open a tab.</p>}
       {adding && (
@@ -304,6 +366,23 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
           <div className="surround__favs">
             {dock.map((d) => <button key={d.id} className="surround__fav" onClick={(e) => { setAdding(false); onDock(d, { x: e.clientX, y: e.clientY }); }}>{d.label}</button>)}
           </div>
+        </div>
+      )}
+      {skies && (
+        <div className="surround__skies" role="dialog" aria-label="Room background">
+          <p className="surround__skyhead">Background</p>
+          <div className="surround__skylist">
+            {SKIES.map((k) => <button key={k.id} className={`surround__fav ${sky === k.id ? "is-on" : ""}`} aria-pressed={sky === k.id} onClick={() => pickSky(k.id)}>{k.label}</button>)}
+            {photo && <button className={`surround__fav ${sky === "photo" ? "is-on" : ""}`} aria-pressed={sky === "photo"} onClick={() => pickSky("photo")}>Your room</button>}
+          </div>
+          <div className="surround__skylist">
+            <label className="btn surround__skyfile">{photo ? "Use another 360° photo…" : "Use a 360° photo of your room…"}
+              <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { void addPhoto(e.target.files?.[0]); e.target.value = ""; }} />
+            </label>
+            {photo && <button className="btn" onClick={removePhoto}>Remove photo</button>}
+          </div>
+          {skyNote && <p className="fine surround__skynote" role="status">{skyNote}</p>}
+          <p className="fine">Take one with a 360° camera, or your phone’s panorama mode turned all the way round. It stays on this computer.</p>
         </div>
       )}
       <div className="surround__hud" role="toolbar" aria-label="Tabs and turning">
@@ -328,7 +407,8 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
             );
           })}
         </span>
-        <button className="orn" aria-label="New tab" title="New tab" aria-expanded={adding} onClick={() => setAdding((a) => !a)}><Icon d="M12 5v14M5 12h14" /></button>
+        <button className="orn" aria-label="New tab" title="New tab" aria-expanded={adding} onClick={() => { setAdding((a) => !a); setSkies(false); }}><Icon d="M12 5v14M5 12h14" /></button>
+        <button className="orn" aria-label="Background" title="Room background" aria-expanded={skies} onClick={() => { setSkies((v) => !v); setAdding(false); }}><Icon d="M4 6h16v12H4ZM4 15l4.5-4.5 4 4L15 12l5 5M15.5 9.5h.01" /></button>
         <button className="orn" aria-label="Full screen" title="Full screen" onClick={() => void desktop?.invoke("app:toggleFullscreen")}><Icon d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></button>
         <button className="orn" aria-label="Floating windows" title="Switch to floating windows" onClick={onFloating}><Icon d="M4 5h10v8H4ZM10 13v6h10v-8h-6" /></button>
         <button className="orn" aria-label="Home" title="Home" onClick={onHome}><Icon d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" /></button>

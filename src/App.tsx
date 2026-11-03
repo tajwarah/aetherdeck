@@ -5,7 +5,7 @@ import { Field, type FieldHandle } from "./components/Field.tsx";
 import { Planet } from "./components/Planet.tsx";
 import { Logo } from "./components/Logo.tsx";
 import { Windows } from "./components/Windows.tsx";
-import { arrangeGroup, frontWindow, toggleMaximize, parseOpenRequest, placeBeside, placeWindow, uid, webSearchTab, type Tab, type Win } from "./lib/windows.ts";
+import { arrangeGroup, awayTabs, closeTab, frontWindow, showTab, toggleMaximize, parseOpenRequest, placeBeside, placeWindow, uid, webSearchTab, type Tab, type Win } from "./lib/windows.ts";
 import type { Place } from "./components/Launcher.tsx";
 import { ControlBar } from "./components/ControlBar.tsx";
 import { Composer } from "./components/Composer.tsx";
@@ -80,7 +80,7 @@ export function App() {
   const [frames, setFrames] = useState<Frame[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
-  const [composer, setComposer] = useState<{ x: number; y: number; initial?: string; addTo?: string; fromBar?: boolean; listen?: boolean } | null>(null);
+  const [composer, setComposer] = useState<{ x: number; y: number; initial?: string; addTo?: string; tabIn?: string; fromBar?: boolean; listen?: boolean } | null>(null);
   const [inspect, setInspect] = useState<{ sourceId: string; evidenceId?: string } | null>(null);
   const [action, setAction] = useState<{ source: SearchResult; kind: "contact_provider" | "prepare_reservation" } | null>(null);
   const [privacyOpen, setPrivacyOpen] = useState(false);
@@ -266,30 +266,38 @@ export function App() {
     field.current?.reset();
   }, []);
 
-  /** A site or video floats in a glass window in front of the space; with addTo, beside that window, in its group. */
-  // The 360° view is how pages open: a page opened from anywhere arrives as a tab in the room.
+  // Pages open as tabs in flat browser windows. The 360° view is a place you choose to go: every tab around you.
   const [surround, setSurround] = useState(false);
   const surroundRef = useRef(false);
   surroundRef.current = surround;
   const [newTab, setNewTab] = useState(0);
-  const roomFirst = useRef((() => { try { return localStorage.getItem("warpnaut.view") !== "windows"; } catch { return true; } })());
-  const keepView = (room: boolean) => { roomFirst.current = room; try { localStorage.setItem("warpnaut.view", room ? "room" : "windows"); } catch { /* per visit */ } };
   const enterRoom = useCallback(() => {
     if (!desktop) return;
-    keepView(true);
     setSurround(true);
     setWins((ws) => ws.map((w) => (isPage(w) && w.minimized ? { ...w, minimized: false } : w)));
   }, []);
-  const floatWindows = useCallback(() => { keepView(false); setSurround(false); }, []);
-  useEffect(() => { if (desktop && roomFirst.current && winsRef.current.some((w) => isPage(w) && !w.minimized)) setSurround(true); }, []);
+  const floatWindows = useCallback(() => setSurround(false), []);
 
-  const openTab = useCallback((tab: Omit<Tab, "id">, near?: { x: number; y: number }, addTo?: string, from?: { x: number; y: number }, opts: { private?: boolean } = {}) => {
+  /**
+   * A site or video opens as a new tab of the browser window in front (or of `tabIn`), or in a window of its own
+   * when none is showing. With addTo, it opens beside that window instead, in its group.
+   */
+  const openTab = useCallback((tab: Omit<Tab, "id">, near?: { x: number; y: number }, addTo?: string, from?: { x: number; y: number }, opts: { private?: boolean; tabIn?: string } = {}) => {
     setWins((ws) => {
       const top = Math.max(0, ...ws.map((w) => w.z)) + 1;
       const page: Tab = { ...tab, id: uid("t") };
       const anchor = addTo ? ws.find((w) => w.id === addTo) : undefined;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const away = awayTabs(ws);
+      const isWebPage = tab.kind === "web" || tab.kind === "video" || tab.kind === "videosearch";
+      const host = opts.tabIn ? ws.find((w) => w.id === opts.tabIn)
+        : desktop && !anchor && !opts.private && isWebPage ? ws.filter((w) => isPage(w) && !w.minimized && !w.private && !away.has(w.id)).sort((a, b) => b.z - a.z)[0] : undefined;
+      if (host) {
+        const stack = host.stack ?? uid("s");
+        const added: Win = { id: uid("w"), page, x: host.x, y: host.y, w: host.w, h: host.h, restore: host.restore, z: top, minimized: false, stack, ...(host.group ? { group: host.group } : {}), ...(host.private ? { private: true } : {}) };
+        return [...ws.map((w) => (w.id === host.id ? { ...w, stack } : w)), added];
+      }
       if (anchor) {
         const group = anchor.group ?? uid("g");
         const { fits, ...rect } = placeBeside(ws, anchor, vw, vh);
@@ -298,7 +306,6 @@ export function App() {
       }
       return [...ws, { id: uid("w"), page, ...placeWindow(ws, vw, vh, near), z: top, minimized: false, origin: from ?? near, ...(opts.private ? { private: true } : {}) }];
     });
-    if (desktop && roomFirst.current && tab.kind !== "assistant" && tab.kind !== "phone") enterRoom();
     setComposer(null);
     setOverview(false);
   }, []);
@@ -325,8 +332,7 @@ export function App() {
     });
     setComposer(null);
     setOverview(false);
-    if (desktop && roomFirst.current) enterRoom();
-  }, [enterRoom]);
+  }, []);
 
   /** Every site as its own tab. They arrive a few at a time, and stop if the app reaches the agent engine's memory limit. */
   const openTabs = useCallback(async (pages: { url: string; title: string }[]) => {
@@ -400,7 +406,7 @@ export function App() {
     const host = hostOf(item.url);
     // A site that is already open comes forward instead of opening twice.
     const existing = winsRef.current.filter((w) => w.page.kind !== "assistant" && hostOf(w.page.href) === host).sort((a, b) => b.z - a.z)[0];
-    if (existing) return setWins((ws) => { const top = Math.max(0, ...ws.map((w) => w.z)) + 1; return ws.map((w) => (w.id === existing.id ? { ...w, minimized: false, z: top } : w)); });
+    if (existing) return setWins((ws) => showTab(ws.map((w) => (existing.stack && w.stack === existing.stack ? { ...w, minimized: false } : w)), existing.id));
     if (!desktop && host === "youtube.com") return askAtBar("play ");
     const tab = parseOpenRequest(item.url);
     if (tab) openTab({ ...tab, title: item.label }, undefined, undefined, at);
@@ -433,12 +439,12 @@ export function App() {
   const winsRef = useRef(wins);
   winsRef.current = wins;
 
-  /** A link from a page, another app or the menu: a new pane, beside the page that opened it. */
+  /** A link from a page, another app or the menu: a new tab, in the window of the page that opened it. */
   const openLink = useCallback((url: string, fromWc?: number) => {
     const tab = parseOpenRequest(url);
     if (!tab) return;
     const fromWin = fromWc === undefined ? undefined : [...pages.entries()].find(([, p]) => p.wcId() === fromWc)?.[0];
-    openTab({ ...tab, kind: "web", src: tab.kind === "web" ? tab.src : tab.href }, undefined, fromWin);
+    openTab({ ...tab, kind: "web", src: tab.kind === "web" ? tab.src : tab.href }, undefined, undefined, undefined, { tabIn: fromWin });
   }, [openTab]);
 
   const runCommand = useRef<(name: string, value?: string) => void>(() => undefined);
@@ -449,7 +455,7 @@ export function App() {
       case "newWindow": if (surroundRef.current) return setNewTab((n) => n + 1); return askAtBar();
       case "privateWindow": return openTab({ kind: "web", src: "https://search.brave.com/", href: "https://search.brave.com/", title: "Private window", domain: "search.brave.com" }, undefined, undefined, undefined, { private: true });
       case "focusAddress": return front ? setAddressFocus((a) => ({ id: front.id, seq: (a?.seq ?? 0) + 1 })) : askAtBar();
-      case "closeWindow": return front ? setWins((ws) => ws.filter((w) => w.id !== front.id)) : undefined;
+      case "closeWindow": return front ? setWins((ws) => closeTab(ws, front.id)) : undefined;
       case "reopenClosed": { const c = closed.current.shift(); if (c) openTab(c.page, undefined, undefined, undefined, { private: c.private }); return; }
       case "find": return front && setFindIn(front.id);
       case "reload": return page?.reload();
@@ -504,7 +510,7 @@ export function App() {
     if (action) return setAction(null);
     const front = frontWindow(wins); // the window in front (with its group) is minimized first; Escape never closes one
     if (front) {
-      const ids = wins.filter((w) => w.id === front.id || (front.group && w.group === front.group)).map((w) => w.id);
+      const ids = wins.filter((w) => w.id === front.id || (front.group && w.group === front.group) || (front.stack && w.stack === front.stack)).map((w) => w.id);
       return void captureBeforeMinimize(ids).then(() => setWins((ws) => ws.map((w) => (ids.includes(w.id) ? { ...w, minimized: true } : w))));
     }
     if (inspect) return setInspect(null);
@@ -829,9 +835,11 @@ export function App() {
           y={composer.y}
           initial={composer.initial}
           startListening={composer.listen}
-          placeholder={composer.addTo ? "Add a page: an address, “play …”, or a topic" : "Ask, open an address, or “play …”"}
+          placeholder={composer.tabIn ? "New tab: an address or a search" : composer.addTo ? "Add a page: an address, “play …”, or a topic" : "Ask, open an address, or “play …”"}
           onSubmit={(q) => {
             const tab = parseOpenRequest(q);
+            const google = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+            if (composer.tabIn) return openTab(tab ?? { kind: "web", src: google, href: google, title: q, domain: "google.com" }, undefined, undefined, undefined, { tabIn: composer.tabIn });
             if (composer.addTo) return openTab(tab ?? webSearchTab(q), undefined, composer.addTo);
             if (tab) return composer.fromBar ? openTab(tab, undefined, undefined, { x: window.innerWidth / 2, y: window.innerHeight - 40 }) : openTab(tab, composer);
             minimizeAll(); // a question builds an environment; open windows step aside to the control bar
@@ -889,6 +897,7 @@ export function App() {
         onDock={(item, at) => { if (item.url) return onDockItem(item, at); setSurround(false); minimizeAll(); onDockItem(item, at); }}
         shared={sync.sharedGroups} sharePeers={Object.fromEntries(sync.shares.map((s) => [s.group, s.status.peers]))} onShare={(g) => { sync.shareGroup(g); setSyncOpen({ group: g }); }}
         onAddPage={(w) => setComposer({ x: w.x + w.w / 2 - 260, y: Math.max(16, w.y - 70), addTo: w.id })}
+        onNewTab={(w) => setComposer({ x: w.x + w.w / 2 - 260, y: Math.max(16, w.y + 90), tabIn: w.id })}
         onRead={(url) => { setWins((ws) => ws.filter((w) => w.page.href !== url)); run(url, { fresh: true }); }}
         onAsk={(q) => { setSurround(false); minimizeAll(); run(q, { fresh: true }); }}
         findIn={findIn} onFindClose={() => setFindIn(null)} addressFocus={addressFocus}

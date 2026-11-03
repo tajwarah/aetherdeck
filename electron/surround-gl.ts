@@ -6,28 +6,50 @@ import { inView, type Panel, type View } from "../shared/surround.ts";
 const QUAD_VS = `#version 300 es
 out vec2 ndc;
 void main() { ndc = vec2(gl_VertexID & 1, gl_VertexID >> 1) * 4.0 - 1.0; gl_Position = vec4(ndc, 0.0, 1.0); }`;
-// A dark room with a horizon of gold, marks every 30 degrees, and stars above. Baked once into a panorama, so turning
-// costs a texture lookup per pixel instead of this whole sum.
+// The built-in backgrounds, baked once into a panorama, so turning costs a texture lookup per pixel instead of this
+// whole sum. 0: a dark room with a horizon of gold, marks every 30 degrees, and stars above. 1: a soft, light studio
+// with a floor and a ceiling glow. 2: dusk, a sky fading from blue to amber over dark ground.
 const BAKE_FS = `#version 300 es
 precision highp float;
-in vec2 ndc; out vec4 color;
+in vec2 ndc; out vec4 color; uniform int style;
 float star(vec2 p) { vec2 c = floor(p); float h = fract(sin(dot(c, vec2(127.1, 311.7))) * 43758.5453); vec2 q = fract(p) - 0.5; return step(0.985, h) * smoothstep(0.09, 0.0, length(q)) * h; }
 void main() {
   float a = ndc.x * 3.14159265, y = ndc.y;
-  vec3 c = mix(vec3(0.035, 0.03, 0.03), vec3(0.012, 0.013, 0.02), smoothstep(-0.7, 0.9, y));
-  c += vec3(0.13, 0.09, 0.05) * exp(-abs(y + 0.62) * 7.0);
-  c += vec3(0.65, 0.5, 0.3) * smoothstep(0.004, 0.0, abs(y + 0.62));
-  float m = abs(fract(a / 0.5236 + 0.5) - 0.5) * 0.5236;
-  c += vec3(0.4, 0.31, 0.2) * smoothstep(0.0025, 0.0, m) * smoothstep(0.06, 0.0, abs(y + 0.66));
-  if (y > -0.5) c += vec3(0.75, 0.72, 0.65) * star(vec2(a * 34.0, y * 34.0));
+  vec3 c;
+  if (style == 1) {
+    c = mix(vec3(0.42, 0.4, 0.37), vec3(0.6, 0.58, 0.55), smoothstep(-0.45, 0.6, y));
+    c += vec3(0.16, 0.15, 0.13) * exp(-pow(max(0.0, 0.95 - y), 2.0) * 9.0);
+    c = mix(c, vec3(0.27, 0.25, 0.23) - 0.08 * (-0.45 - y), step(y, -0.45));
+    c += vec3(0.05) * smoothstep(0.012, 0.0, abs(y + 0.45));
+  } else if (style == 2) {
+    c = mix(vec3(0.95, 0.55, 0.3), vec3(0.12, 0.16, 0.36), smoothstep(-0.4, 0.75, y));
+    c = mix(c, vec3(0.03, 0.03, 0.05), smoothstep(0.75, 1.0, y) * 0.6);
+    c += vec3(0.5, 0.3, 0.12) * exp(-abs(y + 0.4) * 9.0);
+    c = mix(c, vec3(0.05, 0.04, 0.05) + 0.03 * sin(a * 7.0 + sin(a * 3.0)), step(y, -0.4 + 0.02 * sin(a * 5.0) + 0.015 * sin(a * 13.0)));
+    if (y > 0.4) c += vec3(0.6, 0.6, 0.65) * star(vec2(a * 34.0, y * 34.0)) * smoothstep(0.4, 0.9, y);
+  } else {
+    c = mix(vec3(0.035, 0.03, 0.03), vec3(0.012, 0.013, 0.02), smoothstep(-0.7, 0.9, y));
+    c += vec3(0.13, 0.09, 0.05) * exp(-abs(y + 0.62) * 7.0);
+    c += vec3(0.65, 0.5, 0.3) * smoothstep(0.004, 0.0, abs(y + 0.62));
+    float m = abs(fract(a / 0.5236 + 0.5) - 0.5) * 0.5236;
+    c += vec3(0.4, 0.31, 0.2) * smoothstep(0.0025, 0.0, m) * smoothstep(0.06, 0.0, abs(y + 0.66));
+    if (y > -0.5) c += vec3(0.75, 0.72, 0.65) * star(vec2(a * 34.0, y * 34.0));
+  }
   color = vec4(c, 1.0);
 }`;
+// The baked backgrounds hang on the wall's own cylinder (span 0). A photo is a sphere: its rows are angles up and
+// down, π of them for a full 360° photo, fewer for a panorama, which fades to its edge colour above and below.
 const ROOM_FS = `#version 300 es
-precision mediump float;
-in vec2 ndc; out vec4 color; uniform sampler2D sky; uniform float yaw, f, aspect;
+precision highp float;
+in vec2 ndc; out vec4 color; uniform sampler2D sky; uniform float yaw, f, aspect, span;
 void main() {
   float side = ndc.x * aspect / f;
-  color = texture(sky, vec2((atan(side) + yaw) / 6.2831853 + 0.5, ndc.y / f / sqrt(side * side + 1.0) * 0.5 + 0.5));
+  float h = ndc.y / f / sqrt(side * side + 1.0);
+  float u = (atan(side) + yaw) / 6.2831853 + 0.5;
+  if (span <= 0.0) { color = texture(sky, vec2(u, h * 0.5 + 0.5)); return; }
+  float v = atan(h) / span + 0.5;
+  vec4 c = texture(sky, vec2(u, clamp(v, 0.0, 1.0)));
+  color = vec4(c.rgb * exp(-max(0.0, abs(v - 0.5) - 0.5) * 6.0), 1.0);
 }`;
 const PANEL_VS = `#version 300 es
 in vec2 uv; out vec2 st; uniform float yaw, f, aspect, centre, wide, high;
@@ -57,9 +79,15 @@ void main() {
 interface Tex { tex: WebGLTexture; swapped: boolean; ready: boolean }
 /** The newest frame of a page, waiting for the next drawing; `done` hands it back. */
 interface Waiting { frame: VideoFrame; done: () => void }
-const UNIFORMS = ["yaw", "f", "aspect", "centre", "wide", "high", "swapped", "focus"] as const;
+const UNIFORMS = ["yaw", "f", "aspect", "centre", "wide", "high", "swapped", "focus", "span"] as const;
 type Uniforms = Record<(typeof UNIFORMS)[number], WebGLUniformLocation | null>;
-interface Scene { canvas: HTMLCanvasElement; gl: WebGL2RenderingContext; room: WebGLProgram; panel: WebGLProgram; roomU: Uniforms; panelU: Uniforms; sky: WebGLTexture; mesh: WebGLVertexArrayObject; empty: WebGLVertexArrayObject; count: number; textures: Map<string, Tex>; waiting: Map<string, Waiting>; due: boolean; panelsText: string; panels: Panel[] }
+interface Scene {
+  canvas: HTMLCanvasElement; gl: WebGL2RenderingContext; room: WebGLProgram; panel: WebGLProgram; roomU: Uniforms; panelU: Uniforms; mesh: WebGLVertexArrayObject; empty: WebGLVertexArrayObject; count: number;
+  textures: Map<string, Tex>; waiting: Map<string, Waiting>; due: boolean; panelsText: string; panels: Panel[];
+  /** The background: a baked one, or the person's photo. `skyKey` is what the interface asked for. */
+  baked: WebGLTexture; bake: WebGLProgram; photo: WebGLTexture | null; span: number; skyKey: string;
+}
+const STYLES: Record<string, number> = { night: 0, studio: 1, dusk: 2 };
 let scene: Scene | null = null;
 
 function build(canvas: HTMLCanvasElement): Scene | null {
@@ -86,25 +114,58 @@ function build(canvas: HTMLCanvasElement): Scene | null {
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-  const sky = gl.createTexture()!;
-  gl.bindTexture(gl.TEXTURE_2D, sky);
+  const baked = gl.createTexture()!;
+  gl.bindTexture(gl.TEXTURE_2D, baked);
   gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 4096, 1024);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  const bake = gl.createFramebuffer();
-  gl.bindFramebuffer(gl.FRAMEBUFFER, bake);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sky, 0);
-  gl.viewport(0, 0, 4096, 1024);
-  gl.useProgram(program(QUAD_VS, BAKE_FS));
-  gl.bindVertexArray(empty);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.deleteFramebuffer(bake);
 
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  return { canvas, gl, room, panel, roomU: uniforms(room), panelU: uniforms(panel), sky, mesh, empty, count: pts.length / 2, textures: new Map(), waiting: new Map(), due: false, panelsText: "", panels: [] };
+  return { canvas, gl, room, panel, roomU: uniforms(room), panelU: uniforms(panel), mesh, empty, count: pts.length / 2, textures: new Map(), waiting: new Map(), due: false, panelsText: "", panels: [], baked, bake: program(QUAD_VS, BAKE_FS), photo: null, span: 0, skyKey: "" };
+}
+
+/** Paints one of the built-in backgrounds into the panorama. */
+function bakeSky(s: Scene, style: number) {
+  const { gl } = s;
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, s.baked, 0);
+  gl.viewport(0, 0, 4096, 1024);
+  gl.disable(gl.BLEND);
+  gl.useProgram(s.bake);
+  gl.uniform1i(gl.getUniformLocation(s.bake, "style"), style);
+  gl.bindVertexArray(s.empty);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.deleteFramebuffer(fb);
+}
+
+/** The background the interface asks for ("night", "studio", "dusk", or "photo:" and the photo's address). */
+function pickSky(s: Scene, key: string) {
+  if (key === s.skyKey) return;
+  s.skyKey = key;
+  if (!key.startsWith("photo:")) { bakeSky(s, STYLES[key] ?? 0); s.span = 0; return; }
+  // The photo loads in the background; the room keeps the background it has until it's ready.
+  const img = new Image();
+  img.src = key.slice(6);
+  void img.decode().then(() => {
+    if (scene !== s || s.skyKey !== key) return;
+    const { gl } = s;
+    if (s.photo) gl.deleteTexture(s.photo);
+    s.photo = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, s.photo);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); // the image's top row at the top of the room
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    s.span = Math.min(Math.PI, (Math.PI * 2 * img.naturalHeight) / img.naturalWidth); // the photo goes all the way round
+    soon(s);
+  }).catch(() => { if (s.skyKey === key) { s.skyKey = ""; pickSky(s, "night"); soon(s); } });
 }
 
 /** Frames go up once a drawing, newest only: a page that paints faster than the screen waits instead of queueing. */
@@ -134,11 +195,14 @@ function draw(s: Scene) {
   const text = canvas.dataset.panels ?? "[]";
   if (text !== s.panelsText) { s.panelsText = text; s.panels = JSON.parse(text) as Panel[]; }
   const f = 1 / Math.tan(view.fov / 2);
+  pickSky(s, canvas.dataset.sky || "night");
   gl.viewport(0, 0, w, h);
   const common = (p: WebGLProgram, u: Uniforms) => { gl.useProgram(p); gl.uniform1f(u.yaw, view.yaw); gl.uniform1f(u.f, f); gl.uniform1f(u.aspect, view.aspect); };
   gl.disable(gl.BLEND);
   common(s.room, s.roomU);
-  gl.bindTexture(gl.TEXTURE_2D, s.sky);
+  const photo = s.skyKey.startsWith("photo:") && s.photo && s.span > 0;
+  gl.uniform1f(s.roomU.span, photo ? s.span : 0);
+  gl.bindTexture(gl.TEXTURE_2D, photo ? s.photo : s.baked);
   gl.bindVertexArray(s.empty);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   gl.enable(gl.BLEND);
@@ -191,6 +255,7 @@ export function sceneFrame(id: string, frame: VideoFrame, done: () => void) {
 /** The same, for a frame copied through the CPU (BGRA pixels). */
 export function sceneBitmap(id: string, width: number, height: number, pixels: Uint8Array) {
   if (!scene) return false;
+  if (!width || !height || pixels.length < width * height * 4) return true; // nothing to draw: keep the last frame
   const { gl } = scene;
   const t = textureFor(scene, id);
   gl.bindTexture(gl.TEXTURE_2D, t.tex);

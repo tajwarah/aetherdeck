@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrangeGroup, curveOf, frontWindow, overviewTiles, parseOpenRequest, placeBeside, placeWindow, regroupAfterDrop, toggleMaximize, webSearchTab, youtubeEmbed, type Win } from "../../src/lib/windows.ts";
+import { arrangeGroup, awayTabs, closeTab, frontWindow, overviewTiles, parseOpenRequest, placeBeside, placeWindow, regroupAfterDrop, showTab, toggleMaximize, webSearchTab, youtubeEmbed, type Win } from "../../src/lib/windows.ts";
 import { frameAncestorsAllow } from "../../server/preview.ts";
 
 const page = (domain: string) => ({ id: domain, kind: "web" as const, src: `https://${domain}`, href: `https://${domain}`, title: domain, domain });
@@ -91,10 +91,21 @@ describe("window groups", () => {
     expect(placeBeside(g, g[0], 900, 900)).toMatchObject({ fits: false });
   });
 
-  it("curves side windows toward the viewer and fits everything in overview", () => {
-    expect(curveOf({ x: 540, y: 0, w: 200, h: 100 }, 1280)).toBeCloseTo(0);
-    expect(curveOf({ x: 1000, y: 0, w: 260, h: 100 }, 1280)).toBeLessThan(0);
-    expect(curveOf({ x: 0, y: 0, w: 260, h: 100 }, 1280)).toBeGreaterThan(0);
+  it("shows one tab per browser window, in the window's place", () => {
+    const ws = [win("a", 100, 100, { stack: "s", z: 1 }), win("b", 300, 300, { stack: "s", z: 2 }), win("c", 500, 100, { stack: "s", z: 3 }), win("d", 0, 0, { z: 4 })];
+    expect([...awayTabs(ws)].sort()).toEqual(["a", "b"]);
+    const shown = showTab(ws, "a");
+    expect([...awayTabs(shown)].sort()).toEqual(["b", "c"]);
+    expect(shown.find((w) => w.id === "a")).toMatchObject({ x: 500, y: 100 });
+    // closing the tab on show brings its neighbour forward in the same place; closing a hidden one changes nothing else
+    const closed = closeTab(ws, "c");
+    expect(closed.map((w) => w.id)).toEqual(["a", "b", "d"]);
+    expect([...awayTabs(closed)]).toEqual(["a"]);
+    expect(closed.find((w) => w.id === "b")).toMatchObject({ x: 500, y: 100 });
+    expect([...awayTabs(closeTab(ws, "a"))]).toEqual(["b"]);
+  });
+
+  it("fits everything in overview", () => {
     // Three windows piled on each other spread into separate tiles; a group shares one tile and keeps its layout.
     const pile = [win("a", 300, 150), win("b", 328, 178), win("c", 356, 206, { group: "g" }), win("d", 780, 206, { group: "g" })];
     const t = overviewTiles(pile, 1280, 820);

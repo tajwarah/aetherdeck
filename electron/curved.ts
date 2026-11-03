@@ -44,6 +44,8 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
     wc.on("paint", async (e, _dirty, image) => {
       const tex = e.texture;
       if (!tex) {
+        // A repaint can come with an empty image beside the real frame; drawn, it would blank the page.
+        if (image.isEmpty()) return;
         const size = image.getSize();
         deps.host()?.webContents.send("curve:bitmap", id, size.width, size.height, image.toBitmap());
         return;

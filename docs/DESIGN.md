@@ -141,7 +141,7 @@ Stacked cards (05, 06, 10) are drawn as a lead card with two ghosted cards behin
 
 - Critically damped springs for the camera (ω 7.5) and the cursor (ω 38). Nothing overshoots.
 - Arrivals: cards scale from 0.92 and fade in over 0.6s, staggered 45–60ms.
-- Windows zoom out of their opening point (scale 0.06 → 1, with a brief blur) over 0.5s. Maximize, restore, arrange and overview glide over 0.32–0.55s; a window being dragged follows the pointer with no easing. Curve and depth changes ease over 0.5s as focus moves.
+- Windows zoom out of their opening point (scale 0.06 → 1, with a brief blur) over 0.5s. Maximize, restore, arrange and overview glide over 0.32–0.55s; a window being dragged follows the pointer with no easing. Depth changes ease over 0.5s as focus moves.
 - Performance: nothing that is hidden keeps painting. The planet is one canvas; behind windows it paints every other frame, and dimmed behind an exploration it paints once and holds still. Glass blur is used only where something actually sits behind it.
 - Transitions between frames are cuts under `prefers-reduced-motion`.
 - The planet turns once every two minutes and leans a few degrees toward the pointer; a pulse travels each arc in about eight seconds. Nothing on screen moves faster than a person could follow with their eye.
@@ -169,7 +169,7 @@ Stacked cards (05, 06, 10) are drawn as a lead card with two ghosted cards behin
 | Places | `src/components/Launcher.tsx` | the ten places, and the All places panel |
 | Dock | `src/components/ControlBar.tsx` | Home globe, search, docked places, all places, all windows, devices, minimized windows and groups |
 | Top bar | `src/App.tsx` (`Clock`) | wordmark, trail, date and time, Your data avatar, voice |
-| Windows | `src/components/Windows.tsx`, `src/lib/windows.ts` | panes with their bar (icon, address, controls), slots, curve and depth, groups, overview, frame check, video search |
+| Windows | `src/components/Windows.tsx`, `src/lib/windows.ts` | browser windows with tabs and their bar (address, controls), slots, depth, groups, overview, frame check, video search |
 | Devices and sharing | `src/components/SyncSheet.tsx`, `JoinSheet.tsx`, `src/lib/sync.ts`, `useSync.ts`, `server/sync.ts` | QR and link per space, live status, share/stop/leave; encryption, merge, live connection, server store |
 | Lens | `src/components/Field.tsx` | ring, dot, halo, label |
 | Source card | `src/views/primitives.tsx` (`SourceChip`) | photo variant when the source has a thumbnail |
@@ -254,7 +254,7 @@ What keeps it smooth:
 
 ## The curve engine, Shields and the Agent Station
 
-**Every page is curved.** In the desktop app a web or video window always renders offscreen and is drawn on a cylinder (`CurvedPage`, `electron/curved.ts`, `electron/curve-gl.ts`). There is no flat path to switch to, so resizing, maximizing and full screen never reload a page; the bend (`data-bend`) grows from about 0.3 in a small window to 1 maximized or full screen, and a still page is redrawn at the new bend. A page's own full-screen button fills the curved screen, and the hidden offscreen window stays hidden. If a page can't be taken offscreen the window falls back to a flat `<webview>`. Minimized windows stop painting and keep their sound.
+**Pages are flat in windows, curved in the room** (November 2026). A browser window shows a real `<webview>` page: it is the fastest path, and every click lands where it looks. Only the 360° room draws pages offscreen on the cylinder (`CurvedPage`, `electron/curved.ts`, `electron/curve-gl.ts`), so going into or out of the room reloads each page at its current address. A repaint can arrive with an empty image beside the real frame; empty images are dropped, because drawn they blanked the page in the room.
 
 Frames are numbered so that each is released only when its own drawing is done. Input is queued per page, because a press may pause to check for a `<select>`, whose list opens as a native menu (an offscreen popup can't be placed on the curve). Not supported on the curve: IME composition, and `<select>` inside cross-origin frames.
 
@@ -288,9 +288,13 @@ The dock's Phone opens a window (`PhoneScreen.tsx`) kept out of sync, history an
 
 ## The 360° browser
 
-In the desktop app, pages open as tabs in a room rather than as floating windows. Tabs hang side by side on the inside of a cylinder around the person, inside the normal window or full screen. The choice is remembered: the bar's Floating windows button brings back the free windows, and the top bar's 360° button or Cmd/Ctrl+Shift+U returns to the room. Home leaves the room with its tabs parked, and the next page opened, or the 360° button, brings them all back. Closing the last tab goes home.
+In the desktop app pages open as tabs of a flat browser window (`stack` in `lib/windows.ts`: windows sharing one are its tabs, shown one at a time, the one in front showing). A page opened from the dock, the bar or a link joins the browser window in front; with none showing, it gets a window of its own. The room is a place the person chooses: the top bar's 360° button or Cmd/Ctrl+Shift+U, where every tab of every window hangs side by side on the inside of a cylinder, inside the normal window or full screen. The bar's Floating windows button goes back. Home leaves the room with its tabs parked. Closing the last tab goes home.
 
-`shared/surround.ts` holds the geometry for both drawing and pointing, so what is seen is what is clicked. `electron/surround-gl.ts` draws one WebGL scene in the preload, where frames arrive; `Surround.tsx` describes it through the canvas's data attributes and a `warpnaut-scene` event, and maps input back to page coordinates. Pages stay mounted and never reload going between views. In the room every tab lays out at one page size (`curve:room`), so text reads at its normal size whatever size its window was.
+The room's background is one of three baked panoramas (night sky, studio, dusk) or the person's own 360° photo, kept in IndexedDB on this computer only (`lib/roomSky.ts`). A full 360° photo (2:1) maps as a sphere; a wider panorama covers fewer degrees up and down and fades past its edges. Images narrower than 1.6:1 are refused. Clicks in the room send the pointer's position before each press, flush any move still waiting for its frame, count double and triple clicks themselves, and take the pointer shape from the page under it.
+
+The interface is served from one remembered local port (`interface-port` in the app's data folder), because everything it keeps in browser storage belongs to that address; a new port each launch had been starting the dock, agents and research board empty.
+
+`shared/surround.ts` holds the geometry for both drawing and pointing, so what is seen is what is clicked. `electron/surround-gl.ts` draws one WebGL scene in the preload, where frames arrive; `Surround.tsx` describes it through the canvas's data attributes and a `warpnaut-scene` event, and maps input back to page coordinates. In the room every tab lays out at one page size (`curve:room`), so text reads at its normal size whatever size its window was.
 
 The room sits at z-index 29: above the windows and below every sheet and prompt, so permission requests, settings and the Agent Station stay reachable. The bar holds the strip (all 360° in a line, dragged to turn), the page's address and controls, the tabs, and New tab, whose box also lists the dock. Vertical swipes scroll the page under the pointer; sideways swipes, Shift+wheel, dragging the empty wall, Alt+arrows and Ctrl+Tab turn the room, settling on the nearest tab; a pinch zooms. Sideways swipes therefore don't reach pages. A page's own full-screen button fills its panel. Find-in-page, Phone and AI windows are outside the room; tools from the new-tab box go back home to open.
 

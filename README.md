@@ -155,7 +155,7 @@ src/                     React + TypeScript (Vite). No UI framework; CSS, SVG, D
   components/Field.tsx   camera (spring pan/zoom toward pointer), cursor instrument, proximity, keyboard, pinch
   components/Planet.tsx  Earth at night on one canvas (d3-geo, world-atlas): city lights, arcs, photo pins, depth panes
   components/Launcher.tsx the ten places and the All places panel; ControlBar.tsx the dock
-  components/Windows.tsx glass panes with a bar (icon, address, controls), curve and depth, groups, overview; lib/windows.ts is the pure model
+  components/Windows.tsx glass browser windows with tabs and a bar (address, controls), depth, groups, overview; lib/windows.ts is the pure model
   lib/sync.ts            sync spaces: AES-256-GCM in the browser (key only in the link's #), per-window merge, live client
   lib/useSync.ts         runs the personal space and shared groups, reconciles them with the windows on screen
   components/SyncSheet.tsx  Devices and sharing: QR codes, links, status, share/stop/leave; JoinSheet.tsx asks before joining
@@ -224,7 +224,7 @@ An API key is not the same as a ChatGPT Plus or Claude subscription. Create it i
 ## Tests
 
 ```bash
-npm test             # 173 unit tests: the curved screen, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
+npm test             # 174 unit tests: the curved screen, tabs, agents and voice, mind map layout and grouping, open-web ranking and diversity, dock order, globe projection, model adapter, intent routing, evidence, citation verification, dedupe, parsers, SSRF/robots, cache, budget, layouts,
                      # windows and groups, sync merge/encryption/links, the sync store
 npm run test:e2e     # 24 Playwright tests (desktop + mobile; 6 desktop-only) against sample data: orientation, research + provenance,
                      # location gate, action prepare/confirm/hand-off, privacy erase, keyboard + reduced motion, floating windows, groups, overview,
