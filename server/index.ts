@@ -81,7 +81,7 @@ const SECURITY_HEADERS = {
 /** The interface can reach the agent engine, so nothing it didn't ship with may run in it. */
 const INTERFACE_POLICY = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; media-src * data: blob:; connect-src 'self' blob: data:; font-src 'self' data:; frame-src *; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'";
 
-const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2" };
+const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".ico": "image/x-icon", ".woff2": "font/woff2" };
 
 async function serveStatic(DIST: string, path: string, res: ServerResponse) {
   const safe = normalize(path).replace(/^(\.\.[/\\])+/, "");
@@ -93,7 +93,7 @@ async function serveStatic(DIST: string, path: string, res: ServerResponse) {
   }
   try {
     const data = await readFile(file);
-    res.writeHead(200, { "Content-Type": MIME[extname(file)] ?? "application/octet-stream", ...(file.endsWith(".html") ? { "Content-Security-Policy": INTERFACE_POLICY } : {}), ...(file.includes("/assets/") ? { "Cache-Control": "public, max-age=31536000, immutable" } : {}) });
+    res.writeHead(200, { "Content-Type": MIME[extname(file)] ?? "application/octet-stream", ...(file.endsWith(".html") ? { "Content-Security-Policy": INTERFACE_POLICY } : {}), ...(file.includes("/assets/") || file.includes("/rooms/") ? { "Cache-Control": "public, max-age=31536000, immutable" } : {}) });
     res.end(data);
   } catch {
     send(res, 404, { error: "Not built. Run npm run build, or use npm run dev." });

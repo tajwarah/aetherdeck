@@ -1,18 +1,33 @@
-// The 360° room's background: one of the built-in ones, or the person's own 360° photo of their room. The photo
-// stays on this computer, in this app's own storage; it is never uploaded or synced.
+// The 360° room's background: a 360° photo of a real place that ships with the app, a drawn one, or the person's
+// own 360° photo of their room. Their photo stays on this computer, in this app's own storage; it is never uploaded
+// or synced. The shipped photos are from Poly Haven (polyhaven.com), public domain (CC0); see public/rooms/CREDITS.md.
 
-export type SkyId = "night" | "studio" | "dusk" | "photo";
-export const SKIES: { id: Exclude<SkyId, "photo">; label: string }[] = [
-  { id: "night", label: "Night sky" },
-  { id: "studio", label: "Studio" },
-  { id: "dusk", label: "Dusk" },
+export type SkyId = "seaside" | "home1" | "home2" | "home3" | "night" | "studio" | "dusk" | "photo";
+export interface Sky { id: Exclude<SkyId, "photo">; label: string; about: string; image?: string; thumb?: string }
+const place = (file: string) => ({ image: `/rooms/${file}`, thumb: `/rooms/thumbs/${file}` });
+export const SKIES: Sky[] = [
+  { id: "seaside", label: "Seaside balcony", about: "Remote work by the sea", ...place("seaside-balcony.jpg") },
+  { id: "home1", label: "Home Setup 1", about: "A home office with desks by the windows", ...place("home-office.jpg") },
+  { id: "home2", label: "Home Setup 2", about: "A glass house over a valley", ...place("glasshouse.jpg") },
+  { id: "home3", label: "Home Setup 3", about: "A sunlit loft apartment", ...place("loft.jpg") },
+  { id: "night", label: "Night sky", about: "Dark, with a horizon of gold" },
+  { id: "studio", label: "Studio", about: "Soft and light" },
+  { id: "dusk", label: "Dusk", about: "Blue fading to amber" },
 ];
+const DEFAULT: SkyId = "seaside";
+
+/** What the room's drawing is told to show: a drawn background's name, or "image:" and a photo's address. */
+export function skyKey(id: SkyId, photo: string | null): string {
+  if (id === "photo") return photo ? `image:${photo}` : `image:${SKIES[0].image}`;
+  const sky = SKIES.find((s) => s.id === id) ?? SKIES[0];
+  return sky.image ? `image:${sky.image}` : sky.id;
+}
 
 const KEY = "warpnaut.roomSky";
 const MAX_WIDTH = 8192; // the widest texture every Mac's GPU takes
 
 export function chosenSky(): SkyId {
-  try { const v = localStorage.getItem(KEY); return v === "studio" || v === "dusk" || v === "photo" ? v : "night"; } catch { return "night"; }
+  try { const v = localStorage.getItem(KEY); return v === "photo" || SKIES.some((s) => s.id === v) ? (v as SkyId) : DEFAULT; } catch { return DEFAULT; }
 }
 export function chooseSky(id: SkyId) { try { localStorage.setItem(KEY, id); } catch { /* this visit only */ } }
 

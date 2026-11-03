@@ -1477,10 +1477,16 @@ input, select, textarea { accent-color: var(--accent); }
 .surround__fav { background: var(--fill); border: 0; border-radius: 8px; }
 .surround__fav:hover { background: var(--fill-on); }
 .surround__fav.is-on { background: var(--fill-on); box-shadow: 0 0 0 1px var(--accent); }
-.surround__skies { position: absolute; right: max(10px, calc(50vw - 620px)); bottom: 62px; width: min(380px, calc(100vw - 32px)); box-sizing: border-box; padding: 14px; display: grid; gap: 10px; background: var(--mat); backdrop-filter: var(--blur); border: 0.5px solid var(--mat-line); border-radius: 13px; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.45); color: var(--ink); animation: fade 0.14s both; }
+.surround__skies { position: absolute; right: max(10px, calc(50vw - 620px)); bottom: 62px; width: min(400px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; box-sizing: border-box; padding: 14px; display: grid; gap: 10px; background: var(--mat); backdrop-filter: var(--blur); border: 0.5px solid var(--mat-line); border-radius: 13px; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.45); color: var(--ink); animation: fade 0.14s both; }
 .surround__skies .fine { margin: 0; }
 .surround__skyhead { margin: 0; font-size: 13px; font-weight: 600; }
 .surround__skylist { display: flex; flex-wrap: wrap; gap: 6px; }
+.surround__places { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.surround__place { display: grid; gap: 5px; padding: 0 0 6px; border: 0; border-radius: 10px; background: var(--fill); color: var(--ink); font-size: 12px; text-align: left; cursor: pointer; overflow: hidden; transition: background 0.12s, box-shadow 0.12s; }
+.surround__place img { width: 100%; height: auto; aspect-ratio: 2 / 1; object-fit: cover; display: block; }
+.surround__place span { padding: 0 8px; }
+.surround__place:hover { background: var(--fill-on); }
+.surround__place.is-on { box-shadow: 0 0 0 2px var(--accent); }
 .surround__skyfile { cursor: pointer; }
 .surround__skynote { color: var(--ink); }
 .orn { border-radius: 8px; transition: background 0.12s; }

@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { FOV, hitPanel, inView, layoutPanels, onPanel, TAU, turn, type Panel, type View } from "../../shared/surround.ts";
 import { desktop } from "../lib/desktop.ts";
 import type { DockItem } from "../lib/dock.ts";
-import { chooseSky, chosenSky, forgetPhoto, keepPhoto, savedPhoto, SKIES, type SkyId } from "../lib/roomSky.ts";
+import { chooseSky, chosenSky, forgetPhoto, keepPhoto, savedPhoto, SKIES, skyKey, type SkyId } from "../lib/roomSky.ts";
 import { parseOpenRequest, type Win } from "../lib/windows.ts";
 import { BUTTON, mods, pageKey } from "./CurvedPage.tsx";
 
@@ -155,7 +155,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     return () => { if (url) URL.revokeObjectURL(url); };
   }, []);
   useEffect(() => {
-    canvas.current!.dataset.sky = sky === "photo" && photo ? `photo:${photo}` : sky === "photo" ? "night" : sky;
+    canvas.current!.dataset.sky = skyKey(sky, photo);
     document.dispatchEvent(new Event("warpnaut-scene"));
   }, [sky, photo]);
   const pickSky = (id: SkyId) => { setSky(id); chooseSky(id); setSkyNote(""); };
@@ -171,7 +171,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   const removePhoto = () => {
     void forgetPhoto();
     setPhoto((old) => { if (old) URL.revokeObjectURL(old); return null; });
-    if (sky === "photo") pickSky("night");
+    if (sky === "photo") pickSky(SKIES[0].id);
   };
 
   useEffect(() => { if (adding) canvas.current?.blur(); }, [adding]);
@@ -370,10 +370,23 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
       )}
       {skies && (
         <div className="surround__skies" role="dialog" aria-label="Room background">
-          <p className="surround__skyhead">Background</p>
+          <p className="surround__skyhead">Environment</p>
+          <div className="surround__places">
+            {SKIES.filter((k) => k.thumb).map((k) => (
+              <button key={k.id} className={`surround__place ${sky === k.id ? "is-on" : ""}`} aria-pressed={sky === k.id} title={k.about} onClick={() => pickSky(k.id)}>
+                <img src={k.thumb} alt="" width={180} height={90} />
+                <span>{k.label}</span>
+              </button>
+            ))}
+            {photo && (
+              <button className={`surround__place ${sky === "photo" ? "is-on" : ""}`} aria-pressed={sky === "photo"} title="Your own 360° photo" onClick={() => pickSky("photo")}>
+                <img src={photo} alt="" width={180} height={90} />
+                <span>Your room</span>
+              </button>
+            )}
+          </div>
           <div className="surround__skylist">
-            {SKIES.map((k) => <button key={k.id} className={`surround__fav ${sky === k.id ? "is-on" : ""}`} aria-pressed={sky === k.id} onClick={() => pickSky(k.id)}>{k.label}</button>)}
-            {photo && <button className={`surround__fav ${sky === "photo" ? "is-on" : ""}`} aria-pressed={sky === "photo"} onClick={() => pickSky("photo")}>Your room</button>}
+            {SKIES.filter((k) => !k.thumb).map((k) => <button key={k.id} className={`surround__fav ${sky === k.id ? "is-on" : ""}`} aria-pressed={sky === k.id} title={k.about} onClick={() => pickSky(k.id)}>{k.label}</button>)}
           </div>
           <div className="surround__skylist">
             <label className="btn surround__skyfile">{photo ? "Use another 360° photo…" : "Use a 360° photo of your room…"}

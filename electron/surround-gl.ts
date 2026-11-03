@@ -49,31 +49,50 @@ void main() {
   if (span <= 0.0) { color = texture(sky, vec2(u, h * 0.5 + 0.5)); return; }
   float v = atan(h) / span + 0.5;
   vec4 c = texture(sky, vec2(u, clamp(v, 0.0, 1.0)));
-  color = vec4(c.rgb * exp(-max(0.0, abs(v - 0.5) - 0.5) * 6.0), 1.0);
+  // a photo is dimmed a little, as a spatial view dims its surroundings, so the pages stay easy to read
+  color = vec4(c.rgb * 0.86 * exp(-max(0.0, abs(v - 0.5) - 0.5) * 6.0), 1.0);
 }`;
+// Each page is drawn a little larger than itself (PAD, on every side), so the space around it can hold its glass
+// rim and the soft shadow it casts on the room, the way a window floats in a spatial view.
+const PAD = 0.07;
 const PANEL_VS = `#version 300 es
 in vec2 uv; out vec2 st; uniform float yaw, f, aspect, centre, wide, high;
+const float PAD = ${PAD};
 void main() {
-  st = uv;
-  float a = centre + (uv.x - 0.5) * wide - yaw;
-  float y = (0.5 - uv.y) * high;
+  vec2 grow = vec2(PAD / wide, PAD / high);
+  st = uv * (1.0 + 2.0 * grow) - grow;
+  float a = centre + (st.x - 0.5) * wide - yaw;
+  float y = (0.5 - st.y) * high;
   gl_Position = vec4(sin(a) * f / aspect, y * f, cos(a) * 0.5, cos(a));
 }`;
-// Rounded corners, a soft light on the bend, and an edge of gold on the page you're using.
+// Rounded corners and a soft light on the bend; around the page a rim of clear glass, lit along its top, and a
+// shadow below it. The page you're using is a touch brighter and its rim a touch clearer; the others rest.
 const PANEL_FS = `#version 300 es
 precision highp float;
 in vec2 st; out vec4 color; uniform sampler2D page; uniform float wide, high, swapped, focus;
+float box(vec2 p, vec2 half_, float r) { vec2 d = abs(p) - half_ + r; return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r; }
 void main() {
   vec2 size = vec2(wide, high);
-  vec2 d = abs(st - 0.5) * size - size * 0.5 + 0.022;
-  float edge = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - 0.022;
-  float alpha = smoothstep(0.0015, -0.0015, edge);
-  vec4 t = texture(page, st);
-  vec3 c = swapped > 0.5 ? t.bgr : t.rgb;
-  float e = abs(st.x - 0.5) * 2.0;
-  c *= 1.0 - 0.1 * e * e;
-  c = mix(c, vec3(0.86, 0.68, 0.42), focus * smoothstep(-0.006, 0.0, edge) * 0.9);
-  color = vec4(c * alpha, alpha);
+  vec2 p = (st - 0.5) * size;
+  const float RIM = 0.011;
+  float inner = box(p, size * 0.5, 0.024);
+  float glass = box(p, size * 0.5 + RIM, 0.024 + RIM);
+  float shade = box(p + vec2(0.0, 0.018), size * 0.5 + RIM, 0.05);
+  vec4 c = vec4(0.0, 0.0, 0.0, 0.34 * exp(-max(shade, 0.0) / 0.026) * smoothstep(-0.02, 0.01, shade));
+  float rimA = smoothstep(0.0012, -0.0012, glass);
+  float lit = smoothstep(0.0, -size.y, p.y) * 0.5 + 0.5;
+  vec4 rim = vec4(vec3(1.0) * (0.16 + 0.1 * focus) * lit, 0.16 + 0.1 * focus);
+  rim.rgb += vec3(0.32) * smoothstep(-0.0025, 0.0, glass) * rimA * lit;
+  c = rim * rimA + c * (1.0 - rimA);
+  float pageA = smoothstep(0.0012, -0.0012, inner);
+  if (pageA > 0.0) {
+    vec4 t = texture(page, clamp(st, 0.0, 1.0));
+    vec3 pc = swapped > 0.5 ? t.bgr : t.rgb;
+    float e = abs(st.x - 0.5) * 2.0;
+    pc *= (1.0 - 0.08 * e * e) * mix(0.9, 1.0, focus);
+    c = vec4(pc, 1.0) * pageA + c * (1.0 - pageA);
+  }
+  color = c;
 }`;
 
 interface Tex { tex: WebGLTexture; swapped: boolean; ready: boolean }
@@ -123,7 +142,9 @@ function build(canvas: HTMLCanvasElement): Scene | null {
 
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  return { canvas, gl, room, panel, roomU: uniforms(room), panelU: uniforms(panel), mesh, empty, count: pts.length / 2, textures: new Map(), waiting: new Map(), due: false, panelsText: "", panels: [], baked, bake: program(QUAD_VS, BAKE_FS), photo: null, span: 0, skyKey: "" };
+  const s: Scene = { canvas, gl, room, panel, roomU: uniforms(room), panelU: uniforms(panel), mesh, empty, count: pts.length / 2, textures: new Map(), waiting: new Map(), due: false, panelsText: "", panels: [], baked, bake: program(QUAD_VS, BAKE_FS), photo: null, span: 0, skyKey: "" };
+  bakeSky(s, 0); // something to stand in while a photo loads
+  return s;
 }
 
 /** Paints one of the built-in backgrounds into the panorama. */
@@ -142,11 +163,11 @@ function bakeSky(s: Scene, style: number) {
   gl.deleteFramebuffer(fb);
 }
 
-/** The background the interface asks for ("night", "studio", "dusk", or "photo:" and the photo's address). */
+/** The background the interface asks for ("night", "studio", "dusk", or "image:" and a 360° photo's address). */
 function pickSky(s: Scene, key: string) {
   if (key === s.skyKey) return;
   s.skyKey = key;
-  if (!key.startsWith("photo:")) { bakeSky(s, STYLES[key] ?? 0); s.span = 0; return; }
+  if (!key.startsWith("image:")) { bakeSky(s, STYLES[key] ?? 0); s.span = 0; return; }
   // The photo loads in the background; the room keeps the background it has until it's ready.
   const img = new Image();
   img.src = key.slice(6);
@@ -200,7 +221,7 @@ function draw(s: Scene) {
   const common = (p: WebGLProgram, u: Uniforms) => { gl.useProgram(p); gl.uniform1f(u.yaw, view.yaw); gl.uniform1f(u.f, f); gl.uniform1f(u.aspect, view.aspect); };
   gl.disable(gl.BLEND);
   common(s.room, s.roomU);
-  const photo = s.skyKey.startsWith("photo:") && s.photo && s.span > 0;
+  const photo = s.skyKey.startsWith("image:") && s.photo && s.span > 0;
   gl.uniform1f(s.roomU.span, photo ? s.span : 0);
   gl.bindTexture(gl.TEXTURE_2D, photo ? s.photo : s.baked);
   gl.bindVertexArray(s.empty);

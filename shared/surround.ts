@@ -7,7 +7,7 @@ export interface View { yaw: number; fov: number; aspect: number }
 
 export const TAU = Math.PI * 2;
 export const FOV = { min: 0.75, start: 1.08, max: 1.5 };
-const HEIGHT = 0.8;
+const HEIGHT = 0.72; // most of the view, with the room still around the page
 const GAP = 0.07;
 
 /** The shortest turn from one direction to another, between -π and π. */
