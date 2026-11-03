@@ -15,6 +15,19 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
   const all = new Map<string, Curved>();
   let room: { w: number; h: number } | null = null; // while the 360° view is open, every page is this size
   const skipRelease = new Set<string>(); // a press that opened a <select>'s menu: its release goes nowhere
+  // What is under the pointer, looked up while it moves, so a press on anything but a <select> goes straight through
+  // instead of waiting on the page to say what it is.
+  const hover = new Map<string, { x: number; y: number; select: boolean; at: number }>();
+  const looking = new Set<string>();
+  const lookUnder = (id: string, wc: WebContents, x: number, y: number) => {
+    const h = hover.get(id);
+    if (looking.has(id) || (h && h.x === x && h.y === y) || (h && Date.now() - h.at < 80)) return;
+    looking.add(id);
+    const code = `!!document.elementFromPoint(${x}, ${y})?.closest("select")`;
+    void Promise.race([wc.executeJavaScriptInIsolatedWorld(1999, [{ code }]).catch(() => null), new Promise((r) => setTimeout(() => r(null), 250))])
+      .then((select) => { if (typeof select === "boolean") hover.set(id, { x, y, select, at: Date.now() }); })
+      .finally(() => looking.delete(id));
+  };
   // Frames on their way to the interface, by number: each is released only when its own drawing is done.
   const drawing = new Map<number, (token: unknown) => void>();
   let frames = 0;
@@ -91,10 +104,12 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
     if (room) for (const c of all.values()) fit(c, room.w, room.h);
   });
 
-  // A tab behind you keeps running but paints a few frames a second, so the tabs you can see get the computer.
+  // A tab behind you keeps running (and playing) but draws nothing, so the tabs you can see get the computer.
   ipcMain.handle("curve:rate", (_e, id: string, fps: number) => {
     const wc = all.get(id)?.osr.webContents;
     if (!wc || wc.isDestroyed()) return;
+    if (!fps) return wc.stopPainting();
+    if (!wc.isPainting()) wc.startPainting();
     wc.setFrameRate(sharedFrames() ? fps : Math.min(30, fps));
     wc.invalidate();
   });
@@ -107,10 +122,13 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
     c.input = c.input.then(async () => {
       const wc = c.osr.webContents;
       if (wc.isDestroyed()) return;
+      if (event.type === "mouseMove") { const m = event as Electron.MouseInputEvent; lookUnder(id, wc, m.x, m.y); }
       if (event.type === "mouseDown") {
         wc.focus();
         const m = event as Electron.MouseInputEvent;
-        if (m.button !== "right" && await chooseFromSelect(wc, m.x, m.y)) { skipRelease.add(id); return; }
+        const h = hover.get(id);
+        const plain = h && !h.select && Math.abs(h.x - m.x) <= 4 && Math.abs(h.y - m.y) <= 4; // known not to be a <select>
+        if (m.button !== "right" && !plain && await chooseFromSelect(wc, m.x, m.y)) { skipRelease.add(id); return; }
       }
       if (event.type === "mouseUp" && skipRelease.delete(id)) return;
       wc.sendInputEvent(event);
@@ -186,6 +204,7 @@ export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage:
     const c = all.get(id);
     if (!c) return null;
     all.delete(id);
+    hover.delete(id);
     const url = c.osr.webContents.getURL();
     c.osr.destroy();
     return url;

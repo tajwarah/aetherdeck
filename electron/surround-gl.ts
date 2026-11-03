@@ -95,7 +95,7 @@ void main() {
   color = c;
 }`;
 
-interface Tex { tex: WebGLTexture; swapped: boolean; ready: boolean }
+interface Tex { tex: WebGLTexture; swapped: boolean; ready: boolean; w: number; h: number }
 /** The newest frame of a page, waiting for the next drawing; `done` hands it back. */
 interface Waiting { frame: VideoFrame; done: () => void }
 const UNIFORMS = ["yaw", "f", "aspect", "centre", "wide", "high", "swapped", "focus", "span"] as const;
@@ -196,7 +196,10 @@ function upload(s: Scene) {
     try {
       const t = textureFor(s, id);
       gl.bindTexture(gl.TEXTURE_2D, t.tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, w.frame);
+      // the same size as last time: copy into the texture it has, rather than making a new one every frame
+      const fw = w.frame.displayWidth, fh = w.frame.displayHeight;
+      if (t.ready && !t.swapped && t.w === fw && t.h === fh) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, w.frame);
+      else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, w.frame); t.w = fw; t.h = fh; }
       t.swapped = false;
       t.ready = true;
     } catch { /* a frame lost is redrawn by the next one */ }
@@ -253,7 +256,7 @@ function textureFor(s: Scene, id: string) {
   let t = s.textures.get(id);
   if (!t) {
     const { gl } = s;
-    t = { tex: gl.createTexture()!, swapped: false, ready: false };
+    t = { tex: gl.createTexture()!, swapped: false, ready: false, w: 0, h: 0 };
     gl.bindTexture(gl.TEXTURE_2D, t.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -281,6 +284,7 @@ export function sceneBitmap(id: string, width: number, height: number, pixels: U
   const t = textureFor(scene, id);
   gl.bindTexture(gl.TEXTURE_2D, t.tex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  Object.assign(t, { w: width, h: height });
   t.swapped = true;
   t.ready = true;
   soon(scene);

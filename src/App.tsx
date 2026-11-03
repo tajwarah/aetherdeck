@@ -42,7 +42,7 @@ import type { RamStats } from "./lib/ram.ts";
 import { ResearchBoard } from "./components/ResearchBoard.tsx";
 import { addResearch, EMPTY_BOARD, fromEnvironment, loadBoard, saveBoard, type Board } from "./lib/research.ts";
 import { isPage } from "./components/Surround.tsx";
-import { clickScript, labelScript, leavesTrace, loadAgents, needsApproval, runAgent, saveAgents, seeScript, skillsOf, typeScript, type Agent, type Run } from "./lib/agents.ts";
+import { clickScript, labelScript, leavesTrace, loadAgents, needsApproval, runAgent, saveAgents, seeScript, skillsOf, stepText, typeScript, type Agent, type Run } from "./lib/agents.ts";
 import { engineTool, inParts, type DataSets } from "./lib/agentTools.ts";
 import { appUrl } from "../shared/harvest.ts";
 import { askAssistant, type AgentStep } from "./lib/api.ts";
@@ -898,6 +898,8 @@ export function App() {
         shared={sync.sharedGroups} sharePeers={Object.fromEntries(sync.shares.map((s) => [s.group, s.status.peers]))} onShare={(g) => { sync.shareGroup(g); setSyncOpen({ group: g }); }}
         onAddPage={(w) => setComposer({ x: w.x + w.w / 2 - 260, y: Math.max(16, w.y - 70), addTo: w.id })}
         onNewTab={(w) => setComposer({ x: w.x + w.w / 2 - 260, y: Math.max(16, w.y + 90), tabIn: w.id })}
+        roomCrew={crew.map((a) => { const r = runs[a.id]; const last = r?.steps[r.steps.length - 1]; return { id: a.id, name: a.name, hue: a.hue, status: r?.ask ? "waiting" : r?.status === "working" ? "working" : "idle", doing: last ? stepText(last) : undefined }; })}
+        onRoomCrew={() => setStationOpen(true)}
         onRead={(url) => { setWins((ws) => ws.filter((w) => w.page.href !== url)); run(url, { fresh: true }); }}
         onAsk={(q) => { setSurround(false); minimizeAll(); run(q, { fresh: true }); }}
         findIn={findIn} onFindClose={() => setFindIn(null)} addressFocus={addressFocus}

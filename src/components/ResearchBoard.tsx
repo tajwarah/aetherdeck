@@ -5,6 +5,7 @@ import { askAssistant } from "../lib/api.ts";
 import { desktop } from "../lib/desktop.ts";
 import { checkCitations, EMPTY_BOARD, GROUP_ACTIONS, groupMaterial, groupQuestion, hull, makeGroup, members, numberedSources, reachable, removeResearch, setGroup, toggleLink, type Board, type GroupResult, type Research } from "../lib/research.ts";
 import { Markdown } from "./Assistant.tsx";
+import { Glyph, GLYPHS, Sidebar, type SideSection } from "./Sidebar.tsx";
 
 const PAGES_READ = 8;
 const PAGE_TEXT = 6000;
@@ -28,6 +29,8 @@ export function ResearchBoard({ board, aiReady, onChange, onAsk, onOpenPages, on
   const [error, setError] = useState("");
   const [custom, setCustom] = useState("");
   const [query, setQuery] = useState("");
+  const [folded, setFolded] = useState(false);
+  const [wide, setWide] = useState(false);
   const stop = useRef<AbortController | null>(null);
   const drag = useRef<{ id: string; dx: number; dy: number; moved: boolean } | null>(null);
   const group = board.groups.find((g) => g.id === groupId);
@@ -100,15 +103,28 @@ export function ResearchBoard({ board, aiReady, onChange, onAsk, onOpenPages, on
     setBusy("");
   }
 
+  const all = !group && !picked.length;
+  const dot = (hue: number) => <span className="side__dot" style={{ ["--hue" as string]: hue }} />;
+  const sections: SideSection[] = [
+    { label: "Menu", items: [
+      { id: "all", label: "All research", icon: <Glyph d={GLYPHS.home} />, on: all, badge: board.items.length, onClick: () => { setGroupId(null); setPicked([]); } },
+      { id: "linked", label: "Connected", icon: <Glyph d={GLYPHS.link} />, on: !group && picked.length > 0, badge: board.links.length, hint: "Cards you linked, with everything linked to them", onClick: () => { const first = board.links[0]?.[0]; if (first) { setGroupId(null); setPicked([first]); } } },
+    ] },
+    { label: "Groups", items: board.groups.map((g) => ({ id: g.id, label: g.name, icon: dot(g.hue), on: g.id === groupId, badge: members(board, g.id).length, onClick: () => { setGroupId(g.id); setPicked([]); } })) },
+    { label: "Recent", items: [...board.items].sort((a, b) => b.at - a.at).slice(0, 6).map((r) => ({ id: r.id, label: r.question, icon: <Glyph d={GLYPHS.star} />, on: !group && picked.length === 1 && picked[0] === r.id, onClick: () => { setGroupId(null); setPicked([r.id]); } })) },
+    { label: "General", items: [
+      { id: "keep", label: board.keep ? "Keeping new searches" : "Not keeping searches", icon: <Glyph d={GLYPHS.pin} />, act: true, hint: "Whether each new search lands on this board", onClick: () => onChange((b) => ({ ...b, keep: !b.keep })) },
+      ...(board.items.length ? [{ id: "forget", label: "Forget all", icon: <Glyph d={GLYPHS.trash} />, act: true, onClick: () => { if (confirm("Forget everything on this board? This can't be undone.")) { onChange(() => ({ ...EMPTY_BOARD, keep: board.keep })); setPicked([]); setGroupId(null); } } }] : []),
+      { id: "close", label: "Close the board", icon: <Glyph d={GLYPHS.out} />, act: true, onClick: onClose },
+    ] },
+  ];
+
   return (
-    <aside className="deck board" role="dialog" aria-label="Research board" data-ui>
-      <header className="deck__head">
-        <div><h2>Research board</h2><p>{board.items.length ? `${board.items.length} research${board.items.length === 1 ? "" : "es"}, ${board.groups.length} group${board.groups.length === 1 ? "" : "s"}` : "Searches you make appear here"}</p></div>
-        <input className="board__find" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find in your research" aria-label="Find in your research" data-keys />
-        <label className="board__keep"><input type="checkbox" checked={board.keep} onChange={(e) => onChange((b) => ({ ...b, keep: e.target.checked }))} /> Keep new searches</label>
-        <button className="deck__btn" disabled={!board.items.length} onClick={() => { if (confirm("Forget everything on this board? This can't be undone.")) { onChange(() => ({ ...EMPTY_BOARD, keep: board.keep })); setPicked([]); setGroupId(null); } }}>Forget all</button>
-        <button className="deck__icon" onClick={onClose} aria-label="Close the research board">×</button>
-      </header>
+    <aside className={`deck board ${wide ? "is-wide" : ""}`} role="dialog" aria-label="Research board" data-ui>
+      <Sidebar title="Research board" alerts={busy ? 1 : 0} collapsed={folded} onCollapse={setFolded} onClose={onClose} onWide={() => setWide((w) => !w)}
+        who={{ icon: <Glyph d={GLYPHS.layers} size={22} />, name: "Your research", detail: board.items.length ? `${board.items.length} search${board.items.length === 1 ? "" : "es"} · ${board.groups.length} group${board.groups.length === 1 ? "" : "s"}` : "Searches you make appear here" }}
+        search={{ value: query, placeholder: "Find in your research", onChange: setQuery }} sections={sections} />
+      <div className="deck__main">
       <div className="board__body">
         <div className="board__canvas" onClick={(e) => { if (e.target === e.currentTarget) { setPicked([]); setJoining(null); } }}>
           <div className="board__plane" style={size}>
@@ -172,6 +188,7 @@ export function ResearchBoard({ board, aiReady, onChange, onAsk, onOpenPages, on
             </>
           )}
         </section>
+      </div>
       </div>
     </aside>
   );

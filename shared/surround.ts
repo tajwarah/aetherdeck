@@ -63,3 +63,16 @@ export function onPanel(v: View, p: Panel, x: number, y: number) {
 export function inView(v: View, p: Panel): boolean {
   return Math.abs(turn(v.yaw - p.yaw)) < Math.atan(Math.tan(v.fov / 2) * v.aspect) + p.width / 2 + 0.05;
 }
+
+/**
+ * Where something small hung on the wall shows on screen: its centre (-1 to 1 across and up), and how much larger
+ * it looks than straight ahead at the starting zoom, across and up. Null when it's behind you or too far to the side.
+ */
+export function onWall(v: View, yaw: number, height: number) {
+  const a = turn(yaw - v.yaw);
+  const c = Math.cos(a);
+  if (c <= 0.2) return null;
+  const f = 1 / Math.tan(v.fov / 2);
+  const f0 = 1 / Math.tan(FOV.start / 2);
+  return { x: (Math.tan(a) * f) / v.aspect, y: (height / c) * f, across: f / (c * c) / f0, up: f / c / f0 };
+}

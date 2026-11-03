@@ -8,6 +8,7 @@ import { desktop } from "../lib/desktop.ts";
 import type { DockItem } from "../lib/dock.ts";
 import { chooseSky, chosenSky, forgetPhoto, keepPhoto, savedPhoto, SKIES, skyKey, type SkyId } from "../lib/roomSky.ts";
 import { parseOpenRequest, type Win } from "../lib/windows.ts";
+import { RoomWidgets, savedWidgets, WIDGETS, type CrewMember } from "./RoomWidgets.tsx";
 import { BUTTON, mods, pageKey } from "./CurvedPage.tsx";
 
 /** Every tab gets the same full-size page, whatever size its window was, so text reads at its proper size. */
@@ -29,11 +30,14 @@ interface Props {
   onFloating: () => void;
   /** Bumped by New Window, to open the new-tab box. */
   newTab: number;
+  /** The crew, for the agents widget, and a way to the Agent Station. */
+  crew: CrewMember[];
+  onCrew: () => void;
 }
 
 const Icon = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>;
 
-export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClose, onHome, onFloating, newTab }: Props) {
+export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClose, onHome, onFloating, newTab, crew, onCrew }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const wedge = useRef<HTMLSpanElement>(null);
   const shown = wins.filter((w) => !w.minimized && isPage(w));
@@ -62,12 +66,12 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     document.dispatchEvent(new Event("warpnaut-scene"));
     pace();
   };
-  /** The tab in use paints at full speed, the others in sight at a third, and those behind you barely at all. */
+  /** The tab in use paints at full speed, the others in sight at a third, and those out of sight not at all. */
   const rates = useRef(new Map<string, number>());
   const pace = () => {
     const v = view();
     for (const p of panelsNow.current) {
-      const fps = !inView(v, p) ? 4 : p.id === focusNow.current ? 60 : 20;
+      const fps = !inView(v, p) ? 0 : p.id === focusNow.current ? 60 : 20;
       if (rates.current.get(p.id) !== fps) { rates.current.set(p.id, fps); void desktop?.invoke("curve:rate", p.id, fps); }
     }
   };
@@ -149,6 +153,13 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   const [photo, setPhoto] = useState<string | null>(null);
   const [skies, setSkies] = useState(false);
   const [skyNote, setSkyNote] = useState("");
+  const [widgets, setWidgets] = useState(savedWidgets);
+  const [widgetMenu, setWidgetMenu] = useState(false);
+  const toggleWidget = (id: (typeof WIDGETS)[number]["id"]) => setWidgets((w) => {
+    const next = { ...w, shown: w.shown.includes(id) ? w.shown.filter((x) => x !== id) : [...w.shown, id] };
+    try { localStorage.setItem("warpnaut.roomWidgets", JSON.stringify(next)); } catch { /* this visit only */ }
+    return next;
+  });
   useEffect(() => {
     let url: string | null = null;
     void savedPhoto().then((b) => { if (b) { url = URL.createObjectURL(b); setPhoto(url); } });
@@ -199,6 +210,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   const pagePoint = (_panel: Panel, u: number, v: number) => ({ x: Math.round(u * sizeNow.current.w), y: Math.round(v * sizeNow.current.h) });
   const send = (id: string, event: Record<string, unknown>) => void desktop?.invoke("curve:input", id, event);
   const pendingMove = useRef<{ id: string; event: Record<string, unknown> } | null>(null);
+  const pendingWheel = useRef<{ id: string; event: Record<string, unknown> } | null>(null);
   /** A move still waiting for its frame goes now, so it can never arrive after the press or release that follows it. */
   const flushMove = () => { const m = pendingMove.current; pendingMove.current = null; if (m) send(m.id, m.event); };
   // Pointer events carry no click count, so double and triple clicks are counted here: quick presses in one spot.
@@ -290,7 +302,12 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
         m.timer = setTimeout(() => { if (!snap()) run(); }, 170);
         return;
       }
-      send(hit.panel.id, { type: "mouseWheel", ...pagePoint(hit.panel, hit.u, hit.v), deltaX: 0, deltaY: -e.deltaY, canScroll: true, hasPreciseScrollingDeltas: e.deltaMode === 0, modifiers: [] });
+      // a trackpad sends many small scrolls a frame: they go to the page as one
+      const w = pendingWheel.current;
+      if (w && w.id === hit.panel.id) { w.event.deltaY = (w.event.deltaY as number) - e.deltaY; return; }
+      if (w) send(w.id, w.event);
+      pendingWheel.current = { id: hit.panel.id, event: { type: "mouseWheel", ...pagePoint(hit.panel, hit.u, hit.v), deltaX: 0, deltaY: -e.deltaY, canScroll: true, hasPreciseScrollingDeltas: e.deltaMode === 0, modifiers: [] } };
+      requestAnimationFrame(() => { const p = pendingWheel.current; pendingWheel.current = null; if (p) send(p.id, p.event); });
     };
     c.addEventListener("wheel", wheel, { passive: false });
     return () => c.removeEventListener("wheel", wheel);
@@ -357,6 +374,16 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { gesture.current = null; }} onPointerLeave={() => setHover(null)}
         onContextMenu={(e) => e.preventDefault()} onKeyDown={(e) => keys("keyDown", e)} onKeyUp={(e) => keys("keyUp", e)} />
       {!panels.length && <p className="surround__empty">Press + on the bar to open a tab.</p>}
+      <RoomWidgets canvas={canvas} panels={panels} saved={widgets} onSaved={setWidgets} crew={crew} onCrew={onCrew} />
+      {widgetMenu && (
+        <div className="surround__skies surround__widgets" role="dialog" aria-label="Widgets">
+          <p className="surround__skyhead">Widgets</p>
+          <div className="surround__skylist">
+            {WIDGETS.map((w) => <button key={w.id} className={`surround__fav ${widgets.shown.includes(w.id) ? "is-on" : ""}`} aria-pressed={widgets.shown.includes(w.id)} onClick={() => toggleWidget(w.id)}>{w.label}</button>)}
+          </div>
+          <p className="fine">Widgets hang on the wall beside your tabs. Drag one by its top to move it.</p>
+        </div>
+      )}
       {adding && (
         <div className="surround__add">
           <form onSubmit={(e) => { e.preventDefault(); go(draft); }}>
@@ -421,7 +448,8 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
           })}
         </span>
         <button className="orn" aria-label="New tab" title="New tab" aria-expanded={adding} onClick={() => { setAdding((a) => !a); setSkies(false); }}><Icon d="M12 5v14M5 12h14" /></button>
-        <button className="orn" aria-label="Background" title="Room background" aria-expanded={skies} onClick={() => { setSkies((v) => !v); setAdding(false); }}><Icon d="M4 6h16v12H4ZM4 15l4.5-4.5 4 4L15 12l5 5M15.5 9.5h.01" /></button>
+        <button className="orn" aria-label="Widgets" title="Widgets" aria-expanded={widgetMenu} onClick={() => { setWidgetMenu((v) => !v); setSkies(false); setAdding(false); }}><Icon d="M4 4h7v7H4ZM13 4h7v7h-7ZM4 13h7v7H4ZM13 13h7v7h-7Z" /></button>
+        <button className="orn" aria-label="Background" title="Room background" aria-expanded={skies} onClick={() => { setSkies((v) => !v); setAdding(false); setWidgetMenu(false); }}><Icon d="M4 6h16v12H4ZM4 15l4.5-4.5 4 4L15 12l5 5M15.5 9.5h.01" /></button>
         <button className="orn" aria-label="Full screen" title="Full screen" onClick={() => void desktop?.invoke("app:toggleFullscreen")}><Icon d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></button>
         <button className="orn" aria-label="Floating windows" title="Switch to floating windows" onClick={onFloating}><Icon d="M4 5h10v8H4ZM10 13v6h10v-8h-6" /></button>
         <button className="orn" aria-label="Home" title="Home" onClick={onHome}><Icon d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" /></button>

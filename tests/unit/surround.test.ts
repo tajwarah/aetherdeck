@@ -51,3 +51,19 @@ describe("inView", () => {
     expect(inView({ yaw: side + 0.6, fov: 1, aspect: 1.5 }, panel)).toBe(false);
   });
 });
+
+describe("things hung on the wall", () => {
+  it("sit where the wall is, grow toward the sides, and hide behind you", async () => {
+    const { onWall, toWall } = await import("../../shared/surround.ts");
+    const v = { yaw: 0.3, fov: 1.08, aspect: 1.6 };
+    const ahead = onWall(v, 0.3, 0)!;
+    expect(ahead.x).toBeCloseTo(0);
+    expect(ahead.up).toBeCloseTo(1);
+    const side = onWall(v, 0.8, 0.1)!;
+    const back = toWall(v, side.x, side.y);
+    expect(back.yaw).toBeCloseTo(0.8);
+    expect(back.height).toBeCloseTo(0.1);
+    expect(side.across).toBeGreaterThan(side.up);
+    expect(onWall(v, 0.3 + Math.PI, 0)).toBeNull();
+  });
+});

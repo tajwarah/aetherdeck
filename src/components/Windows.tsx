@@ -11,6 +11,7 @@ import { CurvedPage } from "./CurvedPage.tsx";
 import type { DockItem } from "../lib/dock.ts";
 import { PhoneScreen } from "./PhoneScreen.tsx";
 import { Surround } from "./Surround.tsx";
+import type { CrewMember } from "./RoomWidgets.tsx";
 import { arrangeGroup, awayTabs, boundsOf, closeTab, edgeGap, groupName, membersOf, overviewTiles, regroupAfterDrop, showTab, SNAP, tabsOf, toggleMaximize, videoTab, type Tab, type Win } from "../lib/windows.ts";
 
 interface Props {
@@ -20,6 +21,9 @@ interface Props {
   onOverview: (on: boolean) => void;
   /** "+": open the composer to add a page beside this window, in its group. */
   onAddPage: (win: Win) => void;
+  /** The crew, for the 360° room's agents widget, and the way to the Agent Station. */
+  roomCrew: CrewMember[];
+  onRoomCrew: () => void;
   /** The + on a window's tab strip: a new tab in that window. */
   onNewTab: (win: Win) => void;
   /** Read a page inside the space instead (the reading view), for sites that cannot be framed. */
@@ -66,7 +70,7 @@ type Gesture = {
 /** Resize handles: every edge and corner (n, s, e, w and the four between). */
 const EDGES = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
-export function Windows({ wins, update, overview, onOverview, onAddPage, onNewTab, onRead, shared, sharePeers, onShare, onAsk, findIn, onFindClose, addressFocus, ai, onConnectAI, onAttach, onPin, pinned, surround, onRoomHome, onFloating, onOpenUrl, dock, onDock, newTab }: Props) {
+export function Windows({ wins, update, overview, onOverview, onAddPage, onNewTab, roomCrew, onRoomCrew, onRead, shared, sharePeers, onShare, onAsk, findIn, onFindClose, addressFocus, ai, onConnectAI, onAttach, onPin, pinned, surround, onRoomHome, onFloating, onOpenUrl, dock, onDock, newTab }: Props) {
   const [live, setLive] = useState<Record<string, LiveState>>({});
   const [fullscreen, setFullscreen] = useState<string | null>(null);
   useEffect(() => {
@@ -348,7 +352,7 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onNewTa
           );
         })}
       </div>
-      {surround && <Surround wins={wins} dock={dock} newTab={newTab} onFocus={(id) => raise([id])} onOpen={onOpenUrl} onDock={onDock} onHome={onRoomHome} onFloating={onFloating}
+      {surround && <Surround wins={wins} dock={dock} newTab={newTab} crew={roomCrew} onCrew={onRoomCrew} onFocus={(id) => raise([id])} onOpen={onOpenUrl} onDock={onDock} onHome={onRoomHome} onFloating={onFloating}
         onClose={(id) => update((ws) => closeTab(ws, id))}
         controls={(w) => <LiveControls win={w} live={live[w.id]} onAsk={onAsk} focusSeq={addressFocus?.id === w.id ? addressFocus.seq : 0} />} />}
     </div>

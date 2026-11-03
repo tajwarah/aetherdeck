@@ -8,6 +8,7 @@ import { Markdown } from "./Assistant.tsx";
 import { AgentAvatar } from "./AgentAvatar.tsx";
 import { AgentStage } from "./AgentStage.tsx";
 import { Logo } from "./Logo.tsx";
+import { Glyph, GLYPHS, Sidebar, type SideSection } from "./Sidebar.tsx";
 
 const blank = (): Agent => ({ id: `a${Date.now().toString(36)}`, name: "", role: "", task: "", plan: [], access: "ask", provider: "", model: "", hue: 205, notes: [], skills: ["harvest"], memory: [], xp: 0 });
 
@@ -190,32 +191,35 @@ export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDele
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose, editing, agents.length]);
   const forget = (i: number) => agent && onSave({ ...agent, memory: agent.memory?.filter((_, n) => n !== i) });
+  const [find, setFind] = useState("");
+  const [folded, setFolded] = useState(false);
+  const [wide, setWide] = useState(false);
+  const choose = (id: string) => { setPicked(id); setEditing(null); };
+  const waiting = agents.filter((a) => runs[a.id]?.ask);
+  const working = agents.filter((a) => runs[a.id]?.status === "working").length;
+  const match = (text: string) => !find.trim() || text.toLowerCase().includes(find.trim().toLowerCase());
+  const sections: SideSection[] = [
+    { label: "Crew", items: agents.filter((a) => match(`${a.name} ${a.role}`)).map((a) => {
+      const r = runs[a.id];
+      return { id: a.id, label: a.name, on: a.id === picked && !editing, hint: r?.ask ? "Needs you" : r?.status === "working" ? "Working" : rankOf(a.xp),
+        icon: <AgentAvatar hue={a.hue} order={a.order} mood={moodOf(a, r)} size={24} />, badge: r?.ask ? "!" : r?.status === "working" ? r.steps.length : undefined, onClick: () => choose(a.id) };
+    }) },
+    { label: "Built apps", items: apps.filter((x) => match(x.title)).map((x) => ({ id: x.id, label: x.title, hint: `Built by ${x.agent}`, icon: <Glyph d={GLYPHS.app} />, onClick: () => onOpenApp(x.id, x.title) })) },
+    { label: "General", items: [
+      { id: "summon", label: "Summon an agent", icon: <Glyph d={GLYPHS.plus} />, act: true, on: !!editing && !agents.some((a) => a.id === editing.id), onClick: () => setEditing(fresh()) },
+      { id: "settings", label: "Models and keys", icon: <Glyph d={GLYPHS.gear} />, act: true, onClick: onSettings },
+      { id: "close", label: "Leave the station", icon: <Glyph d={GLYPHS.out} />, act: true, onClick: onClose },
+    ] },
+  ];
 
   return (
-    <aside className="deck" role="dialog" aria-label="Agent Station" data-ui>
-      <header className="deck__head">
-        <Logo />
-        <div><h2>Agent Station</h2><p>{agents.length ? `${agents.length} in your crew` : "Bring your first agent aboard"}</p></div>
-        <button className="deck__btn deck__btn--go" onClick={() => setEditing(fresh())}>Summon</button>
-        <button className="deck__icon" onClick={onClose} aria-label="Close the Agent Station">×</button>
-      </header>
+    <aside className={`deck ${wide ? "is-wide" : ""}`} role="dialog" aria-label="Agent Station" data-ui>
+      <Sidebar title="Agent Station" alerts={waiting.length} onAlerts={() => waiting[0] && choose(waiting[0].id)} collapsed={folded} onCollapse={setFolded} onClose={onClose} onWide={() => setWide((w) => !w)}
+        who={{ icon: <Logo />, name: "Your crew", detail: agents.length ? `${agents.length} agent${agents.length === 1 ? "" : "s"}${working ? ` · ${working} working` : ""}` : "Bring your first agent aboard", onClick: () => setEditing(fresh()) }}
+        search={{ value: find, placeholder: "Search the crew", onChange: setFind }} sections={sections} />
+      <div className="deck__main">
       {brains && !ready && <ConnectGate brains={brains} onRefresh={refresh} onSettings={onSettings} />}
       <div className="deck__body">
-        <ul className="deck__crew">
-          {agents.map((a) => {
-            const r = runs[a.id];
-            return (
-              <li key={a.id}>
-                <button className={`crew ${a.id === picked ? "is-on" : ""} ${r?.status === "working" ? "is-working" : ""}`} style={{ ["--hue" as string]: a.hue }} onClick={() => { setPicked(a.id); setEditing(null); }}>
-                  <AgentAvatar hue={a.hue} order={a.order} mood={moodOf(a, r)} size={38} />
-                  <span><b>{a.name}</b><small>{r?.ask ? "Needs you" : r?.status === "working" ? "Working" : rankOf(a.xp)}</small></span>
-                </button>
-              </li>
-            );
-          })}
-          {apps.length > 0 && <li className="deck__label">Built apps</li>}
-          {apps.map((x) => <li key={x.id}><button className="crew crew--app" onClick={() => onOpenApp(x.id, x.title)}><span><b>{x.title}</b><small>by {x.agent}</small></span></button></li>)}
-        </ul>
         <div className="deck__stage">
           <AgentStage agents={agents} runs={runs} picked={picked} reduced={reduced} onPick={(id) => { setPicked(id); setEditing(null); }} />
           {editing && <Summon key={editing.id} agent={editing.model ? editing : { ...editing, provider: brains?.find((b) => b.ready)?.id ?? "", model: brains?.find((b) => b.ready)?.models[0]?.id ?? "" }} isNew={!agents.some((a) => a.id === editing.id)} brains={brains ?? []} onCancel={() => setEditing(null)} onSave={(a) => { onSave(a); setPicked(a.id); setEditing(null); }}
@@ -263,6 +267,7 @@ export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDele
         </section>
       </div>
       <EngineBar runs={runs} />
+      </div>
     </aside>
   );
 }
