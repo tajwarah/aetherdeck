@@ -1,6 +1,6 @@
-// The dock: the one fixed control, at the bottom. The globe (home), the person's own sites and tools in their
-// order, "Add", and whatever is minimized. Drag an item to reorder it; right-click (or long-press) to move or
-// remove it. Everything else (all places, all windows, library, devices, settings) sits behind the chevron.
+// The dock: the one fixed control, at the bottom. The person's own sites and tools in their order, "Add", and
+// whatever is minimized. Drag an item to reorder it; right-click (or long-press) to move or remove it.
+// Everything else (all places, all windows, library, devices, settings) sits behind the chevron.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { groupName, type Win } from "../lib/windows.ts";
 import { PLACES, PlacesGrid, type Place } from "./Launcher.tsx";
@@ -9,11 +9,9 @@ import { thumbs } from "../lib/desktop.ts";
 
 interface Props {
   wins: Win[];
-  home: boolean;
   overview: boolean;
   items: DockItem[];
   onItems: (items: DockItem[]) => void;
-  onHome: () => void;
   onItem: (item: DockItem, at: { x: number; y: number }) => void;
   onPlace: (place: Place, at: { x: number; y: number }) => void;
   onOverview: (on: boolean) => void;
@@ -49,7 +47,7 @@ function Glyph({ item }: { item: DockItem }) {
   return <img className="dk__site" src={sources[failed]} alt="" referrerPolicy="no-referrer" onError={() => setFailed((n) => n + 1)} />;
 }
 
-export function ControlBar({ wins, home, overview, items, onItems, onHome, onItem, onPlace, onOverview, onRestore, syncState, onSync, onSettings, onLibrary, downloading = 0, aiReady }: Props) {
+export function ControlBar({ wins, overview, items, onItems, onItem, onPlace, onOverview, onRestore, syncState, onSync, onSettings, onLibrary, downloading = 0, aiReady }: Props) {
   const [gridOpen, setGridOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -89,11 +87,6 @@ export function ControlBar({ wins, home, overview, items, onItems, onHome, onIte
       {(menu || moreOpen) && <div className="dk__scrim" onPointerDown={() => { setMenu(null); setMoreOpen(false); }} />}
 
       <div className="controlbar" data-ui role="toolbar" aria-label="Dock">
-        <button className={`dk__item dk__web ${home ? "is-home" : ""}`} onClick={onHome} aria-label="Web — home" title="Home">
-          <span className="cb__orb">{icon(<><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5c-2.6-2.4-3.8-5.2-3.8-8.5S9.4 5.9 12 3.5Z" /></>, 24)}</span>
-          <span className="dk__label">Web</span>
-        </button>
-        <span className="cb__sep" aria-hidden="true" />
         <nav className="dk__items" aria-label="Your dock">
           {items.map((it, i) => (
             <button key={it.id} className={`dk__item ${drag?.over === i && drag.from !== i ? "is-drop" : ""} ${drag?.from === i ? "is-dragging" : ""}`}

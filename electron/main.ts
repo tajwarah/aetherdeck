@@ -247,10 +247,11 @@ async function createWindow(target: string | Promise<string>) {
   win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 720, minHeight: 520,
     backgroundColor: "#0b0b0d", show: false, title: "Warpnaut",
-    titleBarStyle: mac ? "hiddenInset" : "hidden",
-    ...(mac ? { trafficLightPosition: { x: 18, y: 22 } } : { titleBarOverlay: { color: "#0b0b0d", symbolColor: "#f5f5f7", height: 44 } }),
+    // No system window buttons on any platform: the top bar has Warpnaut's own (minimize, full screen, close).
+    titleBarStyle: "hidden",
     webPreferences: { preload: join(import.meta.dirname, "preload.cjs"), contextIsolation: true, sandbox: true, webviewTag: true, spellcheck: true },
   });
+  if (mac) win.setWindowButtonVisibility(false);
   win.once("ready-to-show", () => win?.show());
   win.on("enter-full-screen", () => send("warpnaut:fullscreen", true));
   win.on("leave-full-screen", () => send("warpnaut:fullscreen", false));
@@ -324,6 +325,8 @@ function handlers() {
   ipcMain.handle("research:save", (_e, board: unknown) => { if (board && typeof board === "object" && JSON.stringify(board).length < 20_000_000) store.saveResearch(board); });
   ipcMain.handle("agents:save", (_e, agents: unknown[]) => { if (Array.isArray(agents)) store.saveAgents(agents.slice(0, 100)); });
   ipcMain.handle("app:fullscreen", (_e, on: boolean) => win?.setFullScreen(Boolean(on)));
+  ipcMain.handle("app:minimize", () => win?.minimize());
+  ipcMain.handle("app:close", () => win?.close());
   ipcMain.handle("app:toggleFullscreen", () => win?.setFullScreen(!win.isFullScreen()));
   ipcMain.handle("app:openExternal", (_e, url: string) => { if (isUrl(url)) void shell.openExternal(url); });
   ipcMain.handle("app:ready", () => pending.splice(0));

@@ -811,6 +811,7 @@ export function App() {
           <button className={`voice ${agents ? "is-on" : ""}`} onClick={() => setAgents((a) => (a ? null : { listen: true, key: Date.now() }))} aria-label="Agents: speak once" title="Agents: speak once, the crew does the rest (⌘⇧Space)">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10.5v3" /></svg>
           </button>
+          {desktop && <WindowButtons />}
         </div>
       </header>
 
@@ -911,11 +912,10 @@ export function App() {
       {sites.length > 1 && !browsing && !surround && (
         <button className="tabs-all" data-ui onClick={() => void openTabs(sites)}>Open all {sites.length} sites as tabs</button>
       )}
-      <ControlBar wins={wins} home={home} items={dock} onItems={setDock} onItem={onDockItem} aiReady={!!health?.llm}
+      <ControlBar wins={wins} items={dock} onItems={setDock} onItem={onDockItem} aiReady={!!health?.llm}
         onLibrary={desktop ? () => setLibrary((l) => (l ? null : "history")) : undefined} onSettings={desktop ? () => setSettingsOpen(true) : () => setPrivacyOpen(true)}
         downloading={downloads.filter((d) => d.state === "progressing").length} overview={overview} onOverview={setOverview} onPlace={openPlace}
         syncState={sync.personal ? sync.personalStatus?.state ?? "connecting" : sync.shares.length ? "shared" : "off"} onSync={() => setSyncOpen({})}
-        onHome={() => { setOverview(false); if (browsing) minimizeAll(); else resetAll(); }}
         onRestore={(ids) => setWins((ws) => { let top = Math.max(0, ...ws.map((w) => w.z)); return ws.map((w) => (ids.includes(w.id) ? { ...w, minimized: false, z: ++top } : w)); })} />
 
       {action && (
@@ -1010,4 +1010,24 @@ function saveSpace(ws: Win[] | null) {
   } catch {
     /* storage unavailable: the space lasts for this visit only */
   }
+}
+
+/** The app window's own buttons, in Warpnaut's look rather than the system's: minimize, full screen, close. */
+function WindowButtons() {
+  const [full, setFull] = useState(false);
+  useEffect(() => desktop?.on("warpnaut:fullscreen", (on) => setFull(Boolean(on))), []);
+  return (
+    <span className="wctl">
+      <span className="topbar__sep" aria-hidden="true" />
+      <button className="orn" aria-label="Minimize Warpnaut" title="Minimize" onClick={() => void desktop!.invoke("app:minimize")}>
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 12h12" /></svg>
+      </button>
+      <button className="orn" aria-label={full ? "Leave full screen" : "Full screen"} title={full ? "Leave full screen" : "Full screen"} onClick={() => void desktop!.invoke("app:fullscreen", !full)}>
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{full ? <path d="M9 4v5H4M15 20v-5h5M15 4v5h5M9 20v-5H4" /> : <path d="M4 9V4h5M20 15v5h-5M15 4h5v5M9 20H4v-5" />}</svg>
+      </button>
+      <button className="orn orn--close" aria-label="Close Warpnaut" title="Close" onClick={() => void desktop!.invoke("app:close")}>
+        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 7l10 10M17 7 7 17" /></svg>
+      </button>
+    </span>
+  );
 }

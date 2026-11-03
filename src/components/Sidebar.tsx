@@ -1,4 +1,4 @@
-// The sidebar the Agent Station and the Research board share: a pane of dark glass with the window's three lights,
+// The sidebar the Agent Station and the Research board share: a pane of dark glass with the browser's own controls,
 // a title with its alerts, who or what it belongs to, a search, then sections of items, the chosen one lit. It folds
 // to a rail of icons and back.
 import type { ReactNode } from "react";
@@ -53,12 +53,17 @@ export function Sidebar({ title, alerts = 0, onAlerts, who, search, sections, co
   return (
     <nav className={`side ${collapsed ? "is-collapsed" : ""}`} aria-label={title}>
       <div className="side__lights">
-        <button className="side__light side__light--close" aria-label={`Close the ${title.toLowerCase()}`} title="Close" onClick={onClose} />
-        <button className="side__light side__light--fold" aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"} title={collapsed ? "Expand" : "Collapse"} onClick={() => onCollapse(!collapsed)} />
-        <button className="side__light side__light--wide" aria-label="Fill the window" title="Fill the window" onClick={onWide} disabled={!onWide} />
         <button className="side__fold" aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"} onClick={() => onCollapse(!collapsed)}>
           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d={collapsed ? "M9 6l6 6-6 6" : "M15 6l-6 6 6 6"} /></svg>
           <span>{collapsed ? "Expand" : "Collapse"}</span>
+        </button>
+        {onWide && (
+          <button className="orn side__wide" aria-label="Fill the window" title="Fill the window" onClick={onWide}>
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9V4h5M20 15v5h-5M15 4h5v5M9 20H4v-5" /></svg>
+          </button>
+        )}
+        <button className="orn orn--close" aria-label={`Close the ${title.toLowerCase()}`} title="Close" onClick={onClose}>
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 7l10 10M17 7 7 17" /></svg>
         </button>
       </div>
       <header className="side__head">
