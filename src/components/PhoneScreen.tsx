@@ -167,7 +167,7 @@ export function PhoneScreen({ win, bend, onShape }: { win: Win; bend: number; on
   };
 
   const live = link === "live";
-  const notice = !desktop ? "Phones work in the Warpnaut desktop app." : null;
+  const notice = !desktop ? "Phones work in the AetherDeck desktop app." : null;
   if (notice) return <p className="win__state">{notice}</p>;
 
   if (mode === "choose") return (
@@ -182,7 +182,7 @@ export function PhoneScreen({ win, bend, onShape }: { win: Win; bend: number; on
     !tools?.android ? (
       <>
         <h3>Set up Android</h3>
-        <p className="fine">Warpnaut needs two small free tools once: scrcpy's server (0.7 MB, from scrcpy's GitHub release, checksum verified) and adb (about 16 MB, from Google). Nothing stays installed on your phone.</p>
+        <p className="fine">AetherDeck needs two small free tools once: scrcpy's server (0.7 MB, from scrcpy's GitHub release, checksum verified) and adb (about 16 MB, from Google). Nothing stays installed on your phone.</p>
         <button className="btn btn--primary" disabled={!!busy} onClick={() => void setUp("phone:setUpAndroid")}>{busy || "Download and set up"}</button>
       </>
     ) : !serial ? (
@@ -211,7 +211,7 @@ export function PhoneScreen({ win, bend, onShape }: { win: Win; bend: number; on
         <ol className="phone__steps">
           <li>Put the iPhone on the same Wi-Fi as this computer.</li>
           <li>Open Control Center and tap Screen Mirroring.</li>
-          <li>Choose Warpnaut.</li>
+          <li>Choose AetherDeck.</li>
         </ol>
       </>
     )

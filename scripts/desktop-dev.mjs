@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 
 const electron = createRequire(import.meta.url)("electron");
 const vite = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--port", "5180", "--strictPort"], { stdio: "inherit" });
-const app = spawn(electron, ["."], { stdio: "inherit", env: { ...process.env, WARPNAUT_DEV_URL: "http://localhost:5180/", WARPNAUT_API_PORT: "8787" } });
+const app = spawn(electron, ["."], { stdio: "inherit", env: { ...process.env, AETHERDECK_DEV_URL: "http://localhost:5180/", AETHERDECK_API_PORT: "8787" } });
 const stop = () => { vite.kill(); app.kill(); process.exit(0); };
 app.on("exit", stop);
 process.on("SIGINT", stop);

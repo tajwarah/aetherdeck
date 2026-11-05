@@ -1,4 +1,4 @@
-// Shown when Warpnaut is opened from a sync or shared-group link: nothing joins until the person says so.
+// Shown when AetherDeck is opened from a sync or shared-group link: nothing joins until the person says so.
 import type { Invite } from "../lib/sync.ts";
 
 export function JoinSheet({ invite, hasPersonal, onJoin, onClose }: { invite: Invite; hasPersonal: boolean; onJoin: () => void; onClose: () => void }) {
@@ -16,7 +16,7 @@ export function JoinSheet({ invite, hasPersonal, onJoin, onClose }: { invite: In
           ? "Windows and groups from your other device will open here, and windows open here will join them. Closing a window on one device closes it on the others."
           : "Its pages will open here as a group. Anyone with the link can add, change or close pages in it; your other windows stay private."}</p>
         {sync && hasPersonal && <p className="fine">This device already syncs with another set of devices. Joining moves it to this one; the windows open here come along.</p>}
-        <p className="fine">Everything is decrypted in this browser with the key inside the link. The Warpnaut server cannot read it.</p>
+        <p className="fine">Everything is decrypted in this browser with the key inside the link. The AetherDeck server cannot read it.</p>
         <footer className="sheet__actions">
           <button className="btn btn--primary" onClick={onJoin} autoFocus>{sync ? "Sync this device" : "Open the group"}</button>
           <button className="btn btn--quiet" onClick={onClose}>Not now</button>

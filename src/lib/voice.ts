@@ -12,7 +12,7 @@ export interface Recording {
 /** Start listening. `onQuiet` fires once the person has spoken and then been quiet for a moment. */
 export async function record(onQuiet?: () => void): Promise<Recording> {
   // The desktop app asks the system for the microphone first (macOS shows its own prompt, once).
-  const bridge = (window as unknown as { warpnaut?: { invoke: (c: string) => Promise<boolean> } }).warpnaut;
+  const bridge = (window as unknown as { aetherdeck?: { invoke: (c: string) => Promise<boolean> } }).aetherdeck;
   if (bridge && !(await bridge.invoke("app:microphone"))) throw new Error("Microphone not allowed");
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   const ctx = new AudioContext();

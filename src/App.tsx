@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EnvironmentModel, Evidence, ExploreRequest, InformationNode, SearchResult } from "../shared/types.ts";
 import { ENGINES, SERP_READ, serpUrl, type Engine, type PageRead } from "../shared/serp.ts";
 import { Field, type FieldHandle } from "./components/Field.tsx";
-import { Planet } from "./components/Planet.tsx";
+import { Earth } from "./components/Earth.tsx";
+import { Hero } from "./components/Hero.tsx";
 import { Logo } from "./components/Logo.tsx";
 import { Windows } from "./components/Windows.tsx";
 import { arrangeGroup, awayTabs, closeTab, frontWindow, showTab, toggleMaximize, parseOpenRequest, placeBeside, placeWindow, uid, webSearchTab, type Tab, type Win } from "./lib/windows.ts";
@@ -107,7 +108,7 @@ export function App() {
   // Desktop app: the person's search engine (Settings). Its results page opens in a window they can see.
   const [engine, setEngine] = useState<Engine | "off">("google");
   const loadEngine = useCallback(() => {
-    void desktop?.invoke<AppInfo>("app:info").then((i) => { const e = i.config.WARPNAUT_SEARCH_ENGINE || "google"; setEngine(e in ENGINES ? (e as Engine) : "off"); });
+    void desktop?.invoke<AppInfo>("app:info").then((i) => { const e = i.config.AETHERDECK_SEARCH_ENGINE || "google"; setEngine(e in ENGINES ? (e as Engine) : "off"); });
   }, []);
   useEffect(loadEngine, [loadEngine]);
   const [engineAsk, setEngineAsk] = useState("");
@@ -116,7 +117,7 @@ export function App() {
 
   /**
    * Search with the person's engine as they would themselves: its results page opens in a window beside the map,
-   * Warpnaut reads the results off that visible page, and the window goes to the dock. If the engine asks them
+   * AetherDeck reads the results off that visible page, and the window goes to the dock. If the engine asks them
    * something first (privacy choices, a check that they are a person) the window stays in front for them to
    * answer, and the map waits.
    */
@@ -354,7 +355,7 @@ export function App() {
     void captureBeforeMinimize(ids).then(() => setWins((ws) => ws.map((w) => (ids.includes(w.id) ? { ...w, minimized: true } : w))));
   }, []);
 
-  // ---- the dock, files and the assistant ----
+  // ---- the dock, files and Cosmonaut, the AI companion ----
   const [dock, setDock] = useState<DockItem[]>(loadDock);
   useEffect(() => saveDock(dock), [dock]);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -362,7 +363,7 @@ export function App() {
   /** An assistant window: for a file (read here, on this computer), a page's text, or nothing yet. */
   const openAssistant = useCallback((title: string, near?: { x: number; y: number }, beside?: string) => {
     const key = uid("a");
-    openTab({ kind: "assistant", src: key, href: "", title, domain: "warpnaut" }, near, beside);
+    openTab({ kind: "assistant", src: key, href: "", title, domain: "aetherdeck" }, near, beside);
     setWins((ws) => ws.map((w) => (w.page.src === key ? { ...w, w: Math.min(480, window.innerWidth - 32), h: Math.min(600, window.innerHeight - 160) } : w)));
     return key;
   }, [openTab]);
@@ -382,7 +383,7 @@ export function App() {
   const openAI = useCallback(async (near?: { x: number; y: number }) => {
     const front = frontWindow(winsRef.current);
     const page = front && front.page.kind === "web" && !front.private ? pages.get(front.id) : undefined;
-    if (!page || !front) return void openAssistant("Assistant", near);
+    if (!page || !front) return void openAssistant("Cosmonaut", near);
     const key = openAssistant(`About: ${page.title() || front.page.domain}`, undefined, front.id);
     materials.set(key, { kind: "loading", name: page.title() || front.page.domain });
     try {
@@ -484,11 +485,11 @@ export function App() {
     if (!desktop) return;
     document.documentElement.dataset.platform = desktop.platform;
     const offs = [
-      desktop.on("warpnaut:open", (p) => { const { url, from } = p as { url: string; from?: number }; openLink(url, from); }),
-      desktop.on("warpnaut:command", (p) => { const { name, value } = p as { name: string; value?: string }; runCommand.current(name, value); }),
-      desktop.on("warpnaut:download", (p) => { const d = p as Download; setDownloads((ds) => [d, ...ds.filter((x) => x.id !== d.id)].slice(0, 100)); }),
-      desktop.on("warpnaut:permission", (p) => setAsks((a) => [...a, p as PermissionAsk])),
-      desktop.on("warpnaut:update", (p) => setAppUpdate(p as { version: string })),
+      desktop.on("aetherdeck:open", (p) => { const { url, from } = p as { url: string; from?: number }; openLink(url, from); }),
+      desktop.on("aetherdeck:command", (p) => { const { name, value } = p as { name: string; value?: string }; runCommand.current(name, value); }),
+      desktop.on("aetherdeck:download", (p) => { const d = p as Download; setDownloads((ds) => [d, ...ds.filter((x) => x.id !== d.id)].slice(0, 100)); }),
+      desktop.on("aetherdeck:permission", (p) => setAsks((a) => [...a, p as PermissionAsk])),
+      desktop.on("aetherdeck:update", (p) => setAppUpdate(p as { version: string })),
     ];
     void desktop.invoke<string[]>("app:ready").then((urls) => urls.forEach((u) => openLink(u)));
     return () => offs.forEach((off) => off());
@@ -752,6 +753,16 @@ export function App() {
   const inspectEvidence: Evidence | undefined = model && inspect?.evidenceId ? model.evidence.find((e) => e.id === inspect.evidenceId) : undefined;
   const needsLocation = !!model?.notices.some((n) => n.code === "location_required") && !streaming;
   const notices = (model?.notices ?? []).filter((n) => n.code !== "location_required" && !dismissed.has(n.code));
+  /** What the bar does with what was typed: open an address or play something, else explore the question. */
+  const ask = (q: string, at: { x: number; y: number; tabIn?: string; addTo?: string; fromBar?: boolean }) => {
+    const tab = parseOpenRequest(q);
+    const google = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+    if (at.tabIn) return openTab(tab ?? { kind: "web", src: google, href: google, title: q, domain: "google.com" }, undefined, undefined, undefined, { tabIn: at.tabIn });
+    if (at.addTo) return openTab(tab ?? webSearchTab(q), undefined, at.addTo);
+    if (tab) return at.fromBar ? openTab(tab, undefined, undefined, { x: window.innerWidth / 2, y: window.innerHeight - 40 }) : openTab(tab, at);
+    minimizeAll(); // a question builds an environment; open windows step aside to the control bar
+    run(q, { fresh: true, at: frames.length ? undefined : at });
+  };
   const View = model ? VIEWS[model.visualization] ?? MindMapView : null;
   const dataMode = model?.dataMode ?? (health?.demo ? "sample" : "live");
   const browsing = wins.some((w) => !w.minimized);
@@ -770,7 +781,7 @@ export function App() {
         onKeyAsk={() => askAtBar()}
         onEscape={onEscape}
         backdrop={<>
-          <Planet dim={frames.length > 0 || surround} quiet={browsing} reduced={reduced} onSeed={(q) => { minimizeAll(); run(q, { fresh: true, at: field.current?.center() }); }} />
+          <Earth dim={frames.length > 0 || surround} />
         </>}
       >
         {model && layout && View && (
@@ -781,9 +792,9 @@ export function App() {
       </Field>
 
       <header className="topbar" data-ui>
-        <button className="wordmark" onClick={resetAll} aria-label="Warpnaut — return to the beginning">
-          <Logo />
-          <span className="wordmark__name">Warpnaut</span>
+        <button className="wordmark" onClick={resetAll} aria-label="AetherDeck — return to the beginning">
+          <Logo size={46} glow />
+          <span className="wordmark__name">AetherDeck</span>
         </button>
         {frames.length > 0 && (
           <nav className="trail" aria-label="Exploration path">
@@ -818,9 +829,9 @@ export function App() {
       {home && <Suggested prefs={prefs} onRun={(q) => run(q, { fresh: true, at: field.current?.center() })} />}
 
       {home && !composer && (
-        <div className="invite" aria-hidden="true">
-          <p className="invite__keys"><span className="invite__ring" />Click anywhere to ask, speak, or drop a file</p>
-        </div>
+        <Hero onAsk={(q) => ask(q, { x: window.innerWidth / 2 - 260, y: window.innerHeight * 0.42 })}
+          onListen={() => setComposer({ x: window.innerWidth / 2 - 260, y: window.innerHeight * 0.42, listen: true })}
+          onCosmonaut={() => void openAI({ x: window.innerWidth / 2, y: window.innerHeight * 0.55 })} />
       )}
 
       {frames.length > 0 && (
@@ -838,15 +849,7 @@ export function App() {
           initial={composer.initial}
           startListening={composer.listen}
           placeholder={composer.tabIn ? "New tab: an address or a search" : composer.addTo ? "Add a page: an address, “play …”, or a topic" : "Ask, open an address, or “play …”"}
-          onSubmit={(q) => {
-            const tab = parseOpenRequest(q);
-            const google = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
-            if (composer.tabIn) return openTab(tab ?? { kind: "web", src: google, href: google, title: q, domain: "google.com" }, undefined, undefined, undefined, { tabIn: composer.tabIn });
-            if (composer.addTo) return openTab(tab ?? webSearchTab(q), undefined, composer.addTo);
-            if (tab) return composer.fromBar ? openTab(tab, undefined, undefined, { x: window.innerWidth / 2, y: window.innerHeight - 40 }) : openTab(tab, composer);
-            minimizeAll(); // a question builds an environment; open windows step aside to the control bar
-            run(q, { fresh: true, at: frames.length ? undefined : composer });
-          }}
+          onSubmit={(q) => ask(q, composer)}
           onClose={() => setComposer(null)}
         />
       )}
@@ -956,7 +959,7 @@ export function App() {
       {asks[0] && <PermissionPrompt key={asks[0].id} ask={asks[0]} onAnswer={(ok) => { void desktop?.invoke("permission:answer", asks[0].id, ok); setAsks((a) => a.slice(1)); }} />}
       {appUpdate && (
         <p className="update-note" data-ui role="status">
-          Warpnaut {appUpdate.version} {appUpdate.ready ? "is ready." : "is available."}
+          AetherDeck {appUpdate.version} {appUpdate.ready ? "is ready." : "is available."}
           {appUpdate.ready ? <button className="btn btn--small btn--primary" onClick={() => void desktop?.invoke("app:installUpdate")}>Restart to update</button>
             : appUpdate.manual && appUpdate.url && <button className="btn btn--small" onClick={() => void desktop?.invoke("app:openExternal", appUpdate.url)}>Download</button>}
           <button className="icon-btn icon-btn--small" aria-label="Dismiss" onClick={() => setAppUpdate(null)}>×</button>
@@ -991,7 +994,7 @@ function Clock() {
   );
 }
 
-const SPACE_KEY = "warpnaut.space.v1";
+const SPACE_KEY = "aetherdeck.space.v1";
 
 function loadSpace(): Win[] {
   try {
@@ -1012,20 +1015,20 @@ function saveSpace(ws: Win[] | null) {
   }
 }
 
-/** The app window's own buttons, in Warpnaut's look rather than the system's: minimize, full screen, close. */
+/** The app window's own buttons, in AetherDeck's look rather than the system's: minimize, full screen, close. */
 function WindowButtons() {
   const [full, setFull] = useState(false);
-  useEffect(() => desktop?.on("warpnaut:fullscreen", (on) => setFull(Boolean(on))), []);
+  useEffect(() => desktop?.on("aetherdeck:fullscreen", (on) => setFull(Boolean(on))), []);
   return (
     <span className="wctl">
       <span className="topbar__sep" aria-hidden="true" />
-      <button className="orn" aria-label="Minimize Warpnaut" title="Minimize" onClick={() => void desktop!.invoke("app:minimize")}>
+      <button className="orn" aria-label="Minimize AetherDeck" title="Minimize" onClick={() => void desktop!.invoke("app:minimize")}>
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 12h12" /></svg>
       </button>
       <button className="orn" aria-label={full ? "Leave full screen" : "Full screen"} title={full ? "Leave full screen" : "Full screen"} onClick={() => void desktop!.invoke("app:fullscreen", !full)}>
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{full ? <path d="M9 4v5H4M15 20v-5h5M15 4v5h5M9 20v-5H4" /> : <path d="M4 9V4h5M20 15v5h-5M15 4h5v5M9 20H4v-5" />}</svg>
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{full ? <><rect x="8" y="4" width="12" height="12" rx="1.5" /><path d="M4 8v11a1 1 0 0 0 1 1h11" /></> : <rect x="5" y="5" width="14" height="14" rx="1.5" />}</svg>
       </button>
-      <button className="orn orn--close" aria-label="Close Warpnaut" title="Close" onClick={() => void desktop!.invoke("app:close")}>
+      <button className="orn orn--close" aria-label="Close AetherDeck" title="Close" onClick={() => void desktop!.invoke("app:close")}>
         <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 7l10 10M17 7 7 17" /></svg>
       </button>
     </span>

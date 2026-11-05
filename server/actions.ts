@@ -1,4 +1,4 @@
-// Agent-oriented action preparation. Warpnaut prepares; the person commits.
+// Agent-oriented action preparation. AetherDeck prepares; the person commits.
 // Nothing is sent from the server: confirmed actions hand off to the user's own phone, mail app or browser.
 import { randomUUID } from "node:crypto";
 import type { ActionDraft, ActionDraftRequest, AgentTask } from "../shared/types.ts";
@@ -73,6 +73,6 @@ export function confirmAction(taskId: string, channel: string): AgentTask | null
   if (!task) return null;
   task.steps = task.steps.map((s) => (s.id === "confirm" ? { ...s, status: "done" } : s.id === "handoff" ? { ...s, status: "done", detail: `Opened ${channel} on your device` } : s));
   task.status = "handed_off";
-  task.result = `Handed off via ${channel}. Not sent by Warpnaut — check your ${channel === "phone" ? "call" : channel === "email" ? "mail app" : "browser"} to complete it.`;
+  task.result = `Handed off via ${channel}. Not sent by AetherDeck — check your ${channel === "phone" ? "call" : channel === "email" ? "mail app" : "browser"} to complete it.`;
   return task;
 }

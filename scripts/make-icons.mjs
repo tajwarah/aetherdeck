@@ -8,7 +8,7 @@ import { join } from "node:path";
 const png = (svg, size, out) => execFileSync("rsvg-convert", ["-w", String(size), "-h", String(size), "-o", out, svg]);
 // Windows and Linux have no margin around their icons: the same art, cropped to fill the square.
 const master = readFileSync("build/icon.svg", "utf8");
-const work = mkdtempSync(join(tmpdir(), "warpnaut-icons-"));
+const work = mkdtempSync(join(tmpdir(), "aetherdeck-icons-"));
 const full = join(work, "full.svg");
 writeFileSync(full, master.replace('viewBox="0 0 1024 1024"', 'viewBox="84 84 856 856"'));
 

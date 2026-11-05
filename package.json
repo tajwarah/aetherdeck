@@ -1,11 +1,11 @@
 {
-  "name": "warpnaut",
+  "name": "aetherdeck",
   "private": true,
   "version": "0.1.0",
-  "homepage": "https://github.com/tajwarah/warpnaut",
+  "homepage": "https://github.com/tajwarah/aetherdeck",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tajwarah/warpnaut.git"
+    "url": "git+https://github.com/tajwarah/aetherdeck.git"
   },
   "type": "module",
   "engines": {
@@ -36,14 +36,11 @@
     "@noble/ciphers": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@playwright/test": "^1.64.1",
-    "@types/d3-geo": "^3.1.1",
     "@types/node": "^26.6.5",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "@types/topojson-client": "^3.1.5",
     "@vitejs/plugin-react": "^4.3.4",
-    "d3-geo": "^3.1.1",
     "electron": "^45.1.0",
     "electron-builder": "^26.18.0",
     "electron-updater": "^6.8.11",
@@ -53,23 +50,21 @@
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "topojson-client": "^3.1.0",
     "typescript": "^5.8.3",
     "vite": "^6.0.7",
     "vitest": "^3.0.5",
-    "world-atlas": "^2.0.2",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^3.25.76"
   },
   "main": "dist-electron/main.js",
-  "description": "Warpnaut: a spatial web browser, with your tabs in a full circle around you.",
+  "description": "AetherDeck: a spatial web browser, with your tabs in a full circle around you.",
   "license": "MIT",
-  "author": "Warpnaut contributors",
+  "author": "AetherDeck contributors",
   "build": {
-    "appId": "io.warpnaut.browser",
-    "productName": "Warpnaut",
-    "copyright": "Copyright © Warpnaut contributors",
-    "artifactName": "Warpnaut-${version}-${os}-${arch}.${ext}",
+    "appId": "io.aetherdeck.browser",
+    "productName": "AetherDeck",
+    "copyright": "Copyright © AetherDeck contributors",
+    "artifactName": "AetherDeck-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -125,7 +120,7 @@
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Websites you allow can use the microphone.",
         "NSCameraUsageDescription": "Websites you allow can use the camera.",
-        "NSLocalNetworkUsageDescription": "Warpnaut uses your local network to receive your iPhone’s screen through Screen Mirroring.",
+        "NSLocalNetworkUsageDescription": "AetherDeck uses your local network to receive your iPhone’s screen through Screen Mirroring.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "Web page",
@@ -166,7 +161,7 @@
         "x-scheme-handler/https",
         "text/html"
       ],
-      "maintainer": "Warpnaut contributors"
+      "maintainer": "AetherDeck contributors"
     },
     "publish": [
       {

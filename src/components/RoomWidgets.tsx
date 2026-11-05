@@ -17,7 +17,7 @@ export interface CrewMember { id: string; name: string; hue: number; status: "wo
 
 interface Place { yaw: number; height: number }
 interface Saved { shown: WidgetId[]; at: Partial<Record<WidgetId, Place>> }
-const KEY = "warpnaut.roomWidgets";
+const KEY = "aetherdeck.roomWidgets";
 const PX_PER_UNIT = 750; // a widget's CSS size is drawn for this many pixels to one unit of wall, straight ahead
 
 export function savedWidgets(): Saved {
@@ -69,9 +69,9 @@ export function RoomWidgets({ canvas, panels, saved, onSaved, crew, onCrew }: Pr
       }
     };
     place();
-    document.addEventListener("warpnaut-scene", place);
+    document.addEventListener("aetherdeck-scene", place);
     window.addEventListener("resize", place);
-    return () => { document.removeEventListener("warpnaut-scene", place); window.removeEventListener("resize", place); };
+    return () => { document.removeEventListener("aetherdeck-scene", place); window.removeEventListener("resize", place); };
   }, [canvas, saved, panels]);
 
   // Moving one: the point of the wall under the pointer carries the widget with it.
@@ -130,7 +130,7 @@ function Clock() {
   );
 }
 
-const NOTE = "warpnaut.roomNote";
+const NOTE = "aetherdeck.roomNote";
 function Note() {
   const [text, setText] = useState(() => { try { return localStorage.getItem(NOTE) ?? ""; } catch { return ""; } });
   return (

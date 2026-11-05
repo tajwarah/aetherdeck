@@ -1,4 +1,4 @@
-// A live phone in a Warpnaut window. Android: scrcpy's small server is pushed to the phone over adb, sends its screen
+// A live phone in a AetherDeck window. Android: scrcpy's small server is pushed to the phone over adb, sends its screen
 // as H.264 and takes touch and keys back; nothing stays installed on the phone. iPhone: UxPlay receives AirPlay
 // and hands the video over as RTP, view only, since iOS has no way for another app to control it.
 // adb and scrcpy's server are fetched once, when the person asks; UxPlay is built on this computer the same way.
@@ -32,7 +32,7 @@ export function phones(deps: { dir: string; send: (channel: string, payload: unk
   const all = new Map<string, Session>();
 
   const findTool = (name: string) => PATHS.map((p) => join(p, name)).find(existsSync);
-  const adbPath = () => process.env.WARPNAUT_ADB || [join(dir, "platform-tools", "adb"), findTool("adb")].find((p) => p && existsSync(p));
+  const adbPath = () => process.env.AETHERDECK_ADB || [join(dir, "platform-tools", "adb"), findTool("adb")].find((p) => p && existsSync(p));
   const run = (file: string, args: string[], timeout = 15_000) => new Promise<string>((resolve, reject) => execFile(file, args, { timeout, env: env(), maxBuffer: 8 * 1024 * 1024 }, (err, out, stderr) => (err ? reject(new Error(stderr.trim() || err.message)) : resolve(out))));
   const adb = (...args: string[]) => { const p = adbPath(); if (!p) throw new Error("adb isn't set up yet"); return run(p, args); };
 
@@ -50,7 +50,7 @@ export function phones(deps: { dir: string; send: (channel: string, payload: unk
   async function setUpAndroid() {
     if (!existsSync(jar)) {
       deps.send("phone:progress", "Getting scrcpy's server…");
-      const bytes = await download(process.env.WARPNAUT_SCRCPY_URL ?? SERVER_URL);
+      const bytes = await download(process.env.AETHERDECK_SCRCPY_URL ?? SERVER_URL);
       if (createHash("sha256").update(bytes).digest("hex") !== SCRCPY_SHA256) throw new Error("scrcpy's server didn't match its published checksum, so it wasn't used.");
       await writeFile(jar, bytes);
     }
@@ -178,9 +178,9 @@ export function phones(deps: { dir: string; send: (channel: string, payload: unk
     deps.send("phone:airplayPort", { id, port });
     s.wait = setInterval(() => { if (s.lastPacket && Date.now() - s.lastPacket > 5000) { s.lastPacket = 0; state(id, { state: "waiting" }); } }, 1500);
     state(id, { state: "waiting" });
-    const bin = process.env.WARPNAUT_UXPLAY || uxplay;
+    const bin = process.env.AETHERDECK_UXPLAY || uxplay;
     if (!existsSync(bin)) return;
-    s.uxplay = spawn(bin, ["-n", "Warpnaut", "-nh", "-p", String(AIRPLAY_PORT), "-vsync", "no", "-vrtp", `config-interval=1 ! udpsink host=127.0.0.1 port=${port}`], { env: env(), stdio: "ignore" });
+    s.uxplay = spawn(bin, ["-n", "AetherDeck", "-nh", "-p", String(AIRPLAY_PORT), "-vsync", "no", "-vrtp", `config-interval=1 ! udpsink host=127.0.0.1 port=${port}`], { env: env(), stdio: "ignore" });
     s.uxplay.once("exit", () => { if (!s.stop) state(id, { state: "error", error: "AirPlay stopped. Close this window and open it again." }); });
   }
 
@@ -197,7 +197,7 @@ export function phones(deps: { dir: string; send: (channel: string, payload: unk
     all.delete(id);
   }
 
-  ipcMain.handle("phone:status", () => ({ android: !!adbPath() && existsSync(jar), airplay: existsSync(process.env.WARPNAUT_UXPLAY || uxplay), brew: !!findTool("brew") }));
+  ipcMain.handle("phone:status", () => ({ android: !!adbPath() && existsSync(jar), airplay: existsSync(process.env.AETHERDECK_UXPLAY || uxplay), brew: !!findTool("brew") }));
   ipcMain.handle("phone:setUpAndroid", () => setUpAndroid());
   ipcMain.handle("phone:setUpAirplay", () => setUpAirplay());
   ipcMain.handle("phone:devices", () => devices());

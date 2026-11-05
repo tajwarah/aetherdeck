@@ -169,7 +169,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
     setAiKey("");
   };
   const pickModel = (id: string) => { setModel(id); void apply({}, { LLM_PROVIDER: provider, LLM_MODEL: id }, `Using ${id}.`); };
-  const disconnect = () => connected && void apply(connected.key ? { [connected.key]: "" } : {}, { LLM_PROVIDER: "", LLM_MODEL: "" }, `${connected.label} disconnected. Warpnaut works without AI.`).then(() => setModel(""));
+  const disconnect = () => connected && void apply(connected.key ? { [connected.key]: "" } : {}, { LLM_PROVIDER: "", LLM_MODEL: "" }, `${connected.label} disconnected. AetherDeck works without AI.`).then(() => setModel(""));
 
   const save = () => void apply(Object.fromEntries(Object.entries(draft).filter(([, v]) => v)), searx !== null ? { SEARXNG_URL: searx } : undefined).then(() => { setDraft({}); setSearx(null); });
   const dirty = Object.values(draft).some(Boolean) || contact !== null || searx !== null;
@@ -185,7 +185,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
               {x.label}
             </button>
           ))}
-          <p className="prefs__version">Warpnaut {info?.version}</p>
+          <p className="prefs__version">AetherDeck {info?.version}</p>
         </nav>
         <div className="prefs__main">
           <header className="prefs__head">
@@ -225,18 +225,18 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
               {(!p.key || info?.keys[p.key]) && !aiKey && !models && <button className="btn" disabled={checking} onClick={() => void check()}>{checking ? "Checking…" : "Choose model"}</button>}
               <button className="btn btn--primary" disabled={checking || (!!p.key && !aiKey && !info?.keys[p.key])} onClick={() => void connect()}>{checking ? "Checking…" : `Connect ${p.label}`}</button>
             </div>
-            <p className="group__note">{p.note} {p.key ? <>A key is separate from a ChatGPT or Claude subscription: <a href={p.url} onClick={open(p.url)}>create one with {p.label}</a>.</> : <a href={p.url} onClick={open(p.url)}>Get {p.label}</a>} {p.key && <>It's encrypted with your system keychain and sent only to {p.label}.</>} This model powers research maps, the assistant and file reading. Each agent chooses its own.</p>
+            <p className="group__note">{p.note} {p.key ? <>A key is separate from a ChatGPT or Claude subscription: <a href={p.url} onClick={open(p.url)}>create one with {p.label}</a>.</> : <a href={p.url} onClick={open(p.url)}>Get {p.label}</a>} {p.key && <>It's encrypted with your system keychain and sent only to {p.label}.</>} This model powers research maps, Cosmonaut and file reading. Each agent chooses its own.</p>
           </>}
 
           {page === "search" && <>
             <p className="group__title">Search engine</p>
             <div className="seg" role="radiogroup" aria-label="Search engine">
               {ENGINE_CHOICES.map(([id, label]) => {
-                const on = (info?.config.WARPNAUT_SEARCH_ENGINE || "google") === id;
-                return <button key={id} role="radio" aria-checked={on} className={`seg__opt ${on ? "is-on" : ""}`} onClick={() => void apply({}, { WARPNAUT_SEARCH_ENGINE: id }, id === "off" ? "Search in the browser is off." : `Searching with ${label}.`)}>{label}</button>;
+                const on = (info?.config.AETHERDECK_SEARCH_ENGINE || "google") === id;
+                return <button key={id} role="radio" aria-checked={on} className={`seg__opt ${on ? "is-on" : ""}`} onClick={() => void apply({}, { AETHERDECK_SEARCH_ENGINE: id }, id === "off" ? "Search in the browser is off." : `Searching with ${label}.`)}>{label}</button>;
               })}
             </div>
-            <p className="group__note">Your engine's results page opens beside the map, as if you had searched yourself. If it asks you something first, its window stays in front for you to answer. Off: Warpnaut uses the services below and open sources only.</p>
+            <p className="group__note">Your engine's results page opens beside the map, as if you had searched yourself. If it asks you something first, its window stays in front for you to answer. Off: AetherDeck uses the services below and open sources only.</p>
             <p className="group__title">Search services</p>
             <div className="group">
               {SEARCH.map((k) => (
@@ -266,8 +266,8 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
             <p className="group__title">Speech to text</p>
             <div className="seg" role="radiogroup" aria-label="Speech to text">
               {VOICE_CHOICES.map(([id, label, key]) => {
-                const on = (info?.config.WARPNAUT_VOICE || "") === id;
-                return <button key={id} role="radio" aria-checked={on} disabled={!!key && !info?.keys[key]} title={key && !info?.keys[key] ? "Add this key under AI and Claude first" : undefined} className={`seg__opt ${on ? "is-on" : ""}`} onClick={() => void apply({}, { WARPNAUT_VOICE: id }, `Voice: ${label}.`)}>{label}</button>;
+                const on = (info?.config.AETHERDECK_VOICE || "") === id;
+                return <button key={id} role="radio" aria-checked={on} disabled={!!key && !info?.keys[key]} title={key && !info?.keys[key] ? "Add this key under AI and Claude first" : undefined} className={`seg__opt ${on ? "is-on" : ""}`} onClick={() => void apply({}, { AETHERDECK_VOICE: id }, `Voice: ${label}.`)}>{label}</button>;
               })}
             </div>
             <p className="group__note">Press ⌘⇧Space from any app and say one thing: four agents search, open, read and write for you. Automatic uses the first key you have: OpenAI's Whisper, then Groq's Whisper, then Gemini. Claude has no speech to text, so voice needs one of those keys; dictation apps such as Wispr Flow also work.</p>
@@ -279,7 +279,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
             <div className="group">
               <div className="group__row">
                 <span>Default browser</span>
-                {info?.isDefault ? <span className="group__ok">Warpnaut opens your links</span> : <button className="btn btn--small" onClick={() => void desktop?.invoke<boolean>("app:setDefault").then((isDefault) => setInfo((i) => (i ? { ...i, isDefault } : i)))}>Make default</button>}
+                {info?.isDefault ? <span className="group__ok">AetherDeck opens your links</span> : <button className="btn btn--small" onClick={() => void desktop?.invoke<boolean>("app:setDefault").then((isDefault) => setInfo((i) => (i ? { ...i, isDefault } : i)))}>Make default</button>}
               </div>
             </div>
           )}
@@ -315,7 +315,7 @@ function Shields() {
   const load = () => void desktop?.invoke<typeof s>("shields:status").then(setS);
   useEffect(load, []);
   if (!s) return null;
-  const set = (on: boolean) => void desktop?.invoke("app:setKeys", {}, undefined, { WARPNAUT_SHIELDS: on ? "" : "off" }).then(load);
+  const set = (on: boolean) => void desktop?.invoke("app:setKeys", {}, undefined, { AETHERDECK_SHIELDS: on ? "" : "off" }).then(load);
   return (
     <>
       <div className="group">
@@ -325,7 +325,7 @@ function Shields() {
         </label>
         <div className="group__row">
           <span>Status</span>
-          <span className="group__dim">{s.on ? (s.ready ? `${s.blocked.toLocaleString()} blocked since Warpnaut started` : "Getting the block lists ready…") : "Off"}</span>
+          <span className="group__dim">{s.on ? (s.ready ? `${s.blocked.toLocaleString()} blocked since AetherDeck started` : "Getting the block lists ready…") : "Off"}</span>
         </div>
         {s.allowed.length > 0 && <div className="group__row"><span>Off for</span><span className="group__dim">{s.allowed.join(", ")}</span></div>}
       </div>

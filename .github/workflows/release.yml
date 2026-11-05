@@ -1,4 +1,4 @@
-# Push a tag like v0.2.0 and this builds Warpnaut for macOS, Windows and Linux and attaches the installers
+# Push a tag like v0.2.0 and this builds AetherDeck for macOS, Windows and Linux and attaches the installers
 # to a GitHub release (a draft, so you can read it over and press Publish).
 name: Release
 on:

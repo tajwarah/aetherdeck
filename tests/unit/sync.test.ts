@@ -106,7 +106,7 @@ describe("shared groups on screen", () => {
 
 describe("sync store (server)", () => {
   it("creates, versions, refuses stale or foreign writes, notifies listeners, and deletes", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "warpnaut-sync-"));
+    const dir = await mkdtemp(join(tmpdir(), "aetherdeck-sync-"));
     const store = new SyncStore(dir);
     const id = newCreds().id;
     const token = await authToken(newCreds().key);

@@ -1,10 +1,12 @@
-# Warpnaut design guideline
+# AetherDeck design guideline
+
+**AetherDeck, the exploratory browser, with Cosmonaut.** In November 2026 Warpnaut became AetherDeck, and its AI companion became Cosmonaut. The brand: a ribbon of light folded into an A, peach (`--peach`) to lavender (`--lavender`), drawn in `src/components/Logo.tsx` and `build/icon.svg`; Cosmonaut is a small helmet with a dark visor and two smiling eyes. Display type is Lexend Exa (bundled, OFL). The home follows the brand render: the mark, *The exploratory browser*, "Explore *beyond* the ordinary.", one bar to ask, open an address or play something, and **Ask Cosmonaut**. Behind it, deep space crossed by two soft beams, and a photograph of Earth at night (NASA Black Marble, rendered once into `public/brand/earth-night.webp`) rising under a peach-to-lavender horizon. Where the sections below describe the drawn globe, its starting points and fibres, they record the home before the rebrand.
 
 *The search console as a place, not a page.* This document reads the twelve-panel concept render (01 Welcome → 12 Always With You) as a brief, states the principles behind it, fixes the visual system, and lists what the build does today and what is still concept.
 
 ## 1. Premise: search in the 2050s
 
-By the 2050s the question "which page has this?" has disappeared. The web is read, cross-referenced and summarized by machines in the background, so what a person needs from a search console is no longer a list but a **place to stand**: somewhere to look around, notice what is near, step closer to what matters, and see where every claim comes from. Five assumptions follow from the render, and every screen in Warpnaut is held to them.
+By the 2050s the question "which page has this?" has disappeared. The web is read, cross-referenced and summarized by machines in the background, so what a person needs from a search console is no longer a list but a **place to stand**: somewhere to look around, notice what is near, step closer to what matters, and see where every claim comes from. Five assumptions follow from the render, and every screen in AetherDeck is held to them.
 
 1. **The cursor is the search.** The ring of light at the center of every panel is the only persistent instrument. Where it rests, things come forward; where it moves, the space answers. There is no search box in the chrome; asking happens where you are.
 2. **The environment is the result.** A question becomes a layout: evidence spokes for research, a horizon of reports for news, a distance map and comparison for places, stacked visual cards for learning. Nothing is "returned"; the space rearranges.
@@ -14,9 +16,9 @@ By the 2050s the question "which page has this?" has disappeared. The web is rea
 
 ## 2. The twelve moments
 
-Each panel of the render is a moment in one session. The table maps each to what Warpnaut does and how honestly the build can do it with open data.
+Each panel of the render is a moment in one session. The table maps each to what AetherDeck does and how honestly the build can do it with open data.
 
-| # | Panel | Caption | In Warpnaut | Status |
+| # | Panel | Caption | In AetherDeck | Status |
 |---|---|---|---|---|
 | 01 | Welcome | The entire internet, reimagined as a space. | Home: Earth at night, real starting points standing on it as photo cards, one line of guidance, the top bar and the dock. | Built |
 | 02 | Move | Your cursor is the search. | Proximity: nodes brighten as the ring passes; the ring's label names what a click will do. Click empty space to ask. | Built |
@@ -24,7 +26,7 @@ Each panel of the render is a moment in one session. The table maps each to what
 | 04 | Zoom In | Drill into any topic naturally. | Semantic zoom: marks become excerpts become sourced findings as scale increases. Zoom is toward the cursor. | Built |
 | 05 | See Everything | A complete view, not just links. | The lead card: photograph, title, one honest line on *why this* (how it matched), and a strip of related images, each attributed. | Built (photos only where sources have them) |
 | 06 | Go Deeper | Explore visually, in layers. | The layer rail: Places · Reviews · Menus · Photos · Booking · Live availability. Each layer states whether open data has it; absent layers stay visible and dimmed, never faked. | Built (Reviews, Menus, Live availability are shown as unavailable) |
-| 07 | Real World Actions | Not just information. Results. | Action card with "Book for today": prepare → review → confirm → hand-off to phone, mail or website. Warpnaut never sends. | Built |
+| 07 | Real World Actions | Not just information. Results. | Action card with "Book for today": prepare → review → confirm → hand-off to phone, mail or website. AetherDeck never sends. | Built |
 | 08 | Personal Context | Understands you. | "Suggested for you": derived only from history kept in this browser, shown only when history is on, with the reason stated under each suggestion. | Built |
 | 09 | Global Perspective | See what's happening, anywhere. | Threads of light across the sphere join the starting points; a news question becomes a timeline with dates on every item. | Built (threads); live world events need a news key |
 | 10 | Learn Anything | Turn complex topics into visual journeys. | Evidence map with model-written sub-questions and verified quotes; source cards carry images. | Built |
@@ -33,14 +35,14 @@ Each panel of the render is a moment in one session. The table maps each to what
 
 ## 3. The spatial browser
 
-Warpnaut is also a browser, in the way a headset is: the web arrives as glass panes floating in front of the planet, not as a tab strip. The look follows the reference render the build is held to (a dark warm room, Earth at night, panes tilted toward you, a dock of glass). At rest there are four things on screen: the planet, the starting points standing on it, the top bar and the dock.
+AetherDeck is also a browser, in the way a headset is: the web arrives as glass panes floating in front of the planet, not as a tab strip. The look follows the reference render the build is held to (a dark warm room, Earth at night, panes tilted toward you, a dock of glass). At rest there are four things on screen: the planet, the starting points standing on it, the top bar and the dock.
 
-**Home.** Earth at night fills the lower half of the screen and turns slowly (one turn every two minutes). Coastlines and borders are real (Natural Earth, through `world-atlas`); the lights are where large cities are. Starting points stand on the surface as small photo cards on stems of light: Zurich for quantum computing, Samarkand for the Silk Road, Mount Fuji, the Red Sea's reefs, and so on. Each photo is the lead image of the topic's Wikipedia article, credited on hover. A chain of light runs between them west to east, with a pulse travelling along each arc. Touching a card starts that exploration. Out-of-focus panes at the edges of the room (the same photographs, blurred) give the space depth; they are decoration and do nothing.
+**Home (before AetherDeck; now the brand home above).** Earth at night fills the lower half of the screen and turns slowly (one turn every two minutes). Coastlines and borders are real (Natural Earth, through `world-atlas`); the lights are where large cities are. Starting points stand on the surface as small photo cards on stems of light: Zurich for quantum computing, Samarkand for the Silk Road, Mount Fuji, the Red Sea's reefs, and so on. Each photo is the lead image of the topic's Wikipedia article, credited on hover. A chain of light runs between them west to east, with a pulse travelling along each arc. Touching a card starts that exploration. Out-of-focus panes at the edges of the room (the same photographs, blurred) give the space depth; they are decoration and do nothing.
 
-**The top bar.** The ring-and-wordmark (Warpnaut, *The internet, reimagined*) returns to the beginning. On the right: the date and time, an avatar that opens *Your data* (it shows your initial once you give a name for requests), and a voice button that opens the search field already listening. "Sample data" appears here whenever the data is not live.
+**The top bar.** The ring-and-wordmark (AetherDeck, *The internet, reimagined*) returns to the beginning. On the right: the date and time, an avatar that opens *Your data* (it shows your initial once you give a name for requests), and a voice button that opens the search field already listening. "Sample data" appears here whenever the data is not live.
 
 **The dock** is the one fixed control, at the bottom:
-- Home, the glowing globe: the first press minimizes every window, the second returns to the planet. It glows brighter while you are home.
+- Home is the wordmark, top left: it minimizes every window and returns to the home.
 - Search (or <kbd>/</kbd>): a question builds an environment; an address, "open …" or a video link floats a window; "play …" floats a video search.
 - The most used places: YouTube (starts a video search, because YouTube's own pages refuse to be framed), Wikipedia, Images (Wikimedia Commons), Radio Garden.
 - All places: a glass panel with all ten places (Search, Wikipedia, Surprise me, World map, Live winds, Radio Garden, YouTube, Archive, Images, Books). Only sites that allow being shown inside other apps are listed.
@@ -68,13 +70,13 @@ Warpnaut is also a browser, in the way a headset is: the web arrives as glass pa
 - **The link is the key.** Each space is encrypted in the browser with AES-256-GCM, with a key that exists only in the link after the "#". Browsers never send that part to a server. The server stores scrambled data, a version number and a hash of a write token, and deletes spaces nobody has opened for 90 days. Opening a link always asks first, and the key is removed from the address bar at once.
 - **How changes meet:** each window is one entry and the newest edit to it wins. A closed window leaves a dated marker so the close reaches devices that were offline. A device that comes back merges what it missed before writing.
 
-**The desktop browser.** Warpnaut ships as a downloadable app for macOS, Windows and Linux (Electron, so Chromium renders every page). Each window holds a real page in its own process, so nothing is framed, proxied or refused. The window bar gains back, forward, reload or stop, an editable address (an address goes there; a question becomes a map) and a bookmark star. The app adds what people expect of a browser: downloads, permission prompts, find in page, zoom, print, full-screen video, private windows (purple badge, separate session, never in history or sync), a Library of history, bookmarks and downloads, Settings for keys and the default browser, and a menu with the usual shortcuts. Minimized windows stay alive, hidden, so a playing video or a sign-in survives. The YouTube refusal and the "asks not to be shown inside other apps" state belong to the website build only.
+**The desktop browser.** AetherDeck ships as a downloadable app for macOS, Windows and Linux (Electron, so Chromium renders every page). Each window holds a real page in its own process, so nothing is framed, proxied or refused. The window bar gains back, forward, reload or stop, an editable address (an address goes there; a question becomes a map) and a bookmark star. The app adds what people expect of a browser: downloads, permission prompts, find in page, zoom, print, full-screen video, private windows (purple badge, separate session, never in history or sync), a Library of history, bookmarks and downloads, Settings for keys and the default browser, and a menu with the usual shortcuts. Minimized windows stay alive, hidden, so a playing video or a sign-in survives. The YouTube refusal and the "asks not to be shown inside other apps" state belong to the website build only.
 
 **Overview.** "See all windows" lays every lone window and every group out as tiles in a grid; a group keeps its arrangement inside its tile. Picking a tile brings it forward and returns everything to its place.
 
 **Video.** YouTube links play in YouTube's own player (privacy-enhanced domain). Video search uses the YouTube Data API with a free key (`YOUTUBE_API_KEY`). Without it, the window says so and hands off to YouTube's own search page.
 
-**Honest framing.** Before loading a site, the server reads its `X-Frame-Options` and `frame-ancestors` headers. A site that refuses gets a plain message with two ways out: open it in a browser tab, or read its leading paragraphs in the space. Warpnaut never proxies or rewrites a page to get around a site's choice.
+**Honest framing.** Before loading a site, the server reads its `X-Frame-Options` and `frame-ancestors` headers. A site that refuses gets a plain message with two ways out: open it in a browser tab, or read its leading paragraphs in the space. AetherDeck never proxies or rewrites a page to get around a site's choice.
 
 **Why the chapter captions are gone.** The render's "01 Welcome … 12 Always With You" captions are storyboard labels, not interface. Shown live, they described the screen instead of helping use it, so the build no longer displays them. The twelve moments above remain the design brief.
 
@@ -165,9 +167,9 @@ Stacked cards (05, 06, 10) are drawn as a lead card with two ghosted cards behin
 
 | Component | File | Notes |
 |---|---|---|
-| Planet | `src/components/Planet.tsx` | Earth at night on one canvas (d3-geo orthographic, world-atlas), city lights, arcs, photo pins on stems, depth panes; holds still while dimmed |
+| Home | `src/components/Hero.tsx`, `Earth.tsx`, `Logo.tsx` | the mark, the line, the bar and Ask Cosmonaut; Earth at night as one picture with two beams of light; the mark and Cosmonaut |
 | Places | `src/components/Launcher.tsx` | the ten places, and the All places panel |
-| Dock | `src/components/ControlBar.tsx` | Home globe, search, docked places, all places, all windows, devices, minimized windows and groups |
+| Dock | `src/components/ControlBar.tsx` | docked places, all places, all windows, devices, minimized windows and groups |
 | Top bar | `src/App.tsx` (`Clock`) | wordmark, trail, date and time, Your data avatar, voice |
 | Windows | `src/components/Windows.tsx`, `src/lib/windows.ts` | browser windows with tabs and their bar (address, controls), slots, depth, groups, overview, frame check, video search |
 | Devices and sharing | `src/components/SyncSheet.tsx`, `JoinSheet.tsx`, `src/lib/sync.ts`, `useSync.ts`, `server/sync.ts` | QR and link per space, live status, share/stop/leave; encryption, merge, live connection, server store |
@@ -180,11 +182,11 @@ Stacked cards (05, 06, 10) are drawn as a lead card with two ghosted cards behin
 
 ## 6. What is concept, not yet real
 
-- The render shows restaurant interiors, dishes and technicians at work. Warpnaut shows only images that sources publish (Wikipedia and news thumbnails today; OpenStreetMap has none). Place cards therefore carry a map mark, not a photo, until a photo provider with licensing is added.
+- The render shows restaurant interiors, dishes and technicians at work. AetherDeck shows only images that sources publish (Wikipedia and news thumbnails today; OpenStreetMap has none). Place cards therefore carry a map mark, not a photo, until a photo provider with licensing is added.
 - "Verified professionals", "Reviews", "Menus" and "Live availability" need partner data. They appear in the layer rail as unavailable.
 - "Suggested for you" is local and explicit. There is no model of the person on the server.
 - Many large sites (GitHub, Google, most banks and social networks) refuse to be framed. They open in a browser tab instead. A true spatial browser needs its own engine (a native shell such as Electron or a visionOS app), not a web page.
-- Sync reaches only devices that can reach the Warpnaut server. On a laptop that means the same Wi-Fi (`npm run dev:lan` or `npm start`). Reaching a phone anywhere needs Warpnaut hosted online with `PUBLIC_URL` set. There are no accounts: whoever holds a link holds the space.
+- Sync reaches only devices that can reach the AetherDeck server. On a laptop that means the same Wi-Fi (`npm run dev:lan` or `npm start`). Reaching a phone anywhere needs AetherDeck hosted online with `PUBLIC_URL` set. There are no accounts: whoever holds a link holds the space.
 - Inside a window, a site runs with its own cookies only where the browser allows third-party storage, so some sign-ins work only after "Pop out".
 
 ## Pearl glass, the cursor and the dock (October 2026)
@@ -197,15 +199,12 @@ Stacked cards (05, 06, 10) are drawn as a lead card with two ghosted cards behin
 
 ## Engine and performance (October 2026)
 
-Warpnaut renders the web with Chromium (Blink and V8) through Electron. Its own code is small: the interface and
+AetherDeck renders the web with Chromium (Blink and V8) through Electron. Its own code is small: the interface and
 the server inside the app are under 4 MB; the rest of the download is Chromium itself, which cannot be trimmed
 without removing browser features.
 
 What keeps it smooth:
-- The globe is projected with precomputed sines and cosines (`src/lib/globe.ts`, checked against d3 in
-  `tests/unit/globe.test.ts`); land is clipped to the visible half the way d3 does it. About 2.5 ms a frame,
-  down from 13. It draws at most 60 frames a second, 30 behind windows, and its canvas covers only the band
-  the globe rises into.
+- The home's Earth is one picture, rendered ahead of time, so it costs nothing to draw: no canvas, no frames.
 - Dragging and resizing a window moves it on the GPU (`translate`) without rendering anything else; the app's
   state, its saved space and sync see one change, when the gesture ends.
 - Window glass blurs only what shows: the bar, and the rim of the window in use. Blurring whole panes held
@@ -234,9 +233,9 @@ What keeps it smooth:
   web version, and for full-screen video, the frame curves and the page stays flat.
 - **Your search engine, in view** (`shared/serp.ts`). In the desktop app, asking something opens the
   engine's own results page (Google by default; Bing, DuckDuckGo or Off in Settings) in a window you can
-  see. Warpnaut reads the results off that page, as a reader view would, and they lead the map in the engine's
+  see. AetherDeck reads the results off that page, as a reader view would, and they lead the map in the engine's
   order. The window then goes to the dock. If the engine asks you something first (privacy choices, "I'm not
-  a robot"), its window stays in front and the map waits: Warpnaut never answers those for you.
+  a robot"), its window stays in front and the map waits: AetherDeck never answers those for you.
 
 ## Liquid glass, accounts and agents (October 2026)
 
@@ -244,7 +243,7 @@ What keeps it smooth:
   (`--lg-rim`) and a sheen across the top (`--lg-sheen`). Cards keep a little more body so their text reads.
 - **Accounts** (`src/components/AccountMenu.tsx`): the avatar offers "Sign in with Google". Google's own page
   does the signing in, in the shared browsing session, so Gmail, YouTube and the rest know you, as in Chrome.
-  Warpnaut only checks whether a sign-in cookie exists, and never sees passwords.
+  AetherDeck only checks whether a sign-in cookie exists, and never sees passwords.
 - **Agents** (`server/agent.ts`, `src/components/AgentConsole.tsx`). Press ⌘⇧Space from any app, or the
   sound-wave button, and say one thing. Speech becomes text through Whisper (OpenAI or Groq) or Gemini
   (`server/voice.ts`); a dictation app such as Wispr Flow types into the box too. Your model plans steps for
@@ -282,9 +281,9 @@ Frames are numbered so that each is released only when its own drawing is done. 
 
 The dock's Phone opens a window (`PhoneScreen.tsx`) kept out of sync, history and the agents' reach. Video is decoded with WebCodecs and drawn with the curve's own WebGL (`shared/curveSurface.ts`), so a phone sits on the same curved screen as a page.
 
-**Android** (`electron/phone.ts`, `shared/phone.ts`) uses scrcpy 5.0.1 (Apache-2.0). On first use Warpnaut fetches its server, verified against the release's SHA-256, and adb from Google. The server is pushed to `/data/local/tmp`, runs through `app_process`, and removes itself when it stops, so nothing stays installed on the phone. Touch, keys, text, scrolling and paste go back over scrcpy's control socket. A dropped cable or Wi-Fi reconnects by itself, and the phone's own screen can be turned off while mirroring continues. Its sound stays on the phone.
+**Android** (`electron/phone.ts`, `shared/phone.ts`) uses scrcpy 5.0.1 (Apache-2.0). On first use AetherDeck fetches its server, verified against the release's SHA-256, and adb from Google. The server is pushed to `/data/local/tmp`, runs through `app_process`, and removes itself when it stops, so nothing stays installed on the phone. Touch, keys, text, scrolling and paste go back over scrcpy's control socket. A dropped cable or Wi-Fi reconnects by itself, and the phone's own screen can be turned off while mirroring continues. Its sound stays on the phone.
 
-**iPhone** is view only: iOS gives other apps no way to control it. UxPlay (GPL-3.0) receives AirPlay as a separate program, built from source on the person's computer and never shipped with Warpnaut. It forwards H.264 as RTP to a local port (`-vrtp`), which `RtpH264` rebuilds into pictures. It uses port 47000 because macOS's AirPlay Receiver holds 7000.
+**iPhone** is view only: iOS gives other apps no way to control it. UxPlay (GPL-3.0) receives AirPlay as a separate program, built from source on the person's computer and never shipped with AetherDeck. It forwards H.264 as RTP to a local port (`-vrtp`), which `RtpH264` rebuilds into pictures. It uses port 47000 because macOS's AirPlay Receiver holds 7000.
 
 ## The 360° browser
 
@@ -294,11 +293,11 @@ A video's full-screen button: in a flat window the page fills the screen and the
 
 The room's background is an environment: one of four 360° photos shipped in `public/rooms` (Seaside balcony, and Home Setup 1 to 3; Poly Haven, CC0, credited in `public/rooms/CREDITS.md`, resized to 6144 × 3072), one of three baked panoramas (night sky, studio, dusk), or the person's own 360° photo, kept in IndexedDB on this computer only (`lib/roomSky.ts`). Photos are dimmed slightly so pages stay legible. Each page is drawn with a margin around it that holds a rim of clear glass, lit along its top, and a soft shadow cast on the room, so it reads as a window floating in the space rather than a cut-out; the page in use is slightly brighter. Pages fill 0.72 radians of height, leaving the room visible around them. A full 360° photo (2:1) maps as a sphere; a wider panorama covers fewer degrees up and down and fades past its edges. Images narrower than 1.6:1 are refused. Clicks in the room send the pointer's position before each press, flush any move still waiting for its frame, count double and triple clicks themselves, and take the pointer shape from the page under it.
 
-**Widgets** (`RoomWidgets.tsx`) hang on the room's wall beside the tabs: a clock, a note kept on this computer, the app's memory (Ram's line and a bar against the engine's limit), and the crew with what each agent is doing. They are DOM, not drawn in WebGL, so they take typing and clicks; on every `warpnaut-scene` event they are placed again with `onWall` (`shared/surround.ts`), the same geometry as the pages, scaled for the cylinder. Dragging one by its top moves it to the point of the wall under the pointer. Which are shown, and where, is saved in `warpnaut.roomWidgets`; the bar's Widgets button shows or hides each.
+**Widgets** (`RoomWidgets.tsx`) hang on the room's wall beside the tabs: a clock, a note kept on this computer, the app's memory (Ram's line and a bar against the engine's limit), and the crew with what each agent is doing. They are DOM, not drawn in WebGL, so they take typing and clicks; on every `aetherdeck-scene` event they are placed again with `onWall` (`shared/surround.ts`), the same geometry as the pages, scaled for the cylinder. Dragging one by its top moves it to the point of the wall under the pointer. Which are shown, and where, is saved in `aetherdeck.roomWidgets`; the bar's Widgets button shows or hides each.
 
 **Speed in the room** (measured with `top`, a YouTube video playing, three runs each). Tabs out of sight stop painting entirely (`curve:rate` 0 calls `stopPainting`; they keep running and playing) instead of painting four frames a second: with the video behind the person, the GPU process went from 15–23% to 9.5–10% and the page processes from 21–26% to 17–19%. With the video in front, it stayed within noise (GPU 24–29% against 26–34%). Other changes that remove work without a clear measured number: a press goes straight to the page when the pointer has rested on something known not to be a `<select>` (the check runs while the pointer moves, not on the press, which could wait up to 120 ms); a trackpad's many small scrolls go to the page as one per frame; frames of an unchanged size are copied into the texture they already have; nothing in the room blurs the moving scene behind it; and windows behind the one in use are darkened by a veil rather than a CSS filter, which made the compositor redraw their live page through an extra pass.
 
-**No system window buttons.** The app window hides the platform's own (macOS's colored lights, Windows' caption buttons). The top bar ends with Warpnaut's: minimize, full screen, close, drawn like every other window button in the app. The top bar is the handle for dragging the window.
+**No system window buttons.** The app window hides the platform's own (macOS's colored lights, Windows' caption buttons). The top bar ends with AetherDeck's: minimize, full screen, close, drawn like every other window button in the app. The top bar is the handle for dragging the window.
 
 **Glass and the sidebar.** Browser windows, their tab strip and bars are clear glass (`--glass-tint`, `--glass-rim`), blurred only in the frost strips around the page. The Agent Station and the Research board are dark panes with a shared `Sidebar.tsx`: the browser's own window buttons, never macOS-style colored lights (a Collapse pill, fill the window, close), a title with a bell counting what waits on the person, a who row, a search, then sections of rows with the chosen one lit red (`--lit`) and red counts. It folds to a rail of icons.
 
@@ -306,19 +305,19 @@ The room's background is an environment: one of four 360° photos shipped in `pu
 
 **Never lost in the room.** A turn never leaves the person facing bare wall with every tab out of sight: beside the tabs (where the widgets hang) the room stays where it's left; otherwise it settles on the nearest tab. Tabs out of sight are counted at the left and right edges, and pressing a count turns that way.
 
-**Extensions** (`electron/extensions.ts`, `shared/crx.ts`, `Extensions.tsx`). Chrome extensions load into the browsing session only, never private windows, and so also run in the 360° room's pages and the agents' engine. They come from the Chrome Web Store (Warpnaut downloads the CRX from Google's update service, skips its signed header and unzips it itself, refusing paths outside the folder and archives over 300 MB), from a folder, or from Chrome, Brave, Edge, Arc, Vivaldi or Chromium on the same computer. Each is staged and shown before it's added: what it can read and change, and which of its permissions Electron lacks (context menus, notifications, declarativeNetRequest and others), so it may only partly work. Added ones are copied into `extensions/` in the app's data folder and loaded at every start. A window's bar has a puzzle button for the shelf (a grid of extensions), whose tiles open an extension's popup in a floating glass card, and on a Chrome Web Store page, an Add to Warpnaut button. The manager is a deck with the shared sidebar. `<webview>`s may load `chrome-extension://` pages only for extensions that are on. Before an extension's background worker and its own pages (never a site), `electron/extension-shim.ts` fills the gaps that stopped real extensions: `storage.sync` (Electron's fails on every call) keeps its data in `storage.local`, alarms fire on timers, context menus, notifications and commands are accepted and shown nowhere, permissions are what the manifest asked for, `extension.isAllowedFileSchemeAccess` answers no, and `tabs.query({ active })` answers with the page whose bar opened the shelf (the worker asks on its own IPC channel). It is bundled unminified, because Electron copies its function into the extension by source text. With it, Dark Reader from the Chrome Web Store installs (about 3 seconds), darkens pages, and its popup works, including its On/Off for a site; without it, its popup never got past "Loading". A popup's card takes the size of the popup's own page, as Chrome sizes one.
+**Extensions** (`electron/extensions.ts`, `shared/crx.ts`, `Extensions.tsx`). Chrome extensions load into the browsing session only, never private windows, and so also run in the 360° room's pages and the agents' engine. They come from the Chrome Web Store (AetherDeck downloads the CRX from Google's update service, skips its signed header and unzips it itself, refusing paths outside the folder and archives over 300 MB), from a folder, or from Chrome, Brave, Edge, Arc, Vivaldi or Chromium on the same computer. Each is staged and shown before it's added: what it can read and change, and which of its permissions Electron lacks (context menus, notifications, declarativeNetRequest and others), so it may only partly work. Added ones are copied into `extensions/` in the app's data folder and loaded at every start. A window's bar has a puzzle button for the shelf (a grid of extensions), whose tiles open an extension's popup in a floating glass card, and on a Chrome Web Store page, an Add to AetherDeck button. The manager is a deck with the shared sidebar. `<webview>`s may load `chrome-extension://` pages only for extensions that are on. Before an extension's background worker and its own pages (never a site), `electron/extension-shim.ts` fills the gaps that stopped real extensions: `storage.sync` (Electron's fails on every call) keeps its data in `storage.local`, alarms fire on timers, context menus, notifications and commands are accepted and shown nowhere, permissions are what the manifest asked for, `extension.isAllowedFileSchemeAccess` answers no, and `tabs.query({ active })` answers with the page whose bar opened the shelf (the worker asks on its own IPC channel). It is bundled unminified, because Electron copies its function into the extension by source text. With it, Dark Reader from the Chrome Web Store installs (about 3 seconds), darkens pages, and its popup works, including its On/Off for a site; without it, its popup never got past "Loading". A popup's card takes the size of the popup's own page, as Chrome sizes one.
 
 The interface is served from one remembered local port (`interface-port` in the app's data folder), because everything it keeps in browser storage belongs to that address; a new port each launch had been starting the dock, agents and research board empty.
 
-`shared/surround.ts` holds the geometry for both drawing and pointing, so what is seen is what is clicked. `electron/surround-gl.ts` draws one WebGL scene in the preload, where frames arrive; `Surround.tsx` describes it through the canvas's data attributes and a `warpnaut-scene` event, and maps input back to page coordinates. In the room every tab lays out at one page size (`curve:room`), so text reads at its normal size whatever size its window was.
+`shared/surround.ts` holds the geometry for both drawing and pointing, so what is seen is what is clicked. `electron/surround-gl.ts` draws one WebGL scene in the preload, where frames arrive; `Surround.tsx` describes it through the canvas's data attributes and a `aetherdeck-scene` event, and maps input back to page coordinates. In the room every tab lays out at one page size (`curve:room`), so text reads at its normal size whatever size its window was.
 
 The room sits at z-index 29: above the windows and below every sheet and prompt, so permission requests, settings and the Agent Station stay reachable. The bar holds the strip (all 360° in a line, dragged to turn), the page's address and controls, the tabs, and New tab, whose box also lists the dock. Vertical swipes scroll the page under the pointer; sideways swipes, Shift+wheel, dragging the empty wall, Alt+arrows and Ctrl+Tab turn the room, settling on the nearest tab; a pinch zooms. Sideways swipes therefore don't reach pages. A page's own full-screen button fills its panel. Find-in-page, Phone and AI windows are outside the room; tools from the new-tab box go back home to open.
 
-Frames use shared textures on macOS and Windows. Linux, and anything with `WARPNAUT_CURVE_COPY` set, copies BGRA frames through the CPU at 1x and 30 fps, because Linux's shared textures depend on the graphics driver. Only macOS has been run.
+Frames use shared textures on macOS and Windows. Linux, and anything with `AETHERDECK_CURVE_COPY` set, copies BGRA frames through the CPU at 1x and 30 fps, because Linux's shared textures depend on the graphics driver. Only macOS has been run.
 
 ## The name, and how the interface behaves
 
-Warpnaut is a crew traveling the web at warp speed; its mark is an astronaut's helmet with speed lines, platinum on deep space (`build/icon.svg`, every format made by `npm run icons`). The browser was called Horus until November 2026.
+AetherDeck is a crew traveling the web at warp speed; its mark is an astronaut's helmet with speed lines, platinum on deep space (`build/icon.svg`, every format made by `npm run icons`). The browser was called Horus until November 2026.
 
 Menus, sheets and bars follow Apple's conventions: system type, one tint (gold), materials rather than opaque panels, Settings as a sidebar with grouped lists, switches and segmented controls, and short motion on the iOS sheet curve. The tokens are at the top and bottom of `src/styles.css`.
 
@@ -338,7 +337,7 @@ Smoothness rules, each from a measurement:
 
 **The research board** (`ResearchBoard.tsx`, `lib/research.ts`). Each finished map becomes a card in `library/research.json`, unless "Keep new searches" is off. Cards connect and group. A summary numbers each source once across the group, reads up to eight pages in the agent pool, and sends them to the person's model through the same `/api/assist` route as everything else, marked as material. `checkCitations` removes any number that isn't a source.
 
-**Search stays visible.** Google's Custom Search API is closed to new customers and ends on January 1, 2027, and Google's terms don't allow automated queries. So Warpnaut doesn't query Google in the background: the engine's results are read from a window the person opened by asking, and any check is theirs to answer. SearXNG, Brave and Tavily remain the options for background search.
+**Search stays visible.** Google's Custom Search API is closed to new customers and ends on January 1, 2027, and Google's terms don't allow automated queries. So AetherDeck doesn't query Google in the background: the engine's results are read from a window the person opened by asking, and any check is theirs to answer. SearXNG, Brave and Tavily remain the options for background search.
 
 **Ram** (`RamBuddy.tsx`, `lib/ram.ts`) shows the app's memory as a sheep whose wool grows toward the engine's limit of half the computer's memory.
 

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { applyItems, docFrom, emptyDoc, mergeDocs, newCreds, SpaceClient, stable, type Creds, type Doc, type Invite, type Item, type Status } from "./sync.ts";
 import type { Win } from "./windows.ts";
 
-const KEY = "warpnaut.sync.v1";
+const KEY = "aetherdeck.sync.v1";
 
 interface Share { key: string; group: string; owner: boolean }
 interface Saved { personal: Creds | null; shares: Record<string, Share> }

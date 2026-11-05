@@ -13,7 +13,7 @@ function fill() {
   const event = () => { const fns = new Set<Fn>(); return { addListener: (f: Fn) => void fns.add(f), removeListener: (f: Fn) => void fns.delete(f), hasListener: (f: Fn) => fns.has(f), fire: (...a: unknown[]) => fns.forEach((f) => f(...a)) }; };
   const done = <T,>(cb: unknown, value?: T) => { if (typeof cb === "function") (cb as Fn)(value); return Promise.resolve(value); };
   // Electron has a storage.sync whose every call fails ("not available"); it's replaced, or its calls rerouted.
-  const tab = (globalThis as unknown as { __warpnautTab?: { get: () => Promise<unknown> } }).__warpnautTab;
+  const tab = (globalThis as unknown as { __aetherdeckTab?: { get: () => Promise<unknown> } }).__aetherdeckTab;
   if (tab && c.tabs) {
     // "Which tab is active?" gets the page the person is on; any other question goes to Electron as before.
     const own = (c.tabs.query as Fn).bind(c.tabs);
@@ -62,5 +62,5 @@ function fill() {
 }
 
 // The page the person is on, for chrome.tabs.query, in the extension's worker and in its own pages.
-try { contextBridge.exposeInMainWorld("__warpnautTab", { get: () => ipcRenderer.invoke("ext:activeTab") }); } catch { /* no bridge here */ }
+try { contextBridge.exposeInMainWorld("__aetherdeckTab", { get: () => ipcRenderer.invoke("ext:activeTab") }); } catch { /* no bridge here */ }
 contextBridge.executeInMainWorld({ func: fill });

@@ -83,7 +83,7 @@ export function toolsFor(a: Pick<AgentTurn["agent"], "access" | "skills">) {
 }
 
 export function systemFor(a: AgentTurn["agent"]) {
-  return `You are ${a.name}, an agent working inside the Warpnaut web browser, in front of the person who created you.
+  return `You are ${a.name}, an agent working inside the AetherDeck web browser, in front of the person who created you.
 Your role: ${a.role || "a helpful browser agent"}
 ${a.plan.length ? `Your plan:\n${a.plan.map((p, i) => `${i + 1}. ${p}`).join("\n")}\nFollow it, adapting when a step can't be done as written.` : "Work out the steps yourself."}
 

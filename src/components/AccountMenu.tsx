@@ -1,6 +1,6 @@
 // The person's accounts, from the avatar: sign in to Google once, in a page, and Gmail, YouTube and every Google
-// site know them, the way Chrome works (one browsing session for every window). Warpnaut never sees the password:
-// Google's own sign-in page does the signing in, and Warpnaut only checks whether a sign-in cookie exists.
+// site know them, the way Chrome works (one browsing session for every window). AetherDeck never sees the password:
+// Google's own sign-in page does the signing in, and AetherDeck only checks whether a sign-in cookie exists.
 import { useEffect, useState } from "react";
 import { desktop } from "../lib/desktop.ts";
 
@@ -13,7 +13,7 @@ export function useAccounts() {
   useEffect(() => {
     if (!desktop) return;
     void desktop.invoke<Accounts>("account:google").then(setAccounts);
-    return desktop.on("warpnaut:account", (a) => setAccounts(a as Accounts));
+    return desktop.on("aetherdeck:account", (a) => setAccounts(a as Accounts));
   }, []);
   return [accounts, setAccounts] as const;
 }
@@ -51,12 +51,12 @@ export function AccountMenu({ accounts, onAccounts, onOpen, onData, onClose }: {
             ) : (
               <>
                 <button className="acct__btn acct__btn--primary" onClick={() => { onOpen(SIGN_IN, "Sign in to Google"); onClose(); }}>Sign in with Google</button>
-                <p className="acct__fine">Google's own page opens in a window; you sign in there, and Warpnaut never sees your password. You stay signed in across restarts, as in Chrome.</p>
+                <p className="acct__fine">Google's own page opens in a window; you sign in there, and AetherDeck never sees your password. You stay signed in across restarts, as in Chrome.</p>
               </>
             )}
           </>
         ) : (
-          <p className="acct__fine">Sign-in lives in your browser here. In the Warpnaut desktop app, one Google sign-in covers YouTube, Gmail and the rest.</p>
+          <p className="acct__fine">Sign-in lives in your browser here. In the AetherDeck desktop app, one Google sign-in covers YouTube, Gmail and the rest.</p>
         )}
         <button className="acct__link" onClick={() => { onData(); onClose(); }}>Your data and privacy</button>
       </div>

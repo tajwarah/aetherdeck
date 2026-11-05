@@ -66,9 +66,9 @@ export function Composer({ x, y, placeholder, initial = "", startListening = fal
       onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}
     >
       <span className={`composer__seed ${listening ? "is-listening" : ""}`} aria-hidden="true" />
-      <label className="sr-only" htmlFor="warpnaut-ask">Ask Warpnaut</label>
+      <label className="sr-only" htmlFor="aetherdeck-ask">Ask AetherDeck</label>
       <input
-        id="warpnaut-ask"
+        id="aetherdeck-ask"
         ref={inputRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}

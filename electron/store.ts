@@ -19,7 +19,7 @@ export const KEY_NAMES = ["BRAVE_API_KEY", "TAVILY_API_KEY", "YOUTUBE_API_KEY", 
 export type KeyName = (typeof KEY_NAMES)[number];
 
 /** Settings that are not secret: which AI provider and model to use, and a SearXNG address. */
-export const CONFIG_NAMES = ["LLM_PROVIDER", "LLM_MODEL", "SEARXNG_URL", "WARPNAUT_SEARCH_ENGINE", "WARPNAUT_VOICE", "WARPNAUT_SHIELDS"] as const;
+export const CONFIG_NAMES = ["LLM_PROVIDER", "LLM_MODEL", "SEARXNG_URL", "AETHERDECK_SEARCH_ENGINE", "AETHERDECK_VOICE", "AETHERDECK_SHIELDS"] as const;
 export type ConfigName = (typeof CONFIG_NAMES)[number];
 
 export interface HistoryEntry { url: string; title: string; at: number }
@@ -45,6 +45,9 @@ export class Store {
     this.agents = readJson(join(dir, "agents.json"), []);
     this.research = readJson(join(dir, "research.json"), null);
     this.settings = readJson(join(dir, "settings.json"), { keys: {} });
+    // Settings saved as Warpnaut (WARPNAUT_VOICE, …) are kept under their AetherDeck names.
+    const config = this.settings.config as Record<string, string> | undefined;
+    if (config) for (const k of Object.keys(config)) if (k.startsWith("WARPNAUT_")) { config[`AETHERDECK_${k.slice(9)}`] ??= config[k]; delete config[k]; }
   }
 
   private saveSoon() {

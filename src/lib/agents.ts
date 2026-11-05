@@ -96,7 +96,7 @@ export const ACCESS: { id: Access; label: string; hint: string }[] = [
   { id: "ask", label: "Ask me first", hint: "Asks before every click and every bit of typing." },
   { id: "auto", label: "Works on its own", hint: "Clicks and types by itself, but still asks before anything like buy, send, post, delete or sign in." },
 ];
-const KEY = "warpnaut.agents.v1";
+const KEY = "aetherdeck.agents.v1";
 
 export async function loadAgents(): Promise<Agent[]> {
   if (desktop) return (await desktop.invoke<Agent[]>("agents:list").catch(() => [])) ?? [];

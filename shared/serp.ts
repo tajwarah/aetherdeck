@@ -1,4 +1,4 @@
-// Search engines' own results pages, as a person sees them in a window. Warpnaut can lay the results of a page
+// Search engines' own results pages, as a person sees them in a window. AetherDeck can lay the results of a page
 // the person opened out as a map: it reads the links on that visible page (as a reader view would) and never
 // fetches, clicks, accepts or solves anything on it. A consent screen or a "are you a person" check is left
 // for the person to answer in the window.

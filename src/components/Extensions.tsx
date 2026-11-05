@@ -1,4 +1,4 @@
-// Chrome extensions, Warpnaut's way. The puzzle on a window's bar opens the shelf: your extensions as a grid of glass
+// Chrome extensions, AetherDeck's way. The puzzle on a window's bar opens the shelf: your extensions as a grid of glass
 // tiles. A tile opens that extension's popup in a floating glass card beside the bar; its options open the same way,
 // larger. The manager is a deck like the Agent Station's: what's installed, what each can see, and three ways to add
 // one (the Chrome Web Store, a folder, another browser on this computer). Each addition is looked over before it's on.
@@ -14,7 +14,7 @@ interface Found { browser: string; id: string; name: string; icon: string; versi
 type Ask = { action: "shelf"; x: number; y: number; wc?: number } | { action: "manage"; key?: string } | { action: "store"; id: string };
 
 /** Opens the shelf (from a window's bar), the manager, or the manager's look at a Chrome Web Store extension. */
-export const openExtensions = (ask: Ask) => document.dispatchEvent(new CustomEvent("warpnaut-extensions", { detail: ask }));
+export const openExtensions = (ask: Ask) => document.dispatchEvent(new CustomEvent("aetherdeck-extensions", { detail: ask }));
 /** The extension a Chrome Web Store page is about, if this is one. */
 export const storeIdIn = (url: string) => (/^https:\/\/chromewebstore\.google\.com\/detail\//.test(url) ? url.match(/\/([a-p]{32})(?:[/?#]|$)/)?.[1] ?? null : null);
 
@@ -49,8 +49,8 @@ export function ExtensionsHub({ onOpenUrl }: { onOpenUrl: (url: string) => void 
       if (ask.action === "manage") { setShelf(null); setDeck({ key: ask.key, mode: ask.key ? "ext" : "store" }); }
       if (ask.action === "store") { setShelf(null); setStoreAsk(ask.id); setDeck({ mode: "store" }); }
     };
-    document.addEventListener("warpnaut-extensions", on);
-    return () => document.removeEventListener("warpnaut-extensions", on);
+    document.addEventListener("aetherdeck-extensions", on);
+    return () => document.removeEventListener("aetherdeck-extensions", on);
   }, []);
   useEffect(() => {
     if (!shelf && !view) return;
@@ -190,24 +190,24 @@ function Manager({ deck, setDeck, list, setList, found, storeAsk, onClose, onOpe
         ) : deck.mode === "store" ? (
           <section className="xt-card">
             <h2>From the Chrome Web Store</h2>
-            <p>Paste an extension's link from the Chrome Web Store, or its id. Or open the store in a tab: on an extension's page, the address bar shows <b>Add to Warpnaut</b>.</p>
+            <p>Paste an extension's link from the Chrome Web Store, or its id. Or open the store in a tab: on an extension's page, the address bar shows <b>Add to AetherDeck</b>.</p>
             <form className="xt-row" onSubmit={(e) => { e.preventDefault(); void look("ext:fromStore", link); }}>
               <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://chromewebstore.google.com/detail/…" aria-label="Chrome Web Store link or id" data-keys />
               <button className="deck__btn deck__btn--go" disabled={!link.trim() || !!busy}>Look it up</button>
             </form>
             <button className="deck__btn" onClick={() => { onClose(); onOpenUrl("https://chromewebstore.google.com/category/extensions"); }}>Open the Chrome Web Store</button>
-            <p className="fine">Warpnaut runs most extensions that work on pages: readers, translators, password managers, dark modes. Ones built on Chrome's own menus, notifications or ad-blocking rules may only partly work; each one says so before you add it. Extensions don't run in private windows.</p>
+            <p className="fine">AetherDeck runs most extensions that work on pages: readers, translators, password managers, dark modes. Ones built on Chrome's own menus, notifications or ad-blocking rules may only partly work; each one says so before you add it. Extensions don't run in private windows.</p>
           </section>
         ) : deck.mode === "folder" ? (
           <section className="xt-card">
             <h2>From a folder</h2>
-            <p>An unpacked extension: a folder with a <code>manifest.json</code>, such as one you're building. Warpnaut keeps its own copy.</p>
+            <p>An unpacked extension: a folder with a <code>manifest.json</code>, such as one you're building. AetherDeck keeps its own copy.</p>
             <button className="deck__btn deck__btn--go" disabled={!!busy} onClick={() => void look("ext:fromFolder")}>Choose a folder…</button>
           </section>
         ) : deck.mode === "browser" ? (
           <section className="xt-card">
             <h2>From {deck.browser}</h2>
-            <p>Extensions already installed in {deck.browser} on this computer. Warpnaut copies the one you choose; {deck.browser} keeps its own.</p>
+            <p>Extensions already installed in {deck.browser} on this computer. AetherDeck copies the one you choose; {deck.browser} keeps its own.</p>
             <div className="xt-found">
               {found.filter((f) => f.browser === deck.browser).map((f) => {
                 const have = list.some((x) => x.key === f.id);
@@ -250,12 +250,12 @@ function Detail({ ext, preview, onAdd, onCancel, onToggle, onRemove, onOpen }: {
           {ext.permissions.filter((p) => !ext.unsupported.includes(p)).map((p) => <li key={p}>{SAYS[p] ?? p}</li>)}
           {!where && !ext.permissions.length && <li>Nothing beyond its own pages</li>}
         </ul>
-        {ext.unsupported.length > 0 && <p className="xt-warn">May only partly work here: it uses {ext.unsupported.join(", ")}, which Warpnaut doesn't have.</p>}
+        {ext.unsupported.length > 0 && <p className="xt-warn">May only partly work here: it uses {ext.unsupported.join(", ")}, which AetherDeck doesn't have.</p>}
       </div>
       <div className="xt-row">
         {preview ? (
           <>
-            <button className="deck__btn deck__btn--go" onClick={onAdd}>Add to Warpnaut</button>
+            <button className="deck__btn deck__btn--go" onClick={onAdd}>Add to AetherDeck</button>
             <button className="deck__btn" onClick={onCancel}>Cancel</button>
           </>
         ) : (

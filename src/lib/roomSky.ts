@@ -23,7 +23,7 @@ export function skyKey(id: SkyId, photo: string | null): string {
   return sky.image ? `image:${sky.image}` : sky.id;
 }
 
-const KEY = "warpnaut.roomSky";
+const KEY = "aetherdeck.roomSky";
 const MAX_WIDTH = 8192; // the widest texture every Mac's GPU takes
 
 export function chosenSky(): SkyId {
@@ -39,7 +39,7 @@ export const wraps = (w: number, h: number) => h > 0 && w / h >= 1.6;
 
 function db(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const open = indexedDB.open("warpnaut-room", 1);
+    const open = indexedDB.open("warpnaut-room", 1) /* named before AetherDeck; kept so a saved photo stays */;
     open.onupgradeneeded = () => open.result.createObjectStore("sky");
     open.onsuccess = () => resolve(open.result);
     open.onerror = () => reject(open.error);

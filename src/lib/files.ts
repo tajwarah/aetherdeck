@@ -40,7 +40,7 @@ export function kindOf(file: File): FileKind | null {
 
 export async function readFile(file: File, path?: string): Promise<FileMaterial> {
   const kind = kindOf(file);
-  if (!kind) throw new Error(`Warpnaut can't read ${file.name.split(".").pop()?.toUpperCase() ?? "this kind of"} files yet. PDFs, Word documents, spreadsheets, text and images work.`);
+  if (!kind) throw new Error(`AetherDeck can't read ${file.name.split(".").pop()?.toUpperCase() ?? "this kind of"} files yet. PDFs, Word documents, spreadsheets, text and images work.`);
   if (file.size > MAX_BYTES) throw new Error(`${file.name} is ${formatSize(file.size)}; files up to ${formatSize(MAX_BYTES)} can be read.`);
   const base = { name: file.name, size: file.size, mime: file.type || "application/octet-stream", kind, path };
   if (kind === "image") {

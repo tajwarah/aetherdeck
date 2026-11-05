@@ -18,7 +18,7 @@ const SERVICES: Record<Service, { label: string; key: string }> = {
 
 /** The service that will listen: the one chosen in Settings, else the first with a key. */
 export function voiceService(): { id: Service; label: string } | null {
-  const chosen = process.env.WARPNAUT_VOICE as Service | undefined;
+  const chosen = process.env.AETHERDECK_VOICE as Service | undefined;
   const order: Service[] = chosen && chosen in SERVICES ? [chosen] : ["openai", "groq", "gemini"];
   const id = order.find((s) => process.env[SERVICES[s].key]);
   return id ? { id, label: SERVICES[id].label } : null;
@@ -34,7 +34,7 @@ export async function transcribe(req: TranscribeRequest, fetchImpl: typeof fetch
       method: "POST", signal,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: process.env.WARPNAUT_VOICE_MODEL || "gemini-flash-lite-latest",
+        model: process.env.AETHERDECK_VOICE_MODEL || "gemini-flash-lite-latest",
         messages: [{ role: "user", content: [
           { type: "text", text: "Transcribe this speech exactly, in the language spoken. Reply with the words only, nothing else." },
           { type: "input_audio", input_audio: { data: req.audio, format: "wav" } },
@@ -47,7 +47,7 @@ export async function transcribe(req: TranscribeRequest, fetchImpl: typeof fetch
   }
   const form = new FormData();
   form.append("file", new Blob([Buffer.from(req.audio, "base64")], { type: "audio/wav" }), "speech.wav");
-  form.append("model", process.env.WARPNAUT_VOICE_MODEL || (service.id === "groq" ? "whisper-large-v3-turbo" : "gpt-4o-mini-transcribe"));
+  form.append("model", process.env.AETHERDECK_VOICE_MODEL || (service.id === "groq" ? "whisper-large-v3-turbo" : "gpt-4o-mini-transcribe"));
   if (req.language) form.append("language", req.language);
   const base = service.id === "groq" ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1";
   const res = await fetchImpl(`${base}/audio/transcriptions`, { method: "POST", signal, headers: { Authorization: `Bearer ${key}` }, body: form });

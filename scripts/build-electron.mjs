@@ -1,4 +1,4 @@
-// Bundles the desktop app's main process (with the Warpnaut server inside it) and its preload.
+// Bundles the desktop app's main process (with the AetherDeck server inside it) and its preload.
 import { build } from "esbuild";
 
 // Minified (names kept, so stack traces stay readable with the source map, which is not shipped).

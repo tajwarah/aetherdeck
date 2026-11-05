@@ -15,17 +15,17 @@ describe("agents", () => {
 
 describe("voice", () => {
   it("listens with the first service that has a key, or the one chosen", () => {
-    delete process.env.OPENAI_API_KEY; delete process.env.GROQ_API_KEY; delete process.env.WARPNAUT_VOICE;
+    delete process.env.OPENAI_API_KEY; delete process.env.GROQ_API_KEY; delete process.env.AETHERDECK_VOICE;
     process.env.GEMINI_API_KEY = "g";
     expect(voiceService()?.id).toBe("gemini");
     process.env.GROQ_API_KEY = "q";
     expect(voiceService()?.id).toBe("groq");
-    process.env.WARPNAUT_VOICE = "gemini";
+    process.env.AETHERDECK_VOICE = "gemini";
     expect(voiceService()?.id).toBe("gemini");
   });
 
   it("sends a recording to Whisper and returns its words", async () => {
-    delete process.env.WARPNAUT_VOICE; delete process.env.GEMINI_API_KEY; delete process.env.GROQ_API_KEY;
+    delete process.env.AETHERDECK_VOICE; delete process.env.GEMINI_API_KEY; delete process.env.GROQ_API_KEY;
     process.env.OPENAI_API_KEY = "k";
     let seen = "";
     const fake = (async (url: string, init: RequestInit) => {
@@ -38,7 +38,7 @@ describe("voice", () => {
   });
 
   it("says what to do when no service has a key", async () => {
-    delete process.env.OPENAI_API_KEY; delete process.env.GROQ_API_KEY; delete process.env.GEMINI_API_KEY; delete process.env.WARPNAUT_VOICE;
+    delete process.env.OPENAI_API_KEY; delete process.env.GROQ_API_KEY; delete process.env.GEMINI_API_KEY; delete process.env.AETHERDECK_VOICE;
     await expect(transcribe({ audio: "A".repeat(200) })).rejects.toThrow(/Wispr Flow/);
   });
 });

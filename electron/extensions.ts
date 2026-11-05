@@ -2,7 +2,7 @@
 // APIs: content scripts, storage, runtime, i18n, and parts of tabs and scripting work; context menus, notifications,
 // declarativeNetRequest and the like do not, so an extension that leans on those is marked as one that may not work.
 // Extensions come from the Chrome Web Store (its own download, unpacked here), from a folder, or from another
-// Chromium browser on this computer. Each is copied into Warpnaut's own folder and loaded again at every start.
+// Chromium browser on this computer. Each is copied into AetherDeck's own folder and loaded again at every start.
 import { app, dialog, ipcMain, webContents, type BrowserWindow, type Session } from "electron";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -101,7 +101,7 @@ function inOtherBrowsers() {
           const m = manifestOf(dir);
           if (m.theme || found.some((f) => f.id === id)) continue;
           found.push({ browser: b.name, id, dir, name: localized(dir, m, m.name), icon: iconOf(dir, m), version: String(m.version ?? "") });
-        } catch { /* not an extension Warpnaut can read */ }
+        } catch { /* not an extension AetherDeck can read */ }
       }
     }
   }
@@ -236,7 +236,7 @@ export function extensions(deps: { session: () => Session; host: () => BrowserWi
     async start() {
       rmSync(join(root, ".staging"), { recursive: true, force: true });
       // A few of Chrome's APIs that Electron lacks, filled in for extensions' background workers only.
-      try { deps.session().registerPreloadScript({ type: "service-worker", id: "warpnaut-extension-shim", filePath: join(import.meta.dirname, "extension-shim.cjs") }); } catch { /* an older Electron: extensions run as they are */ }
+      try { deps.session().registerPreloadScript({ type: "service-worker", id: "aetherdeck-extension-shim", filePath: join(import.meta.dirname, "extension-shim.cjs") }); } catch { /* an older Electron: extensions run as they are */ }
       for (const [key, k] of Object.entries(kept)) if (k.on && existsSync(k.dir) && statSync(k.dir).isDirectory()) await load(key);
     },
     /** The script that fills in Chrome's missing APIs, for an extension's own pages. */

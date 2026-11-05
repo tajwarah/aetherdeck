@@ -15,7 +15,7 @@ const CURSORS: Record<string, string> = { pointer: "default", hand: "pointer", i
  */
 const ROOM_SHARPNESS = 0.8;
 /** Linux's shared textures depend on the driver, so frames there are copied through the CPU: slower, but sure. */
-const sharedFrames = () => process.platform !== "linux" && !process.env.WARPNAUT_CURVE_COPY;
+const sharedFrames = () => process.platform !== "linux" && !process.env.AETHERDECK_CURVE_COPY;
 
 export function curvedPages(deps: { host: () => BrowserWindow | null; setUpPage: (wc: WebContents) => void; partitions: Set<string> }) {
   const all = new Map<string, Curved>();

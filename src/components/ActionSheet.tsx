@@ -1,5 +1,5 @@
-// Agent-oriented action: Warpnaut gathers contact options and drafts the message; the person reviews,
-// confirms, and the hand-off opens on their own device. Nothing is ever sent by Warpnaut itself.
+// Agent-oriented action: AetherDeck gathers contact options and drafts the message; the person reviews,
+// confirms, and the hand-off opens on their own device. Nothing is ever sent by AetherDeck itself.
 import { useState } from "react";
 import type { ActionDraft, AgentTask, SearchResult } from "../../shared/types.ts";
 import { confirmAction, draftAction } from "../lib/api.ts";
@@ -127,7 +127,7 @@ export function ActionSheet({ source, kind, defaultName, defaultNeed, onClose }:
               ))}
             </div>
             {draft.channels.every((c) => c.kind === "map") && <p className="fine">No phone, email or website is listed. The OpenStreetMap listing may help you find a way to reach them.</p>}
-            <p className="fine">Warpnaut has no booking or messaging integration with this business. Nothing is sent until you send it yourself.</p>
+            <p className="fine">AetherDeck has no booking or messaging integration with this business. Nothing is sent until you send it yourself.</p>
             {error && <p className="error" role="alert">{error}</p>}
           </div>
         )}

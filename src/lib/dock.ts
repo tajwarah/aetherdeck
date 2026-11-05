@@ -22,7 +22,7 @@ export const DEFAULT_DOCK: DockItem[] = [
   { id: "phone", label: "Phone", action: "phone" },
 ];
 
-const KEY = "warpnaut.dock.v1";
+const KEY = "aetherdeck.dock.v1";
 
 export function loadDock(): DockItem[] {
   try {

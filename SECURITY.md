@@ -1,6 +1,6 @@
 # Security
 
-Warpnaut is a free, open-source shell: you connect your own AI model, and your data stays between your computer and the services you choose. There is no Warpnaut account, no Warpnaut server and no telemetry. This file describes what protects you and what doesn't yet.
+AetherDeck is a free, open-source shell: you connect your own AI model, and your data stays between your computer and the services you choose. There is no AetherDeck account, no AetherDeck server and no telemetry. This file describes what protects you and what doesn't yet.
 
 ## Where your data goes
 

@@ -10,7 +10,7 @@ export interface ResearchGroup { id: string; name: string; hue: number; results:
 export interface Board { items: Research[]; groups: ResearchGroup[]; links: [string, string][]; keep: boolean }
 
 export const EMPTY_BOARD: Board = { items: [], groups: [], links: [], keep: true };
-const KEY = "warpnaut.research.v1";
+const KEY = "aetherdeck.research.v1";
 const MAX_ITEMS = 300;
 const HUES = [205, 150, 280, 340, 18, 190, 60];
 const CARD_W = 240;

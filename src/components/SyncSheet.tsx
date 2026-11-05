@@ -110,7 +110,7 @@ export function SyncSheet({ sync, wins, health, focusGroup, onClose }: Props) {
           </ul>
         </section>
 
-        <p className="fine">Pages, titles and addresses are encrypted here with AES-256 before they leave this browser. The Warpnaut server keeps only scrambled data and a version number, and removes spaces nobody has opened for 90 days. Where windows sit, their size and what is minimized stay on each device.</p>
+        <p className="fine">Pages, titles and addresses are encrypted here with AES-256 before they leave this browser. The AetherDeck server keeps only scrambled data and a version number, and removes spaces nobody has opened for 90 days. Where windows sit, their size and what is minimized stay on each device.</p>
       </section>
     </div>
   );
@@ -158,7 +158,7 @@ function QR({ text, label }: { text: string; label: string }) {
 }
 
 function Reach({ where }: { where: ReturnType<typeof shareBase> }) {
-  if (where.localOnly) return <p className="fine sync-warn">These links point to localhost, which only this computer can open. Start Warpnaut with <code>npm run dev:lan</code> to reach a phone on the same Wi-Fi, or put it online and set <code>PUBLIC_URL</code> to reach devices anywhere.</p>;
-  if (where.lan) return <p className="fine">Links use this computer's Wi-Fi address ({where.lan}), so they open on devices on the same network while Warpnaut runs with <code>npm run dev:lan</code> or <code>npm start</code>. To reach devices anywhere, put Warpnaut online and set <code>PUBLIC_URL</code>.</p>;
+  if (where.localOnly) return <p className="fine sync-warn">These links point to localhost, which only this computer can open. Start AetherDeck with <code>npm run dev:lan</code> to reach a phone on the same Wi-Fi, or put it online and set <code>PUBLIC_URL</code> to reach devices anywhere.</p>;
+  if (where.lan) return <p className="fine">Links use this computer's Wi-Fi address ({where.lan}), so they open on devices on the same network while AetherDeck runs with <code>npm run dev:lan</code> or <code>npm start</code>. To reach devices anywhere, put AetherDeck online and set <code>PUBLIC_URL</code>.</p>;
   return null;
 }

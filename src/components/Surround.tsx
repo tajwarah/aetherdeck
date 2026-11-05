@@ -63,7 +63,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     c.dataset.yaw = String(motion.current.yaw);
     c.dataset.fov = String(motion.current.fov);
     if (wedge.current) wedge.current.style.left = `${(turn(motion.current.yaw) / TAU + 0.5) * STRIP}px`;
-    document.dispatchEvent(new Event("warpnaut-scene"));
+    document.dispatchEvent(new Event("aetherdeck-scene"));
     pace();
     hint();
   };
@@ -154,7 +154,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
       document.documentElement.toggleAttribute("data-surround", false);
       queueMicrotask(() => {
         if (document.documentElement.hasAttribute("data-surround")) return; // opened again straight away
-        document.dispatchEvent(new Event("warpnaut-scene"));
+        document.dispatchEvent(new Event("aetherdeck-scene"));
         void desktop?.invoke("curve:room", null);
         for (const w of wins) {
           void desktop?.invoke("curve:rate", w.id, 60);
@@ -183,7 +183,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   const [widgetMenu, setWidgetMenu] = useState(false);
   const toggleWidget = (id: (typeof WIDGETS)[number]["id"]) => setWidgets((w) => {
     const next = { ...w, shown: w.shown.includes(id) ? w.shown.filter((x) => x !== id) : [...w.shown, id] };
-    try { localStorage.setItem("warpnaut.roomWidgets", JSON.stringify(next)); } catch { /* this visit only */ }
+    try { localStorage.setItem("aetherdeck.roomWidgets", JSON.stringify(next)); } catch { /* this visit only */ }
     return next;
   });
   useEffect(() => {
@@ -193,14 +193,14 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   }, []);
   useEffect(() => {
     canvas.current!.dataset.sky = skyKey(sky, photo);
-    document.dispatchEvent(new Event("warpnaut-scene"));
+    document.dispatchEvent(new Event("aetherdeck-scene"));
   }, [sky, photo]);
   const pickSky = (id: SkyId) => { setSky(id); chooseSky(id); setSkyNote(""); };
   const addPhoto = async (file: File | undefined) => {
     if (!file) return;
     setSkyNote("Fitting your photo to the room…");
     const blob = await keepPhoto(file).catch(() => undefined);
-    if (blob === undefined) return setSkyNote("Warpnaut couldn’t read that image. Use a JPEG, PNG or WebP.");
+    if (blob === undefined) return setSkyNote("AetherDeck couldn’t read that image. Use a JPEG, PNG or WebP.");
     if (!blob) return setSkyNote("That photo doesn’t go all the way round. Use a 360° photo, or a panorama at least twice as wide as it is tall.");
     setPhoto((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(blob); });
     pickSky("photo");
@@ -219,7 +219,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
     const c = canvas.current!;
     c.dataset.panels = JSON.stringify(panels);
     c.dataset.focus = focus ?? "";
-    document.dispatchEvent(new Event("warpnaut-scene"));
+    document.dispatchEvent(new Event("aetherdeck-scene"));
     pace();
     if (!panels.some((p) => p.id === focus) && panels.length) { const near = [...panels].sort((a, b) => Math.abs(turn(a.yaw - motion.current.yaw)) - Math.abs(turn(b.yaw - motion.current.yaw)))[0]; setFocus(near.id); lookAt(near.yaw); }
   }, [panels, focus]);
@@ -414,7 +414,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
             {WIDGETS.map((w) => <button key={w.id} className={`surround__fav ${widgets.shown.includes(w.id) ? "is-on" : ""}`} aria-pressed={widgets.shown.includes(w.id)} onClick={() => toggleWidget(w.id)}>{w.label}</button>)}
           </div>
           <p className="fine">Widgets hang on the wall beside your tabs. Drag one to move it anywhere on the wall.</p>
-          {Object.keys(widgets.at).length > 0 && <button className="btn" onClick={() => { const next = { ...widgets, at: {} }; setWidgets(next); try { localStorage.setItem("warpnaut.roomWidgets", JSON.stringify(next)); } catch { /* this visit only */ } }}>Put them back beside the tabs</button>}
+          {Object.keys(widgets.at).length > 0 && <button className="btn" onClick={() => { const next = { ...widgets, at: {} }; setWidgets(next); try { localStorage.setItem("aetherdeck.roomWidgets", JSON.stringify(next)); } catch { /* this visit only */ } }}>Put them back beside the tabs</button>}
         </div>
       )}
       {adding && (

@@ -1,7 +1,8 @@
-// Warpnaut desktop: the spatial interface as a real browser. The interface runs in one window; every page is a
+// AetherDeck desktop: the spatial interface as a real browser. The interface runs in one window; every page is a
 // <webview> (its own Chromium process) placed in a glass pane, so any site loads, nothing is framed or proxied.
 // This process owns what a browser must: sessions and cookies, downloads, permission prompts, popups, the
 // context menu, history and bookmarks, keys kept in the OS keychain, default-browser links, and updates.
+import { legacyEnv } from "../shared/env.ts";
 import { app, BrowserWindow, Menu, globalShortcut, systemPreferences, clipboard, dialog, ipcMain, session, shell, webContents, type MenuItemConstructorOptions, type Session, type WebContents } from "electron";
 import { randomBytes } from "node:crypto";
 import { cpSync, existsSync } from "node:fs";
@@ -18,9 +19,9 @@ import { phones } from "./phone.ts";
 import { shields } from "./shields.ts";
 import pkg from "../package.json" with { type: "json" };
 
-const DEV_URL = process.env.WARPNAUT_DEV_URL; // `npm run desktop:dev`: the interface comes from Vite
+const DEV_URL = process.env.AETHERDECK_DEV_URL; // `npm run desktop:dev`: the interface comes from Vite
 const WEB = "persist:web";
-const PRIVATE = "warpnaut-private"; // not persisted: gone when the app quits
+const PRIVATE = "aetherdeck-private"; // not persisted: gone when the app quits
 const HOMEPAGE = (pkg as { homepage?: string }).homepage; // the GitHub page, once package.json names it
 
 let win: BrowserWindow | null = null;
@@ -32,10 +33,24 @@ let engine: ReturnType<typeof agentEngine> | undefined;
 let phone: ReturnType<typeof phones> | undefined;
 const pending: string[] = []; // links opened before the interface was ready
 
+/**
+ * AetherDeck was called Warpnaut: everything it kept (sign-in folders, extensions, the library, this browser's saved
+ * settings and notes) comes across, once, before anything opens the new folder. Caches stay behind.
+ */
+function bringWarpnautData() {
+  if (app.commandLine.hasSwitch("user-data-dir")) return;
+  const dir = app.getPath("userData");
+  const old = join(app.getPath("appData"), "Warpnaut");
+  if (existsSync(join(dir, "Local State")) || existsSync(join(dir, "library")) || !existsSync(old)) return;
+  const skip = /^(Singleton\w*|\w*Cache|Code Cache|Crashpad|logs)$/;
+  try { cpSync(old, dir, { recursive: true, verbatimSymlinks: true, filter: (src) => !skip.test(basename(src)) }); } catch { /* start fresh */ }
+}
+bringWarpnautData();
+
 if (!app.requestSingleInstanceLock()) app.quit();
 
 // Sites see an ordinary Chrome, not "Electron" (some refuse to work otherwise).
-app.userAgentFallback = app.userAgentFallback.replace(/ Electron\/\S+/, "").replace(/ warpnaut\/\S+/i, "");
+app.userAgentFallback = app.userAgentFallback.replace(/ Electron\/\S+/, "").replace(/ aetherdeck\/\S+/i, "");
 
 const isUrl = (s: string) => /^https?:\/\//i.test(s);
 const send = (channel: string, payload?: unknown) => win?.webContents.send(channel, payload);
@@ -45,10 +60,10 @@ function openLink(url: string, from?: number) {
   if (!win) { pending.push(url); return; }
   if (win.isMinimized()) win.restore();
   win.focus();
-  send("warpnaut:open", { url, from });
+  send("aetherdeck:open", { url, from });
 }
 
-app.on("open-url", (e, url) => { e.preventDefault(); openLink(url); }); // macOS: Warpnaut as the default browser
+app.on("open-url", (e, url) => { e.preventDefault(); openLink(url); }); // macOS: AetherDeck as the default browser
 app.on("second-instance", (_e, argv) => { for (const a of argv) if (isUrl(a)) openLink(a); if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 for (const a of process.argv.slice(1)) if (isUrl(a)) pending.push(a);
 
@@ -76,7 +91,7 @@ function setUpSession(s: Session) {
     const id = ++askSeq;
     asked.set(id, (ok) => { remembered.set(key, ok); callback(ok); });
     const media = (details as { mediaTypes?: string[] }).mediaTypes;
-    send("warpnaut:permission", { id, origin, permission, media });
+    send("aetherdeck:permission", { id, origin, permission, media });
   });
   s.setPermissionCheckHandler((_wc, permission) => ALWAYS.has(permission));
 
@@ -92,7 +107,7 @@ function setUpSession(s: Session) {
     const report = (force = false) => {
       if (!force && Date.now() - last < 250) return;
       last = Date.now();
-      send("warpnaut:download", { id, name: basename(path), path, url: item.getURL(), received: item.getReceivedBytes(), total: item.getTotalBytes(), state: item.getState(), paused: item.isPaused() });
+      send("aetherdeck:download", { id, name: basename(path), path, url: item.getURL(), received: item.getReceivedBytes(), total: item.getTotalBytes(), state: item.getState(), paused: item.isPaused() });
     };
     downloads.set(id, item);
     report(true);
@@ -147,7 +162,7 @@ function pageMenu(wc: WebContents, p: Electron.ContextMenuParams) {
     t.push({ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }, { type: "separator" });
   } else if (p.selectionText) {
     const q = p.selectionText.trim().slice(0, 200);
-    t.push({ role: "copy" }, { label: `Explore “${q.length > 30 ? `${q.slice(0, 30)}…` : q}” in Warpnaut`, click: () => send("warpnaut:command", { name: "ask", value: q }) }, { type: "separator" });
+    t.push({ role: "copy" }, { label: `Explore “${q.length > 30 ? `${q.slice(0, 30)}…` : q}” in AetherDeck`, click: () => send("aetherdeck:command", { name: "ask", value: q }) }, { type: "separator" });
   }
   t.push(
     { label: "Back", enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack() },
@@ -166,7 +181,7 @@ async function savePage(wc: WebContents) {
   if (!r.canceled && r.filePath) await wc.savePage(r.filePath, "HTMLComplete");
 }
 
-/** Warpnaut was called Horus, and NEXUS before that: history, bookmarks, agents, the research board and phone tools come across, once. */
+/** Before Warpnaut, AetherDeck was called Horus, and NEXUS before that: history, bookmarks, agents, the research board and phone tools come across, once. */
 function bringOldData() {
   const dir = app.getPath("userData");
   if (existsSync(join(dir, "library"))) return;
@@ -176,16 +191,16 @@ function bringOldData() {
 }
 
 // ---------- the interface window ----------
-function command(name: string) { return () => send("warpnaut:command", { name }); }
+function command(name: string) { return () => send("aetherdeck:command", { name }); }
 
-/** One shortcut, from anywhere on the computer: Warpnaut comes forward and the agents start listening. */
+/** One shortcut, from anywhere on the computer: AetherDeck comes forward and the agents start listening. */
 const AGENT_KEYS = "CommandOrControl+Shift+Space";
 function summonAgents() {
   if (!win) return;
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
-  send("warpnaut:command", { name: "agent" });
+  send("aetherdeck:command", { name: "agent" });
 }
 
 function appMenu() {
@@ -220,7 +235,7 @@ function appMenu() {
       { role: "togglefullscreen" },
       { label: "360° View", accelerator: "CmdOrCtrl+Shift+U", click: command("surround") },
       { label: "Developer Tools for Page", accelerator: mac ? "Alt+Cmd+I" : "Ctrl+Shift+I", click: command("devtools") },
-      ...(app.isPackaged ? [] : [{ role: "toggleDevTools" as const, label: "Developer Tools for Warpnaut", accelerator: mac ? "Alt+Cmd+J" : "Ctrl+Shift+J" }]),
+      ...(app.isPackaged ? [] : [{ role: "toggleDevTools" as const, label: "Developer Tools for AetherDeck", accelerator: mac ? "Alt+Cmd+J" : "Ctrl+Shift+J" }]),
     ] },
     { label: "History", submenu: [
       { label: "Back", accelerator: "CmdOrCtrl+[", click: command("back") },
@@ -236,7 +251,7 @@ function appMenu() {
       { label: "Show Bookmarks", accelerator: "CmdOrCtrl+Shift+B", click: command("bookmarks") },
     ] },
     { role: "windowMenu" },
-    { role: "help", submenu: HOMEPAGE ? [{ label: "Warpnaut on GitHub", click: () => void shell.openExternal(HOMEPAGE) }] : [] },
+    { role: "help", submenu: HOMEPAGE ? [{ label: "AetherDeck on GitHub", click: () => void shell.openExternal(HOMEPAGE) }] : [] },
   ];
   return Menu.buildFromTemplate(t);
 }
@@ -246,15 +261,15 @@ async function createWindow(target: string | Promise<string>) {
   let url = "";
   win = new BrowserWindow({
     width: 1500, height: 940, minWidth: 720, minHeight: 520,
-    backgroundColor: "#0b0b0d", show: false, title: "Warpnaut",
-    // No system window buttons on any platform: the top bar has Warpnaut's own (minimize, full screen, close).
+    backgroundColor: "#0b0b0d", show: false, title: "AetherDeck",
+    // No system window buttons on any platform: the top bar has AetherDeck's own (minimize, full screen, close).
     titleBarStyle: "hidden",
     webPreferences: { preload: join(import.meta.dirname, "preload.cjs"), contextIsolation: true, sandbox: true, webviewTag: true, spellcheck: true },
   });
   if (mac) win.setWindowButtonVisibility(false);
   win.once("ready-to-show", () => win?.show());
-  win.on("enter-full-screen", () => send("warpnaut:fullscreen", true));
-  win.on("leave-full-screen", () => send("warpnaut:fullscreen", false));
+  win.on("enter-full-screen", () => send("aetherdeck:fullscreen", true));
+  win.on("leave-full-screen", () => send("aetherdeck:fullscreen", false));
   win.on("closed", () => { win = null; curved?.closeAll(); phone?.stopAll(); });
 
   const wc = win.webContents;
@@ -298,7 +313,7 @@ function handlers() {
     for (const k of Object.keys(clean)) delete process.env[k];
     for (const k of CONFIG_NAMES) if (config && k in config) delete process.env[k];
     Object.assign(process.env, store.keys(), store.config());
-    if (typeof contact === "string") process.env.WARPNAUT_CONTACT = contact.slice(0, 200);
+    if (typeof contact === "string") process.env.AETHERDECK_CONTACT = contact.slice(0, 200);
     (await import("../server/models.ts")).resetBackend();
     return keyStatus();
   });
@@ -340,7 +355,7 @@ function handlers() {
   ipcMain.handle("data:clearSite", () => session.fromPartition(WEB).clearStorageData());
   // Google and YouTube: signed in once in a page, signed in everywhere (one browsing session, as in Chrome).
   // Only whether a Google sign-in cookie exists is checked; no cookie value ever leaves the session.
-  // The agents' voice: macOS asks the person once whether Warpnaut may use the microphone.
+  // The agents' voice: macOS asks the person once whether AetherDeck may use the microphone.
   ipcMain.handle("app:microphone", async () => (process.platform === "darwin" ? systemPreferences.getMediaAccessStatus("microphone") === "granted" || systemPreferences.askForMediaAccess("microphone") : true));
   ipcMain.handle("account:google", () => googleAccount());
   ipcMain.handle("account:googleSignOut", async () => {
@@ -366,8 +381,8 @@ function updates() {
   const { autoUpdater } = electronUpdater;
   // Unsigned macOS builds cannot install updates themselves: tell the person instead.
   autoUpdater.autoDownload = process.platform !== "darwin";
-  autoUpdater.on("update-available", (i) => send("warpnaut:update", { version: i.version, manual: process.platform === "darwin", url: HOMEPAGE ? `${HOMEPAGE}/releases/latest` : undefined }));
-  autoUpdater.on("update-downloaded", (i) => send("warpnaut:update", { version: i.version, ready: true }));
+  autoUpdater.on("update-available", (i) => send("aetherdeck:update", { version: i.version, manual: process.platform === "darwin", url: HOMEPAGE ? `${HOMEPAGE}/releases/latest` : undefined }));
+  autoUpdater.on("update-downloaded", (i) => send("aetherdeck:update", { version: i.version, ready: true }));
   ipcMain.handle("app:installUpdate", () => autoUpdater.quitAndInstall());
   autoUpdater.checkForUpdates().catch(() => undefined);
 }
@@ -376,21 +391,21 @@ registerAppScheme();
 
 app.whenReady().then(async () => {
   bringOldData();
-  app.setAboutPanelOptions({ applicationName: "Warpnaut", applicationVersion: app.getVersion(), copyright: "Your tabs, all around you." });
+  app.setAboutPanelOptions({ applicationName: "AetherDeck", applicationVersion: app.getVersion(), copyright: "Your tabs, all around you." });
   store = new Store(join(app.getPath("userData"), "library"));
   // Development only: the project's .env (keys for trying things out). Released builds use Settings alone.
-  if (!app.isPackaged && existsSync(join(import.meta.dirname, "..", ".env"))) process.loadEnvFile(join(import.meta.dirname, "..", ".env"));
+  if (!app.isPackaged && existsSync(join(import.meta.dirname, "..", ".env"))) { process.loadEnvFile(join(import.meta.dirname, "..", ".env")); legacyEnv(); }
   // The person's own keys, kept encrypted, become the server's environment.
   Object.assign(process.env, store.keys(), store.config());
-  if (store.contact()) process.env.WARPNAUT_CONTACT = store.contact();
-  shield = shields({ dir: join(app.getPath("userData"), "library"), enabled: () => process.env.WARPNAUT_SHIELDS !== "off", allowed: () => store.shieldsOff(), setAllowed: (sites) => store.setShieldsOff(sites), report: (p) => send("warpnaut:shields", p), skip: (id, resource) => !!engine?.skips(id, resource) });
+  if (store.contact()) process.env.AETHERDECK_CONTACT = store.contact();
+  shield = shields({ dir: join(app.getPath("userData"), "library"), enabled: () => process.env.AETHERDECK_SHIELDS !== "off", allowed: () => store.shieldsOff(), setAllowed: (sites) => store.setShieldsOff(sites), report: (p) => send("aetherdeck:shields", p), skip: (id, resource) => !!engine?.skips(id, resource) });
   void shield.load();
   engine = agentEngine({ partition: WEB, guard: (wc) => shield.guard(wc), downloads: () => app.getPath("downloads") });
   agentApps(join(app.getPath("userData"), "library", "apps")).serve(session.fromPartition(WEB));
   shield.attach(session.fromPartition(WEB));
   shield.attach(session.fromPartition(PRIVATE));
   setUpSession(session.fromPartition(WEB));
-  session.fromPartition(WEB).cookies.on("changed", (_e, c) => { if (c.name === "SID" || c.name === "LOGIN_INFO") void googleAccount().then((a) => send("warpnaut:account", a)); });
+  session.fromPartition(WEB).cookies.on("changed", (_e, c) => { if (c.name === "SID" || c.name === "LOGIN_INFO") void googleAccount().then((a) => send("aetherdeck:account", a)); });
   setUpSession(session.fromPartition(PRIVATE));
   handlers();
   curved = curvedPages({ host: () => win, setUpPage, partitions: new Set([WEB, PRIVATE]) });
@@ -419,20 +434,20 @@ app.whenReady().then(async () => {
   const ready = (async () => {
     const { startServer } = await import("../server/index.ts");
     if (DEV_URL) {
-      await startServer({ port: Number(process.env.WARPNAUT_API_PORT ?? 8787), host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync") });
+      await startServer({ port: Number(process.env.AETHERDECK_API_PORT ?? 8787), host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync") });
       return DEV_URL;
     }
     const token = randomBytes(24).toString("base64url");
     const { port } = await startServer({ port: await interfacePort(), host: "127.0.0.1", dist: join(import.meta.dirname, "..", "dist"), dataDir: join(app.getPath("userData"), "sync"), token });
     const url = `http://127.0.0.1:${port}/`;
-    await session.defaultSession.cookies.set({ url, name: "warpnaut_token", value: token, httpOnly: true, sameSite: "strict" });
+    await session.defaultSession.cookies.set({ url, name: "aetherdeck_token", value: token, httpOnly: true, sameSite: "strict" });
     return url;
   })();
   await createWindow(ready);
   const url = await ready;
   updates();
   // Another app may already own the keys; then the agents are still a click away in the top bar.
-  if (!globalShortcut.register(AGENT_KEYS, summonAgents)) console.warn("Warpnaut: the agents shortcut is taken by another app");
+  if (!globalShortcut.register(AGENT_KEYS, summonAgents)) console.warn("AetherDeck: the agents shortcut is taken by another app");
   app.on("activate", () => { if (!win) void createWindow(url); });
 });
 

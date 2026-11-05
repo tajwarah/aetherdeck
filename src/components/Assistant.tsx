@@ -1,4 +1,4 @@
-// The assistant window: a file the person dropped, or the page they were reading, and questions about it
+// Cosmonaut, the AI companion, in a window: a file the person dropped, or the page they were reading, and questions about it
 // answered by the AI model they connected. The file is read on this computer; its text goes to the model only
 // with a question, and the window says so. Without a model the window still shows what the file contains.
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -91,7 +91,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
       <div className="assist__doc">
         <span className={`assist__icon assist__icon--${ready?.kind ?? "none"}`} aria-hidden="true">{iconFor(ready?.kind)}</span>
         <div className="assist__meta">
-          <p className="assist__name">{m?.name ?? "Assistant"}</p>
+          <p className="assist__name">{m?.name ?? "Cosmonaut"}</p>
           <p className="assist__detail">
             {m?.kind === "loading" ? "Reading on this computer…"
               : m?.kind === "error" ? m.message
@@ -112,7 +112,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
               </p>
             ) : (
               <div className="assist__connect">
-                <p>Connect an AI model to summarize and ask questions. Warpnaut works without one; {ready && ready.kind !== "page" ? "you can still read the text below." : "nothing is sent anywhere."}</p>
+                <p>Connect an AI model to summarize and ask questions. AetherDeck works without one; {ready && ready.kind !== "page" ? "you can still read the text below." : "nothing is sent anywhere."}</p>
                 <button className="btn btn--small btn--primary" onClick={onConnect}>Connect AI</button>
               </div>
             )}
@@ -123,7 +123,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
               </div>
             )}
             {ready && ready.kind !== "page" && ready.text && (
-              <button className="link assist__peek" onClick={() => setShowText((v) => !v)}>{showText ? "Hide the text" : "Show the text Warpnaut read"}</button>
+              <button className="link assist__peek" onClick={() => setShowText((v) => !v)}>{showText ? "Hide the text" : "Show the text AetherDeck read"}</button>
             )}
             {showText && ready && ready.kind !== "page" && <pre className="assist__text">{ready.text.slice(0, 20_000)}{ready.text.length > 20_000 ? "\n…" : ""}</pre>}
           </div>
@@ -143,7 +143,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
       </div>
 
       <form className="assist__ask" onSubmit={(e) => { e.preventDefault(); void ask(draft); }}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={ready ? `Ask about this ${isPage ? "page" : "file"}` : "Ask anything"} aria-label="Ask the assistant" disabled={!!working} />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={ready ? `Ask about this ${isPage ? "page" : "file"}` : "Ask anything"} aria-label="Ask Cosmonaut" disabled={!!working} />
         {working ? <button type="button" className="assist__send" onClick={() => abort.current?.abort()} aria-label="Stop">■</button>
           : <button type="submit" className="assist__send" disabled={!draft.trim()} aria-label="Ask">↑</button>}
       </form>

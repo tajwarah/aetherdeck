@@ -12,7 +12,7 @@ export interface Prefs {
   savedLocation: { lat: number; lon: number; label: string; source: "user_supplied" | "device" } | null;
 }
 
-const KEY = "warpnaut.prefs.v1";
+const KEY = "aetherdeck.prefs.v1";
 export const DEFAULT_PREFS: Prefs = {
   historyEnabled: false,
   history: [],

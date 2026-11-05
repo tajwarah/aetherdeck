@@ -1,4 +1,4 @@
-// Warpnaut API — a small node:http server. Credentials stay here; the browser never sees them.
+// AetherDeck API — a small node:http server. Credentials stay here; the browser never sees them.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -101,8 +101,8 @@ async function serveStatic(DIST: string, path: string, res: ServerResponse) {
 }
 
 const tokenOk = (req: IncomingMessage, token: string) => {
-  const cookie = /(?:^|;\s*)warpnaut_token=([\w-]+)/.exec(req.headers.cookie ?? "")?.[1];
-  return cookie === token || req.headers["x-warpnaut-token"] === token;
+  const cookie = /(?:^|;\s*)aetherdeck_token=([\w-]+)/.exec(req.headers.cookie ?? "")?.[1];
+  return cookie === token || req.headers["x-aetherdeck-token"] === token;
 };
 
 /** Starts the API (and, when built, the interface). Resolves with the port it listens on. */
@@ -224,7 +224,7 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
       }
     }
 
-    // Floating windows: can this page be shown inside Warpnaut, or must it open in its own tab?
+    // Floating windows: can this page be shown inside AetherDeck, or must it open in its own tab?
     if (url.pathname === "/api/frameable" && req.method === "GET") {
       const q = z.string().trim().min(3).max(2000).safeParse(url.searchParams.get("url"));
       if (!q.success) return send(res, 400, { error: "Provide a web address" });
@@ -295,7 +295,7 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
   return new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(opts.port, opts.host, () => {
-      if (!contactConfigured) log("warn", "contact_missing", { hint: "Set WARPNAUT_CONTACT (an email or URL). Wikimedia and OpenStreetMap ask API clients to identify themselves and throttle anonymous ones." });
+      if (!contactConfigured) log("warn", "contact_missing", { hint: "Set AETHERDECK_CONTACT (an email or URL). Wikimedia and OpenStreetMap ask API clients to identify themselves and throttle anonymous ones." });
       log("info", "listening", { port: opts.port, llm: llmInfo()?.provider ?? "off", demo: demoForced(), providers: providerStatus().filter((p) => p.configured).map((p) => p.id) });
       const addr = server.address();
       resolve({ port: typeof addr === "object" && addr ? addr.port : opts.port, close: () => server.close() });

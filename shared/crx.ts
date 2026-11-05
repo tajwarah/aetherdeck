@@ -46,7 +46,7 @@ export function unzip(zip: Buffer): Map<string, Buffer> {
     const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
     const raw = zip.subarray(start, start + packed);
     const data = method === 0 ? Buffer.from(raw) : method === 8 ? inflateRawSync(raw, { maxOutputLength: size + 1 }) : null;
-    if (!data) throw new Error(`The extension uses a compression Warpnaut can't read (${method}).`);
+    if (!data) throw new Error(`The extension uses a compression AetherDeck can't read (${method}).`);
     if (data.length !== size) throw new Error("The extension's archive is damaged.");
     files.set(clean, data);
   }

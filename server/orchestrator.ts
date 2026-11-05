@@ -239,7 +239,7 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
       texts = { ...texts, ...own.texts };
     }
     if (!req.found?.hits.length && !webEngines().length && intent.intentType !== "local_place" && intent.intentType !== "local_service") {
-      notices.push({ level: "info", code: "web_search_not_configured", message: "Whole-web search isn't connected yet, so these come from open sources only (forums, research, news, the encyclopedia). In the desktop app, Warpnaut maps what Google finds; here, add a Brave Search or Tavily key in Settings for results from across the web." });
+      notices.push({ level: "info", code: "web_search_not_configured", message: "Whole-web search isn't connected yet, so these come from open sources only (forums, research, news, the encyclopedia). In the desktop app, AetherDeck maps what Google finds; here, add a Brave Search or Tavily key in Settings for results from across the web." });
     }
     for (const c of skipped) task.toolCalls.push({ provider: c.provider.id, query: c.q.query, status: "skipped", ms: 0, count: 0, note: "not configured" });
     const runnable = planned.filter((c) => c.provider.available());

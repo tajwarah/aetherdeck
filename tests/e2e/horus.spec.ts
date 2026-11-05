@@ -1,10 +1,10 @@
 import { test, expect, devices, type Page } from "@playwright/test";
 
-// There is no search bar: a click on empty space (or "/") opens the ask field where you are.
+// Besides the home's bar, a click on empty space (or "/") opens the ask field where you are.
 const ask = async (page: Page, q: string, from: "key" | "cursor" = "key") => {
-  if (from === "cursor") await page.mouse.click(60, 300); // empty space, beside the planet
+  if (from === "cursor") await page.mouse.click(10, 320); // empty space at the edge, beside the home's bar
   else await page.keyboard.press("/");
-  const input = page.getByRole("searchbox").or(page.getByLabel("Ask Warpnaut"));
+  const input = page.getByRole("searchbox").or(page.getByLabel("Ask AetherDeck"));
   await expect(input).toBeFocused();
   await input.fill(q);
   await input.press("Enter");
@@ -18,12 +18,20 @@ const more = async (page: Page, item: string) => {
 
 test("opens on a quiet home with places on the web, and asks from the cursor", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/Click anywhere to ask/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Explore beyond the ordinary." })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Your dock" }).getByRole("button", { name: "YouTube" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Explore: Explain quantum computing/ })).toBeAttached();
+  await expect(page.getByRole("button", { name: "Ask Cosmonaut" })).toBeVisible();
   await expect(page.getByText("Sample data")).toBeVisible(); // demo mode is labeled, never passed off as live
   await ask(page, "Explain quantum computing and show me the original sources.", "cursor");
   await expect(page.getByRole("heading", { name: "Explain quantum computing and show me the original sources." })).toBeVisible();
+});
+
+test("the home's bar explores a question, and Cosmonaut opens from it", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Ask, open an address, or play something").fill("Explain quantum computing and show me the original sources.");
+  await page.getByRole("button", { name: "Go", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Explain quantum computing and show me the original sources." })).toBeVisible();
+  await expect(page.locator(".hero")).toHaveCount(0);
 });
 
 test("research: evidence map traces findings back to original sources", async ({ page }) => {
@@ -47,7 +55,7 @@ test("research: evidence map traces findings back to original sources", async ({
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
   await page.getByRole("button", { name: "Back" }).click();
-  await expect(page.locator(".invite")).toBeVisible();
+  await expect(page.locator(".hero")).toBeVisible();
 });
 
 test("local: asks for a location first and never fabricates businesses", async ({ page }) => {
@@ -104,7 +112,7 @@ test("action: prepares a request, requires confirmation, and hands off without c
   await sheet.getByLabel(/I've reviewed this/).check();
   await call.click();
   await expect(sheet.getByText("Handed off — not sent.")).toBeVisible();
-  await expect(sheet.getByText(/Not sent by Warpnaut/)).toBeVisible();
+  await expect(sheet.getByText(/Not sent by AetherDeck/)).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual(["tel:+8801700000000"]);
 });
 
@@ -130,7 +138,7 @@ test("keyboard and reduced motion: fully usable without animation or a mouse", a
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await page.keyboard.press("/");
-  await expect(page.getByLabel("Ask Warpnaut")).toBeFocused();
+  await expect(page.getByLabel("Ask AetherDeck")).toBeFocused();
   await page.keyboard.type("Explain quantum computing");
   await page.keyboard.press("Enter");
   const node = page.getByRole("button", { name: /^How does it work\?, \d+ items?/ });
@@ -140,7 +148,7 @@ test("keyboard and reduced motion: fully usable without animation or a mouse", a
   await expect(node).toHaveClass(/is-selected/);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
-  await expect(page.locator(".invite")).toBeVisible();
+  await expect(page.locator(".hero")).toBeVisible();
 });
 
 test("floating windows: a site that refuses framing says so and hands off honestly", async ({ page }) => {
@@ -166,7 +174,7 @@ test("groups: a page added beside a window joins its group, and the group minimi
   await page.goto("/");
   await ask(page, "example.com");
   await page.getByRole("dialog", { name: "example.com" }).getByRole("button", { name: "Add a page beside, as a group" }).click();
-  const input = page.getByLabel("Ask Warpnaut");
+  const input = page.getByLabel("Ask AetherDeck");
   await expect(input).toBeFocused();
   await input.fill("example.org");
   await input.press("Enter");
@@ -208,8 +216,8 @@ const local = (link: string) => `${BASE}/${new URL(link).hash}`;
 async function openGroup(page: Page) {
   await ask(page, "example.com");
   await page.getByRole("dialog", { name: "example.com" }).getByRole("button", { name: "Add a page beside, as a group" }).click();
-  await page.getByLabel("Ask Warpnaut").fill("example.org");
-  await page.getByLabel("Ask Warpnaut").press("Enter");
+  await page.getByLabel("Ask AetherDeck").fill("example.org");
+  await page.getByLabel("Ask AetherDeck").press("Enter");
   await expect(page.getByRole("group", { name: /^Group: example.com \+ example.org/ })).toBeVisible();
 }
 
@@ -271,8 +279,8 @@ test("sharing: a shared group reaches another person, their additions come back,
   await expect(me.getByRole("group", { name: /shared$/ }).getByRole("button", { name: /Shared · 1 here/ })).toBeVisible();
 
   await theirGroup.getByRole("button", { name: "Add a page to this group" }).click();
-  await friend.getByLabel("Ask Warpnaut").fill("example.net");
-  await friend.getByLabel("Ask Warpnaut").press("Enter");
+  await friend.getByLabel("Ask AetherDeck").fill("example.net");
+  await friend.getByLabel("Ask AetherDeck").press("Enter");
   await expect(me.getByRole("dialog", { name: "example.net" })).toBeVisible();
   await expect(me.getByRole("group", { name: /^Group: example.com \+ 2 more, shared$/ })).toBeVisible();
 

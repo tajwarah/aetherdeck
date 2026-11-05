@@ -7,7 +7,7 @@ import { openExtensions, PuzzleGlyph, storeIdIn } from "./Extensions.tsx";
 
 export interface LiveState { loading: boolean; back: boolean; fwd: boolean; url: string; bookmarked?: boolean; error?: string }
 
-/** Electron's <webview> element, as much of it as Warpnaut uses. */
+/** Electron's <webview> element, as much of it as AetherDeck uses. */
 type WebviewEl = HTMLElement & {
   src: string;
   loadURL(url: string): Promise<void>;
@@ -123,7 +123,7 @@ export function LivePage({ win, finding, onFindClose, onState, onNavigate, onFoc
 
   return (
     <>
-      <webview ref={ref as never} className="win__frame" src={initial} partition={win.private ? "warpnaut-private" : "persist:web"} allowpopups="true" />
+      <webview ref={ref as never} className="win__frame" src={initial} partition={win.private ? "aetherdeck-private" : "persist:web"} allowpopups="true" />
       {finding && <FindBar onClose={onFindClose} />}
       {error && (
         <div className="win__state win__state--blocked">
@@ -195,7 +195,7 @@ export function LiveControls({ win, live, onAsk, focusSeq }: { win: Win; live?: 
   useEffect(() => {
     setBlocked(0);
     void desktop?.invoke<{ allowed: string[]; on: boolean }>("shields:status").then((s) => setShieldOff(!s.on || s.allowed.includes(domainOf(url))));
-    return desktop?.on("warpnaut:shields", (p) => { const r = p as { wc: number; blocked: number }; if (r.wc === page()?.wcId()) setBlocked(r.blocked); });
+    return desktop?.on("aetherdeck:shields", (p) => { const r = p as { wc: number; blocked: number }; if (r.wc === page()?.wcId()) setBlocked(r.blocked); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
   return (
@@ -225,7 +225,7 @@ export function LiveControls({ win, live, onAsk, focusSeq }: { win: Win; live?: 
           </button>
         )}
       </label>
-      {!win.private && storeIdIn(url) && <button className="xt-add" onClick={() => openExtensions({ action: "store", id: storeIdIn(url)! })}><PuzzleGlyph />Add to Warpnaut</button>}
+      {!win.private && storeIdIn(url) && <button className="xt-add" onClick={() => openExtensions({ action: "store", id: storeIdIn(url)! })}><PuzzleGlyph />Add to AetherDeck</button>}
       {!win.private && <button className="orn" aria-label="Extensions" title="Extensions" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openExtensions({ action: "shelf", x: r.left + r.width / 2, y: r.bottom, wc: page()?.wcId() }); }}><PuzzleGlyph /></button>}
     </>
   );

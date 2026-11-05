@@ -26,7 +26,7 @@ export interface ModelBackend {
 // --- Anthropic ------------------------------------------------------------------
 
 function anthropicBackend(): ModelBackend {
-  const model = process.env.LLM_MODEL || process.env.WARPNAUT_MODEL || "claude-opus-5-5";
+  const model = process.env.LLM_MODEL || process.env.AETHERDECK_MODEL || "claude-opus-5-5";
   const client = new Anthropic({ timeout: 25_000, maxRetries: 1 });
   const slow = new Anthropic({ timeout: 120_000, maxRetries: 1 });
   return {
@@ -93,7 +93,7 @@ export interface CompatPreset {
 export const PRESETS: Record<string, CompatPreset> = {
   openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", keyEnv: "OPENAI_API_KEY", free: false, completionTokens: true, vision: true, prefer: [/^gpt-5(\.\d+)?-mini$/, /^gpt-5(\.\d+)?$/, /^gpt-4\.1-mini$/, /^gpt-4o-mini$/] },
   // Free models end in ":free"; the roster changes often, so one is picked from the live list.
-  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", keyEnv: "OPENROUTER_API_KEY", free: true, headers: { "X-Title": "Warpnaut" } },
+  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", keyEnv: "OPENROUTER_API_KEY", free: true, headers: { "X-Title": "AetherDeck" } },
   groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", keyEnv: "GROQ_API_KEY", free: true, defaultModel: "openai/gpt-oss-120b" },
   gemini: { label: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", keyEnv: "GEMINI_API_KEY", free: true, defaultModel: "gemini-3-flash-preview", fallbackModels: ["gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-flash-latest"], extraBody: { reasoning_effort: "low" }, vision: true },
   moonshot: { label: "Moonshot (Kimi)", baseUrl: "https://api.moonshot.ai/v1", keyEnv: "MOONSHOT_API_KEY", free: false },

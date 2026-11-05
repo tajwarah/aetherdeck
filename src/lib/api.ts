@@ -12,7 +12,7 @@ export interface Health {
   claude?: boolean;
   providers: { id: string; label: string; configured: boolean }[];
   sync?: boolean;
-  /** Where other devices can reach this Warpnaut (PUBLIC_URL), and this computer's Wi-Fi addresses. */
+  /** Where other devices can reach this AetherDeck (PUBLIC_URL), and this computer's Wi-Fi addresses. */
   publicUrl?: string | null;
   lan?: string[];
 }
@@ -85,7 +85,7 @@ export interface AssistTurn { role: "user" | "assistant"; text: string }
 export async function askAssistant(question: string, history: AssistTurn[], material: AssistMaterial | undefined, signal?: AbortSignal): Promise<{ answer: string; model: string; truncated: boolean }> {
   const res = await fetch("/api/assist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, history, material }), signal });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error ?? `The assistant answered ${res.status}`), { status: res.status });
+  if (!res.ok) throw Object.assign(new Error(body.error ?? `Cosmonaut's model answered ${res.status}`), { status: res.status });
   return body;
 }
 

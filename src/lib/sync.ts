@@ -1,6 +1,6 @@
 // Window groups that follow you across devices, and groups shared with other people.
 //
-// A "space" is a set of windows kept on the Warpnaut server, encrypted in this browser with AES-256-GCM. The key is
+// A "space" is a set of windows kept on the AetherDeck server, encrypted in this browser with AES-256-GCM. The key is
 // made here and travels only inside the link, after the "#", which browsers never send to a server. The server
 // receives a write token derived from the key (so it can refuse strangers' writes) and a blob it cannot read.
 //
@@ -8,7 +8,7 @@
 // reaches the other devices. Where a window sits, its size and whether it is minimized stay on each device:
 // a phone and a laptop lay the same pages out differently.
 // Encryption uses the audited noble libraries rather than crypto.subtle, which browsers only provide on https or
-// localhost: a phone opening Warpnaut by this computer's Wi-Fi address over plain http must be able to decrypt too.
+// localhost: a phone opening AetherDeck by this computer's Wi-Fi address over plain http must be able to decrypt too.
 import { gcm } from "@noble/ciphers/aes.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { arrangeGroup, dissolveSingles, placeBeside, placeWindow, type Tab, type Win } from "./windows.ts";
