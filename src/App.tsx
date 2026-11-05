@@ -781,7 +781,7 @@ export function App() {
         onKeyAsk={() => askAtBar()}
         onEscape={onEscape}
         backdrop={<>
-          <Earth dim={frames.length > 0 || surround} />
+          <Earth dim={frames.length > 0 || surround} still={browsing} reduced={reduced} />
         </>}
       >
         {model && layout && View && (
@@ -793,7 +793,7 @@ export function App() {
 
       <header className="topbar" data-ui>
         <button className="wordmark" onClick={resetAll} aria-label="AetherDeck — return to the beginning">
-          <Logo size={46} glow />
+          <Logo size={54} />
           <span className="wordmark__name">AetherDeck</span>
         </button>
         {frames.length > 0 && (
@@ -829,9 +829,7 @@ export function App() {
       {home && <Suggested prefs={prefs} onRun={(q) => run(q, { fresh: true, at: field.current?.center() })} />}
 
       {home && !composer && (
-        <Hero onAsk={(q) => ask(q, { x: window.innerWidth / 2 - 260, y: window.innerHeight * 0.42 })}
-          onListen={() => setComposer({ x: window.innerWidth / 2 - 260, y: window.innerHeight * 0.42, listen: true })}
-          onCosmonaut={() => void openAI({ x: window.innerWidth / 2, y: window.innerHeight * 0.55 })} />
+        <Hero />
       )}
 
       {frames.length > 0 && (

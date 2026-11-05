@@ -1961,52 +1961,23 @@ body { background: radial-gradient(120% 70% at 50% 30%, #12111f 0%, var(--space)
 .earth { position: fixed; inset: 0; pointer-events: none; overflow: hidden; transition: opacity 0.9s var(--ease); }
 .earth--dim { opacity: 0.35; }
 html[data-surround] .earth { visibility: hidden; }
-/* Earth's horizon sits at 62% of the screen: it is 20% down the picture. */
+/* Earth's horizon sits at 62% of the screen: it is 20% down the picture that stands in until the globe is drawn. */
 .earth__globe { position: absolute; left: 50%; top: 62vh; width: max(100vw, 1500px); height: auto; transform: translate(-50%, -20%); user-select: none; }
+/* the turning globe, drawn in the same place; its canvas covers only the band below the glow (Earth.tsx) */
+.earth__live { position: absolute; left: 0; width: 100%; opacity: 0; }
+.earth__live.is-on { opacity: 1; }
 .earth__beam { position: absolute; border-radius: 50%; }
 .earth__beam--peach { left: -12vw; top: -6vh; width: 78vw; height: 34vh; transform: rotate(-24deg); background: radial-gradient(closest-side, rgba(246, 200, 156, 0.2), rgba(246, 200, 156, 0.05) 55%, transparent); }
 .earth__beam--peach::after { content: ""; position: absolute; left: 6%; right: 14%; top: 50%; height: 2px; background: linear-gradient(90deg, transparent, rgba(255, 226, 196, 0.55) 40%, rgba(255, 226, 196, 0.15) 85%, transparent); }
 .earth__beam--lavender { right: -16vw; top: 28vh; width: 70vw; height: 30vh; transform: rotate(-20deg); background: radial-gradient(closest-side, rgba(167, 150, 255, 0.22), rgba(167, 150, 255, 0.05) 55%, transparent); }
 
 .wordmark { gap: 14px; }
-.wordmark .logo { filter: drop-shadow(0 0 10px rgba(200, 180, 255, 0.35)); }
 .wordmark__name { font: 400 26px/1 var(--brand); letter-spacing: 0; background: linear-gradient(90deg, #fff 55%, #f7e3cf); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .wctl .orn--close { margin-left: 0; background: none; }
 .wctl .orn--close:hover { background: rgba(222, 230, 240, 0.12); }
 
-.hero { position: fixed; left: 50%; top: max(96px, 10vh); transform: translateX(-50%); z-index: 10; width: min(900px, calc(100vw - 48px)); display: grid; justify-items: center; text-align: center; animation: fade 0.9s both; }
-.hero__mark { display: block; margin-bottom: 18px; filter: drop-shadow(0 0 28px rgba(190, 170, 255, 0.45)) drop-shadow(0 0 16px rgba(255, 210, 170, 0.25)); }
-.hero__mark .logo { width: clamp(120px, 12vw, 190px); height: auto; }
-.hero__tag { margin: 0 0 10px; font: 300 15px/1 var(--brand); letter-spacing: 0.62em; text-transform: uppercase; color: rgba(245, 240, 255, 0.86); padding-left: 0.62em; }
-.hero__title { margin: 0 0 clamp(22px, 4vh, 44px); font: 300 clamp(32px, 3.4vw, 52px)/1.15 var(--brand); letter-spacing: -0.01em; color: #fff; }
-.hero__title em { font-style: normal; background: linear-gradient(90deg, var(--peach), #f2b984); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hero__ask {
-  width: 100%; height: 82px; display: flex; align-items: center; gap: 14px; padding: 0 14px 0 18px; box-sizing: border-box; border-radius: 41px;
-  border: 1.5px solid transparent;
-  background: linear-gradient(rgba(26, 23, 42, 0.72), rgba(26, 23, 42, 0.72)) padding-box, linear-gradient(90deg, rgba(246, 200, 156, 0.85), rgba(255, 255, 255, 0.35) 45%, rgba(167, 150, 255, 0.9)) border-box;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 0 34px rgba(150, 125, 255, 0.28), 0 18px 50px -20px rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(16px);
-}
-.hero__ask:focus-within { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 0 46px rgba(170, 150, 255, 0.45), 0 18px 50px -20px rgba(0, 0, 0, 0.9); }
-.hero__orb { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, 0.85); box-shadow: 0 0 18px rgba(255, 255, 255, 0.25); position: relative; }
-.hero__orb::after { content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #fff; box-shadow: 0 0 14px #fff; }
-.hero__ask input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: none; color: #fff; font: 400 20px var(--sans); }
-.hero__ask input::placeholder { color: rgba(235, 232, 245, 0.72); }
-.hero__mic, .hero__go { flex: none; display: grid; place-items: center; border: 0; color: rgba(245, 242, 255, 0.85); cursor: pointer; }
-.hero__mic { width: 44px; height: 44px; border-radius: 50%; background: none; }
-.hero__mic:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
-.hero__go { width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); color: #fff; transition: background 0.15s, opacity 0.15s; }
-.hero__go:hover:not(:disabled) { background: rgba(255, 255, 255, 0.32); }
-.hero__go:disabled { opacity: 0.75; cursor: default; }
-.hero__cosmo {
-  margin-top: 26px; height: 58px; display: inline-flex; align-items: center; gap: 14px; padding: 0 26px 0 0; border-radius: 29px; cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.28); background: rgba(30, 27, 44, 0.66); backdrop-filter: blur(14px);
-  color: #fff; font: 400 20px/1 var(--brand); letter-spacing: -0.01em; box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.9); transition: background 0.15s, border-color 0.15s;
-}
-.hero__cosmo:hover { background: rgba(44, 39, 64, 0.8); border-color: rgba(255, 255, 255, 0.45); }
-.hero__face { display: grid; place-items: center; width: 70px; height: 58px; margin-left: 12px; filter: drop-shadow(0 0 12px rgba(255, 220, 190, 0.55)); }
-@media (max-height: 760px) { .hero__mark { margin-bottom: 8px; } .hero__mark .logo { width: 110px; } .hero__ask { height: 66px; } .hero__orb { width: 42px; height: 42px; } .hero__go { width: 46px; height: 46px; } .hero__cosmo { margin-top: 16px; height: 50px; } }
-@media (max-width: 640px) { .hero__tag { letter-spacing: 0.34em; font-size: 11px; } .hero__ask input { font-size: 16px; } .hero__cosmo { font-size: 16px; } }
+.hero { position: fixed; left: 50%; top: 31vh; transform: translate(-50%, -50%); z-index: 10; display: grid; place-items: center; animation: fade 0.9s both; }
+.logo-dust { display: block; cursor: default; }
 
 /* the dock: glass with a peach-to-lavender rim; Cosmonaut's AI lit in lavender, the tools drawn in white line */
 .controlbar {

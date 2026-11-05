@@ -1,6 +1,6 @@
 # AetherDeck design guideline
 
-**AetherDeck, the exploratory browser, with Cosmonaut.** In November 2026 Warpnaut became AetherDeck, and its AI companion became Cosmonaut. The brand: a ribbon of light folded into an A, peach (`--peach`) to lavender (`--lavender`), drawn in `src/components/Logo.tsx` and `build/icon.svg`; Cosmonaut is a small helmet with a dark visor and two smiling eyes. Display type is Lexend Exa (bundled, OFL). The home follows the brand render: the mark, *The exploratory browser*, "Explore *beyond* the ordinary.", one bar to ask, open an address or play something, and **Ask Cosmonaut**. Behind it, deep space crossed by two soft beams, and a photograph of Earth at night (NASA Black Marble, rendered once into `public/brand/earth-night.webp`) rising under a peach-to-lavender horizon. Where the sections below describe the drawn globe, its starting points and fibres, they record the home before the rebrand.
+**AetherDeck, the exploratory browser, with Cosmonaut.** In November 2026 Warpnaut became AetherDeck, and its AI companion became Cosmonaut. The brand: a ribbon of light folded into an A, peach (`--peach`) to lavender (`--lavender`). The mark is the brand's own artwork, never redrawn: cut from its dark ground with the glow kept (`public/brand/logo.png`), used in the top bar, on the home and in the app icon (`build/icon.svg`). Display type is Lexend Exa (bundled, OFL). The home is the mark alone; where the pointer touches it, it dissolves into specks of light that gather back (`LogoDust` in `Logo.tsx`; it only animates while specks are moving). To ask, click anywhere or press "/". Behind it, deep space crossed by two soft beams, and Earth at night (NASA Black Marble) rising under a peach-to-lavender horizon and turning west to east, one turn in four minutes. The globe is drawn on the GPU from the band of latitudes the view can show (`public/brand/earth-band.webp`, 8192 px, 1 MB) at 30 frames a second, about 2% CPU; it holds still behind windows, while exploring, with reduced motion and when hidden. A picture of the same view (`earth-night.webp`) stands in until it is ready. Where the sections below describe the drawn globe, its starting points and fibres, they record the home before the rebrand.
 
 *The search console as a place, not a page.* This document reads the twelve-panel concept render (01 Welcome → 12 Always With You) as a brief, states the principles behind it, fixes the visual system, and lists what the build does today and what is still concept.
 
@@ -167,7 +167,7 @@ Stacked cards (05, 06, 10) are drawn as a lead card with two ghosted cards behin
 
 | Component | File | Notes |
 |---|---|---|
-| Home | `src/components/Hero.tsx`, `Earth.tsx`, `Logo.tsx` | the mark, the line, the bar and Ask Cosmonaut; Earth at night as one picture with two beams of light; the mark and Cosmonaut |
+| Home | `src/components/Hero.tsx`, `Earth.tsx`, `Logo.tsx` | the mark alone, dissolving under the pointer; Earth at night turning on the GPU, with two beams of light |
 | Places | `src/components/Launcher.tsx` | the ten places, and the All places panel |
 | Dock | `src/components/ControlBar.tsx` | docked places, all places, all windows, devices, minimized windows and groups |
 | Top bar | `src/App.tsx` (`Clock`) | wordmark, trail, date and time, Your data avatar, voice |
@@ -204,7 +204,7 @@ the server inside the app are under 4 MB; the rest of the download is Chromium i
 without removing browser features.
 
 What keeps it smooth:
-- The home's Earth is one picture, rendered ahead of time, so it costs nothing to draw: no canvas, no frames.
+- The home's Earth is one shader over a texture of only the visible latitudes, 30 frames a second, and it stops whenever anything covers it.
 - Dragging and resizing a window moves it on the GPU (`translate`) without rendering anything else; the app's
   state, its saved space and sync see one change, when the gesture ends.
 - Window glass blurs only what shows: the bar, and the rim of the window in use. Blurring whole panes held

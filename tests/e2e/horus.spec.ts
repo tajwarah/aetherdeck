@@ -1,8 +1,8 @@
 import { test, expect, devices, type Page } from "@playwright/test";
 
-// Besides the home's bar, a click on empty space (or "/") opens the ask field where you are.
+// There is no search bar: a click on empty space (or "/") opens the ask field where you are.
 const ask = async (page: Page, q: string, from: "key" | "cursor" = "key") => {
-  if (from === "cursor") await page.mouse.click(10, 320); // empty space at the edge, beside the home's bar
+  if (from === "cursor") await page.mouse.click(60, 300); // empty space, beside the mark
   else await page.keyboard.press("/");
   const input = page.getByRole("searchbox").or(page.getByLabel("Ask AetherDeck"));
   await expect(input).toBeFocused();
@@ -18,20 +18,11 @@ const more = async (page: Page, item: string) => {
 
 test("opens on a quiet home with places on the web, and asks from the cursor", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Explore beyond the ordinary." })).toBeVisible();
+  await expect(page.getByRole("img", { name: "AetherDeck" })).toBeVisible(); // the home is the mark alone
   await expect(page.getByRole("navigation", { name: "Your dock" }).getByRole("button", { name: "YouTube" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ask Cosmonaut" })).toBeVisible();
   await expect(page.getByText("Sample data")).toBeVisible(); // demo mode is labeled, never passed off as live
   await ask(page, "Explain quantum computing and show me the original sources.", "cursor");
   await expect(page.getByRole("heading", { name: "Explain quantum computing and show me the original sources." })).toBeVisible();
-});
-
-test("the home's bar explores a question, and Cosmonaut opens from it", async ({ page }) => {
-  await page.goto("/");
-  await page.getByLabel("Ask, open an address, or play something").fill("Explain quantum computing and show me the original sources.");
-  await page.getByRole("button", { name: "Go", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Explain quantum computing and show me the original sources." })).toBeVisible();
-  await expect(page.locator(".hero")).toHaveCount(0);
 });
 
 test("research: evidence map traces findings back to original sources", async ({ page }) => {

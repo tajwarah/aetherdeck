@@ -134,7 +134,7 @@ Also try: "What's happening in Bangladesh today?" (timeline), or "photos of the 
 ## Design
 
 The interface follows the twelve-moment concept (01 Welcome → 12 Always With You), read as a headset-style spatial browser:
-- the AetherDeck home: the mark, one bar to ask, open an address or play something, and Ask Cosmonaut, over a photograph of Earth at night (NASA Black Marble) rising under a peach-to-lavender horizon;
+- the AetherDeck home: the mark alone, which dissolves into light under the pointer, above Earth at night (NASA Black Marble) turning slowly under a peach-to-lavender horizon;
 - a top bar (wordmark, date and time, your data, voice) and one glass dock (your sites and tools, windows, devices);
 - dark frosted glass windows, each with its own bar (site icon, address, controls), that turn toward you and link into groups;
 - a cursor that is a ring of light;
@@ -153,7 +153,7 @@ src/components/LivePage.tsx  a real page: an Electron <webview> in a pane, its b
 src/components/DesktopSheets.tsx  Library (history, bookmarks, downloads), Settings (keys, default browser), permission prompt
 src/                     React + TypeScript (Vite). No UI framework; CSS, SVG, DOM.
   components/Field.tsx   camera (spring pan/zoom toward pointer), cursor instrument, proximity, keyboard, pinch
-  components/Hero.tsx    the home: the mark, the bar, Ask Cosmonaut; Earth.tsx the night Earth; Logo.tsx the mark and Cosmonaut
+  components/Hero.tsx    the home: the mark; Earth.tsx the turning night Earth (WebGL 2); Logo.tsx the mark and its dissolve
   components/Launcher.tsx the ten places and the All places panel; ControlBar.tsx the dock
   components/Windows.tsx glass browser windows with tabs and a bar (address, controls), depth, groups, overview; lib/windows.ts is the pure model
   lib/sync.ts            sync spaces: AES-256-GCM in the browser (key only in the link's #), per-window merge, live client
