@@ -4,6 +4,7 @@ import { ENGINES, SERP_READ, serpUrl, type Engine, type PageRead } from "../shar
 import { Field, type FieldHandle } from "./components/Field.tsx";
 import { Earth } from "./components/Earth.tsx";
 import { Hero } from "./components/Hero.tsx";
+import { Onboarding, welcomed } from "./components/Onboarding.tsx";
 import { Logo } from "./components/Logo.tsx";
 import { Windows } from "./components/Windows.tsx";
 import { arrangeGroup, awayTabs, closeTab, frontWindow, showTab, toggleMaximize, parseOpenRequest, placeBeside, placeWindow, uid, webSearchTab, type Tab, type Win } from "./lib/windows.ts";
@@ -428,6 +429,7 @@ export function App() {
   const [addressFocus, setAddressFocus] = useState<{ id: string; seq: number } | null>(null);
   const [library, setLibrary] = useState<LibraryTab | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [welcome, setWelcome] = useState(() => !!desktop && !welcomed()); // the first setup, after installing
   const [downloads, setDownloads] = useState<Download[]>([]);
   const [asks, setAsks] = useState<PermissionAsk[]>([]);
   const [appUpdate, setAppUpdate] = useState<{ version: string; ready?: boolean; manual?: boolean; url?: string } | null>(null);
@@ -873,6 +875,9 @@ export function App() {
           <RamBuddy />
           <Clock />
           <span className="topbar__sep" aria-hidden="true" />
+          <button className="voice topbar__gear" onClick={() => (desktop ? setSettingsOpen(true) : setPrivacyOpen(true))} aria-label="Settings" title="Settings (⌘,)">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></svg>
+          </button>
           <button className={`avatar ${accounts?.google ? "is-signed-in" : ""}`} onClick={() => setAccountOpen((o) => !o)} aria-label="Accounts" aria-expanded={accountOpen}
             title={accounts?.google ? "Signed in to Google" : "Accounts: sign in with Google"}>
             {prefs.preferences.name ? prefs.preferences.name.trim().charAt(0).toUpperCase()
@@ -1002,6 +1007,7 @@ export function App() {
       {boardOpen && <ResearchBoard board={board} aiReady={!!health?.llm} onChange={keepBoard} onAsk={(q) => { setBoardOpen(false); minimizeAll(); void run(q, { fresh: true, at: field.current?.center() }); }}
         onOpenPages={(pages) => { setBoardOpen(false); void openTabs(pages); }} onConnectModel={() => { setBoardOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onClose={() => setBoardOpen(false)} />}
       <ExtensionsHub onOpenUrl={openUrl} />
+      {welcome && <Onboarding dock={dock} onDock={setDock} history={prefs.historyEnabled} onHistory={(on) => update((p) => ({ ...p, historyEnabled: on }))} onOpen={(url, title) => openUrl(url, title)} onDone={() => setWelcome(false)} />}
       {stationOpen && <AgentStation reduced={reduced} onSettings={() => { setStationOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} onOpenUrl={(url, title) => { setStationOpen(false); openUrl(url, title); }} agents={crew} runs={runs}
         onSave={(a) => keepCrew((c) => (c.some((x) => x.id === a.id) ? c.map((x) => (x.id === a.id ? a : x)) : [...c, a]))}
         onDelete={(id) => { stops.current.get(id)?.abort(); keepCrew((c) => c.filter((a) => a.id !== id)); }}

@@ -80,7 +80,7 @@ export function LibrarySheet({ tab, downloads, onTab, onOpen, onClose }: { tab: 
   );
 }
 
-const AI = [
+export const AI_CHOICES = [
   { id: "anthropic", label: "Anthropic", key: "ANTHROPIC_API_KEY", url: "https://console.anthropic.com/settings/keys", note: "Claude models. Paid per use; billed by Anthropic." },
   { id: "openai", label: "OpenAI", key: "OPENAI_API_KEY", url: "https://platform.openai.com/api-keys", note: "GPT models. Paid per use; billed by OpenAI." },
   { id: "openrouter", label: "OpenRouter", key: "OPENROUTER_API_KEY", url: "https://openrouter.ai/keys", note: "Many models from one key, including free ones." },
@@ -126,7 +126,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void desktop?.invoke<AppInfo>("app:info").then((i) => {
       setInfo(i);
-      const current = i.config.LLM_PROVIDER ?? AI.find((a) => a.key && i.keys[a.key])?.id;
+      const current = i.config.LLM_PROVIDER ?? AI_CHOICES.find((a) => a.key && i.keys[a.key])?.id;
       if (current) setProvider(current);
       if (i.config.LLM_MODEL) setModel(i.config.LLM_MODEL);
     });
@@ -137,8 +137,8 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
     window.addEventListener("keydown", on, true);
     return () => window.removeEventListener("keydown", on, true);
   }, [onClose]);
-  const p = AI.find((a) => a.id === provider) ?? AI[0];
-  const connected = info ? (info.config.LLM_PROVIDER ? AI.find((a) => a.id === info.config.LLM_PROVIDER && (!a.key || info.keys[a.key])) : AI.find((a) => a.key && info.keys[a.key])) : undefined;
+  const p = AI_CHOICES.find((a) => a.id === provider) ?? AI_CHOICES[0];
+  const connected = info ? (info.config.LLM_PROVIDER ? AI_CHOICES.find((a) => a.id === info.config.LLM_PROVIDER && (!a.key || info.keys[a.key])) : AI_CHOICES.find((a) => a.key && info.keys[a.key])) : undefined;
 
   const check = async () => {
     setChecking(true);
@@ -205,7 +205,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
               <div className="group__row">
                 <span>Provider</span>
                 <select value={provider} aria-label="AI provider" onChange={(e) => { setProvider(e.target.value); setModels(null); setAiError(""); }}>
-                  {AI.map((a) => <option key={a.id} value={a.id}>{a.label}{info?.keys[a.key] ? " ✓" : ""}</option>)}
+                  {AI_CHOICES.map((a) => <option key={a.id} value={a.id}>{a.label}{info?.keys[a.key] ? " ✓" : ""}</option>)}
                 </select>
               </div>
               {p.key && <label className="group__row">
@@ -282,6 +282,10 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
                 <span>Default browser</span>
                 {info?.isDefault ? <span className="group__ok">AetherDeck opens your links</span> : <button className="btn btn--small" onClick={() => void desktop?.invoke<boolean>("app:setDefault").then((isDefault) => setInfo((i) => (i ? { ...i, isDefault } : i)))}>Make default</button>}
               </div>
+              <div className="group__row">
+                <span>Setup</span>
+                <button className="btn btn--small" onClick={() => { try { localStorage.removeItem("aetherdeck.welcomed"); } catch { /* nothing kept */ } location.reload(); }}>Run setup again</button>
+              </div>
             </div>
           )}
         </div>
@@ -336,7 +340,7 @@ function Shields() {
 }
 
 /** Sign in with ChatGPT: research, Cosmonaut and agents run on the person's Plus or Pro plan instead of an API key. */
-function ChatGPTPlan() {
+export function ChatGPTPlan() {
   const [st, setSt] = useState<{ signedIn: boolean; email?: string; available: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");

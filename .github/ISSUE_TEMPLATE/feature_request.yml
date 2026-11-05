@@ -1,0 +1,20 @@
+name: Feature request
+description: An idea that would make AetherDeck better
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The task or problem, in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How AetherDeck could help
+  - type: textarea
+    id: else
+    attributes:
+      label: Anything else
+      description: Other tools that do it well, sketches, links.

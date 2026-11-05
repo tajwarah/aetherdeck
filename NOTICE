@@ -1,0 +1,26 @@
+AetherDeck
+Copyright 2026 Tajwar Ahmed Fahim
+
+Created by Tajwar Ahmed Fahim (https://github.com/tajwarah).
+Original project: https://github.com/tajwarah/aetherdeck
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+If you distribute AetherDeck, or software built on it, keep this NOTICE file with
+it, and credit the original visibly, for example in your README or About screen:
+
+    Built on AetherDeck by Tajwar Ahmed Fahim
+    https://github.com/tajwarah/aetherdeck
+
+The AetherDeck name, the AetherDeck mark and Cosmonaut identify the original
+project. A work built on AetherDeck should use its own name and mark, and must not
+suggest that it is the original or endorsed by its author.
+
+This product includes third-party material:
+
+- Earth at night: NASA Earth Observatory, "The earth at night" (Black Marble,
+  Suomi NPP VIIRS). Public domain.
+- 360° room photographs: Poly Haven (polyhaven.com). CC0.
+- Lexend Exa typeface: The Lexend Project Authors. SIL Open Font License 1.1
+  (public/fonts/OFL.txt).
+- Map data in research results: © OpenStreetMap contributors, ODbL.
+- Electron and Chromium: see their own licenses in the packaged application.

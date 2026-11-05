@@ -58,8 +58,8 @@
   },
   "main": "dist-electron/main.js",
   "description": "AetherDeck: a spatial web browser, with your tabs in a full circle around you.",
-  "license": "MIT",
-  "author": "AetherDeck contributors",
+  "license": "Apache-2.0",
+  "author": "Tajwar Ahmed Fahim (https://github.com/tajwarah)",
   "build": {
     "appId": "io.aetherdeck.browser",
     "productName": "AetherDeck",

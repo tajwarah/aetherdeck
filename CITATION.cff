@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use or build on AetherDeck, please credit it as below."
+title: "AetherDeck: the exploratory browser, with Cosmonaut"
+abstract: "An open-source spatial web browser where questions are answered first and every source is mapped around the answer, with a crew of AI agents that run on the model you choose."
+authors:
+  - family-names: "Fahim"
+    given-names: "Tajwar Ahmed"
+    alias: "tajwarah"
+repository-code: "https://github.com/tajwarah/aetherdeck"
+license: Apache-2.0
+version: 0.1.0
+date-released: 2026-11-05
+keywords:
+  - browser
+  - ai-agents
+  - research
+  - electron
+  - mind-map
+  - open-source

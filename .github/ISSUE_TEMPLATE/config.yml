@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/tajwarah/aetherdeck/discussions
+    about: Ask, share agent recipes, and show what you've built.
+  - name: Report a security issue privately
+    url: https://github.com/tajwarah/aetherdeck/security/advisories/new
+    about: Please don't open a public issue for security problems.

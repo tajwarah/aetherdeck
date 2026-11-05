@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in AetherDeck doesn't work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for reporting. Please never paste API keys, passwords or private data here."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open …\n2. Ask …\n3. See …"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AetherDeck version
+      description: Settings → General shows it at the bottom.
+      placeholder: "0.1.0"
+  - type: dropdown
+    id: os
+    attributes:
+      label: System
+      options: ["macOS (Apple silicon)", "macOS (Intel)", "Windows", "Linux", "Website (development)"]
+  - type: input
+    id: model
+    attributes:
+      label: AI model, if it's involved
+      placeholder: "ChatGPT plan, Gemini, Ollama qwen3…"
+  - type: textarea
+    id: more
+    attributes:
+      label: Screenshots or logs
