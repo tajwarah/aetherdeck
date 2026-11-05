@@ -47,6 +47,14 @@ It's also a complete everyday browser (Chromium inside, so every site works), wi
 </tr>
 </table>
 
+### 🥽 Your tabs, all around you
+
+<div align="center">
+<img src="docs/media/room-360.gif" width="100%" alt="The 360° room: Wikipedia, GitHub and other open tabs hang on curved glass in a circle over a seaside balcony, and the view glides from one to the next">
+</div>
+
+Press the **360°** button (or Cmd/Ctrl + Shift + U) and every tab hangs around you on curved glass, like a headset without the headset. Turn with a swipe, a drag or Alt + ←/→. Click, scroll and type in any page as usual. Watch a video full screen on its panel. Pick a seaside balcony, a home office, a glass house or a loft, or use your own 360° photo of your room. Clocks, notes and your agents hang on the wall beside your tabs, wherever you drag them.
+
 | | |
 |---|---|
 | 🔎 **Research** | Reads Google, Bing or DuckDuckGo results the way you'd see them, plus open sources (Wikipedia, arXiv, OpenAlex, news, OpenStreetMap). Reads the top pages in full, then writes a cited answer. Without a model, it quotes the sources' best sentences, word for word. |
@@ -54,7 +62,6 @@ It's also a complete everyday browser (Chromium inside, so every site works), wi
 | 🤖 **Agents** | They research, think, ask each other for help, make artifacts (reports, pages, charts, code), build multi-file websites with a local link, post where you're signed in, and work in Canva, Notion, Google Docs and other web apps. |
 | 🪐 **Cosmonaut** | Your AI companion. Ask about the page in front of you, or drop in a PDF, document, spreadsheet or image. |
 | 🌐 **A real browser** | Tabs, groups, bookmarks, history, downloads, private windows, find, zoom, print, Chrome extensions, full-screen video. It can be your default browser. |
-| 🥽 **360° room** | Your tabs all around you, in a seaside balcony, a home office, or your own 360° photo. |
 | 🔐 **Private by design** | Keys are encrypted by your system keychain. Sync is end-to-end encrypted. No telemetry. [How your data moves](SECURITY.md). |
 
 ## 📦 Download

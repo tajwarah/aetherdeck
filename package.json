@@ -52,9 +52,9 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.8.3",
     "vite": "^6.0.7",
-    "vitest": "^3.0.5",
+    "vitest": "^4.1.12",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "main": "dist-electron/main.js",
   "description": "AetherDeck: a spatial web browser, with your tabs in a full circle around you.",

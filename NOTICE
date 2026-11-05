@@ -23,4 +23,9 @@ This product includes third-party material:
 - Lexend Exa typeface: The Lexend Project Authors. SIL Open Font License 1.1
   (public/fonts/OFL.txt).
 - Map data in research results: © OpenStreetMap contributors, ODbL.
-- Electron and Chromium: see their own licenses in the packaged application.
+- Ad and tracker blocking (Shields): the Ghostery adblocker libraries
+  (@ghostery/adblocker and related packages), Mozilla Public License 2.0, used
+  unmodified; source at https://github.com/ghostery/adblocker. Filter lists are
+  downloaded at runtime under their own licenses and are not part of this product.
+- Electron and Chromium: see their own licenses in the packaged application
+  (LICENSE.electron.txt and LICENSES.chromium.html).
