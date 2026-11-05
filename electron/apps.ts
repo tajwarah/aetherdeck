@@ -1,11 +1,11 @@
-// Apps agents build: single pages kept in the library and served at agent-app://<id>/, each its own origin, with no
+// Apps and artifacts agents make: single pages kept in the library and served at agent-app://<id>/, each its own origin, with no
 // network and no way off the page (shared/harvest.ts, APP_POLICY).
 import { ipcMain, protocol, type Session } from "electron";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { APP_ID, APP_POLICY, APP_SCHEME } from "../shared/harvest.ts";
 
-export interface AgentApp { id: string; title: string; agent: string; at: number; size: number }
+export interface AgentApp { id: string; title: string; agent: string; at: number; size: number; kind?: "app" | "artifact" }
 
 const MAX_HTML = 2 * 1024 * 1024;
 
@@ -21,12 +21,12 @@ export function agentApps(dir: string) {
   const keep = () => writeFileSync(indexPath, JSON.stringify(index));
 
   ipcMain.handle("apps:list", () => index);
-  ipcMain.handle("apps:save", (_e, a: { id: string; title: string; agent: string; html: string }) => {
+  ipcMain.handle("apps:save", (_e, a: { id: string; title: string; agent: string; html: string; kind?: string }) => {
     if (!APP_ID.test(a.id)) throw new Error("That isn't an app id");
     const html = String(a.html);
     if (html.length > MAX_HTML) throw new Error("That app is over 2 MB");
     writeFileSync(fileFor(a.id), html);
-    index = [{ id: a.id, title: String(a.title).slice(0, 80), agent: String(a.agent).slice(0, 80), at: Date.now(), size: html.length }, ...index.filter((x) => x.id !== a.id)];
+    index = [{ id: a.id, title: String(a.title).slice(0, 80), agent: String(a.agent).slice(0, 80), at: Date.now(), size: html.length, kind: a.kind === "artifact" ? "artifact" : "app" }, ...index.filter((x) => x.id !== a.id)];
     keep();
     return a.id;
   });

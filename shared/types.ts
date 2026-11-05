@@ -171,6 +171,18 @@ export const ActionOffer = z.object({
 });
 export type ActionOffer = z.infer<typeof ActionOffer>;
 
+/**
+ * The answer to the question, written first and shown in the middle of the map. Every sentence names the
+ * sources it rests on; a sentence with none is never shown. "ai" when a model wrote it from the sources,
+ * "extract" when it is the best sentences of the sources themselves, verbatim.
+ */
+export const Answer = z.object({
+  sentences: z.array(z.object({ text: z.string(), sourceIds: z.array(z.string()).min(1) })),
+  by: z.enum(["ai", "extract"]),
+  model: z.string().optional(),
+});
+export type Answer = z.infer<typeof Answer>;
+
 /** The whole spatial environment for one intent. Sent progressively; later snapshots replace earlier ones. */
 export const EnvironmentModel = z.object({
   id: z.string(),
@@ -178,6 +190,7 @@ export const EnvironmentModel = z.object({
   visualization: VisualizationKind,
   dataMode: z.enum(["live", "sample", "mixed", "none"]),
   synthesisMode: z.enum(["extractive", "ai", "pending"]),
+  answer: Answer.optional(),
   nodes: z.array(InformationNode),
   sources: z.array(SearchResult),
   evidence: z.array(Evidence),

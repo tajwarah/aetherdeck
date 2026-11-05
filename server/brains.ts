@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import { listModels, ollamaChat, ollamaUrl, PRESETS, THINK_TIME } from "./models.ts";
+import { chatgptModels, chatgptReady, chatgptTurn } from "./chatgpt.ts";
 
 export type Cost = "local" | "free" | "paid";
 export interface Brain { id: string; label: string; cost: Cost; ready: boolean; models: { id: string; name: string }[]; note?: string }
@@ -111,6 +112,7 @@ async function ollamaTurn(cloud: boolean, model: string, system: string, tools: 
 /** One turn on any brain but Claude. */
 export function brainTurn(provider: string, model: string, system: string, tools: Anthropic.Tool[], messages: Message[], maxTokens: number, fetchImpl: typeof fetch = fetch) {
   if (provider === "ollama" || provider === "ollama-cloud") return ollamaTurn(provider === "ollama-cloud", model, system, tools, messages, fetchImpl);
+  if (provider === "chatgpt") return chatgptTurn(model, system, tools, messages, fetchImpl);
   return compatTurn(provider, model, system, tools, messages, maxTokens, fetchImpl);
 }
 
@@ -149,6 +151,8 @@ export async function listBrains(fetchImpl: typeof fetch = fetch): Promise<Brain
     const usable = list && !("error" in list) ? (c.id === "openrouter" ? [...list].sort((a, b) => Number(b.id.endsWith(":free")) - Number(a.id.endsWith(":free"))) : list).slice(0, LISTED) : [];
     brains.push({ id: c.id, label: preset.label, cost: c.cost, ready: usable.length > 0, models: usable, note: !key ? `Add a ${preset.label} key in Settings.` : list && "error" in list ? list.error : undefined });
   }
+  const plan = chatgptReady() ? await chatgptModels(fetchImpl) : [];
+  brains.push({ id: "chatgpt", label: "ChatGPT, your plan", cost: "free", ready: plan.length > 0, models: plan, note: chatgptReady() ? undefined : "Sign in with ChatGPT in Settings to use your Plus or Pro plan." });
   brains.push({ id: "anthropic", label: "Anthropic Claude", cost: "paid", ready: !!process.env.ANTHROPIC_API_KEY, models: process.env.ANTHROPIC_API_KEY ? CLAUDE : [], note: process.env.ANTHROPIC_API_KEY ? undefined : "Add a Claude key in Settings." });
   return brains;
 }

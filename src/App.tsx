@@ -44,7 +44,7 @@ import type { RamStats } from "./lib/ram.ts";
 import { ResearchBoard } from "./components/ResearchBoard.tsx";
 import { addResearch, EMPTY_BOARD, fromEnvironment, loadBoard, saveBoard, type Board } from "./lib/research.ts";
 import { isPage } from "./components/Surround.tsx";
-import { clickScript, labelScript, leavesTrace, loadAgents, needsApproval, runAgent, saveAgents, seeScript, skillsOf, stepText, typeScript, type Agent, type Run } from "./lib/agents.ts";
+import { clickScript, elementScript, labelScript, leavesTrace, loadAgents, needsApproval, nextRun, runAgent, saveAgents, seeScript, skillsOf, stepText, typeScript, type Agent, type Run } from "./lib/agents.ts";
 import { engineTool, inParts, type DataSets } from "./lib/agentTools.ts";
 import { appUrl } from "../shared/harvest.ts";
 import { askAssistant, type AgentStep } from "./lib/api.ts";
@@ -647,7 +647,12 @@ export function App() {
   const fromPage = (url: string, text: string) => `<page_content source="${url.replace(/"/g, "")}">\n${text}\n</page_content>`;
 
   /** What each running agent holds off the conversation: its data sets, and whether it has read email. */
-  const workbench = useRef(new Map<string, { data: DataSets; readMail: boolean; signal: AbortSignal }>());
+  const workbench = useRef(new Map<string, { data: DataSets; readMail: boolean; signal: AbortSignal; depth: number }>());
+  // The latest crew and runs, for tools and the scheduler that run outside a render.
+  const crewRef = useRef<Agent[]>([]);
+  crewRef.current = crew;
+  const runsRef = useRef<Record<string, Run>>({});
+  const launchRef = useRef<(a: Agent, given?: { task: string; depth: number; by: string }) => Promise<Run>>(() => Promise.reject(new Error("Not ready")));
 
   const agentTool = useCallback(async (agent: Agent, name: string, input: Record<string, unknown>, ask: (q: string) => Promise<boolean>): Promise<string> => {
     const bench = workbench.current.get(agent.id)!;
@@ -679,6 +684,43 @@ export function App() {
           await new Promise((r) => setTimeout(r, 150));
         }
         throw new Error("That address couldn't be opened");
+      }
+      case "think":
+        return "Noted. Carry on.";
+      case "research": {
+        const question = String(input.question ?? "").trim();
+        if (!question) throw new Error("No question was given");
+        await agentAct({ agent: "scout", do: "search", query: question });
+        let m = modelRef.current;
+        for (let i = 0; i < 40 && !(m?.complete && m.intent.query === question); i++) { await new Promise((r) => setTimeout(r, 250)); m = modelRef.current; }
+        if (!m) return "The research didn't return anything.";
+        const order = new Map<string, number>();
+        for (const x of m.answer?.sentences ?? []) for (const id of x.sourceIds) if (!order.has(id)) order.set(id, order.size + 1);
+        const numbered = m.sources.slice(0, 20).map((s, i) => ({ n: order.get(s.id), title: s.title, url: s.canonicalUrl, site: s.domain, snippet: s.snippet.slice(0, 240), rank: i + 1 }));
+        return JSON.stringify({
+          answer: m.answer ? m.answer.sentences.map((x) => `${x.text} [${x.sourceIds.map((id) => order.get(id)).join(", ")}]`).join(" ") : "No direct answer in the sources found.",
+          answeredBy: m.answer?.by === "ai" ? m.answer.model : "the sources' own sentences",
+          sources: numbered,
+        });
+      }
+      case "ask_agent": {
+        const name = String(input.agent ?? "").trim().toLowerCase();
+        const helper = crewRef.current.find((a) => a.name.toLowerCase() === name && a.id !== agent.id);
+        if (!helper) throw new Error(`No crewmate called ${input.agent}. The crew: ${crewRef.current.filter((a) => a.id !== agent.id).map((a) => a.name).join(", ") || "nobody else yet"}`);
+        if (runsRef.current[helper.id]?.status === "working") throw new Error(`${helper.name} is busy with another task right now`);
+        const depth = (workbench.current.get(agent.id)?.depth ?? 0) + 1;
+        if (depth > 2) throw new Error("Crewmates can hand work on only twice in a row. Do this part yourself.");
+        const done = await launchRef.current(helper, { task: String(input.task ?? "").slice(0, 4000), depth, by: agent.name });
+        if (done.status !== "done") throw new Error(`${helper.name} didn't finish: ${done.error ?? done.status}`);
+        return `<page_content source="crewmate ${helper.name}">\n${done.report ?? "(no report)"}\n</page_content>`;
+      }
+      case "attach_files": {
+        if (agent.access === "read") throw new Error("This agent may only read");
+        const w = agentWindow(input.window);
+        const p = await livePage(w.id);
+        const files = Array.isArray(input.files) ? input.files.map(String) : [];
+        const n = input.element === undefined ? null : Number(input.element);
+        return await desktop!.invoke<string>("page:attach", { wc: p.wcId(), files, element: n === null ? undefined : elementScript(n) });
       }
       case "search_web":
         await agentAct({ agent: "scout", do: "search", query: String(input.query ?? "") });
@@ -723,17 +765,20 @@ export function App() {
     }
   }, [agentAct, keepCrew, openUrl]);
 
-  const startAgent = useCallback((agent: Agent) => {
+  /** Runs an agent: on its own mission, or on a task a crewmate handed it. Resolves with how the run ended. */
+  const launch = useCallback((agent: Agent, given?: { task: string; depth: number; by: string }): Promise<Run> => {
     stops.current.get(agent.id)?.abort();
     const ctrl = new AbortController();
     stops.current.set(agent.id, ctrl);
-    let current: Run = { agentId: agent.id, status: "working", steps: [], said: "" };
-    const update = (patch: (r: Run) => Run) => { current = patch(current); const next = current; setRuns((rs) => ({ ...rs, [agent.id]: next })); };
+    let current: Run = { agentId: agent.id, status: "working", steps: [], said: "", ...(given ? { from: given.by, task: given.task } : {}) };
+    const update = (patch: (r: Run) => Run) => { current = patch(current); const next = current; runsRef.current = { ...runsRef.current, [agent.id]: next }; setRuns((rs) => ({ ...rs, [agent.id]: next })); };
     update((r) => r);
-    workbench.current.set(agent.id, { data: new Map(), readMail: false, signal: ctrl.signal });
+    workbench.current.set(agent.id, { data: new Map(), readMail: false, signal: ctrl.signal, depth: given?.depth ?? 0 });
+    const on = given ? { ...agent, task: given.task } : agent;
+    const crewmates = crewRef.current.filter((a) => a.id !== agent.id).map((a) => ({ name: a.name, role: a.role.slice(0, 400) }));
 
-    runAgent(agent, {
-      turn: (messages) => crewTurn({ name: agent.name, role: agent.role, task: agent.task, plan: agent.plan, access: agent.access, provider: agent.provider ?? "anthropic", model: agent.model, skills: skillsOf(agent), memory: agent.memory ?? [] }, messages, ctrl.signal) as never,
+    return runAgent(on, {
+      turn: (messages) => crewTurn({ name: on.name, role: on.role, task: on.task, plan: given ? [] : on.plan, access: on.access, provider: on.provider ?? "anthropic", model: on.model, skills: skillsOf(on), memory: on.memory ?? [], crew: crewmates }, messages, ctrl.signal) as never,
       tool: (name, input, ask) => agentTool(agent, name, input, ask),
       update,
       signal: ctrl.signal,
@@ -742,10 +787,27 @@ export function App() {
       if (report) keepCrew((c) => c.map((a) => (a.id === agent.id ? { ...a, last: { at: Date.now(), report }, xp: (a.xp ?? 0) + steps.filter((s) => s.status === "done").length } : a)));
     }).catch((err) => {
       update((r) => ({ ...r, status: ctrl.signal.aborted ? "stopped" : "failed", error: ctrl.signal.aborted ? undefined : (err as Error).message, ask: undefined }));
-    }).finally(() => {
+    }).then(() => current).finally(() => {
       if (stops.current.get(agent.id) === ctrl) workbench.current.delete(agent.id); // a run's data goes with it
     });
   }, [agentTool, keepCrew]);
+  launchRef.current = launch;
+  const startAgent = useCallback((agent: Agent, task?: string) => { void launch(agent, task ? { task, depth: 0, by: "you" } : undefined); }, [launch]);
+
+  // Scheduled agents run by themselves while AetherDeck is open; one missed while it was closed runs once on opening.
+  useEffect(() => {
+    const tick = () => {
+      for (const a of crewRef.current) {
+        if (!a.schedule || runsRef.current[a.id]?.status === "working") continue;
+        if (Date.now() < nextRun(a.schedule, a.schedule.last ?? 0)) continue;
+        keepCrew((c) => c.map((x) => (x.id === a.id && x.schedule ? { ...x, schedule: { ...x.schedule, last: Date.now() } } : x)));
+        void launch(a);
+      }
+    };
+    const t = setInterval(tick, 30_000);
+    tick();
+    return () => clearInterval(t);
+  }, [launch, keepCrew]);
   const working = crew.filter((a) => runs[a.id]?.status === "working");
   const needsYou = working.some((a) => runs[a.id]?.ask);
 
@@ -940,7 +1002,7 @@ export function App() {
       {boardOpen && <ResearchBoard board={board} aiReady={!!health?.llm} onChange={keepBoard} onAsk={(q) => { setBoardOpen(false); minimizeAll(); void run(q, { fresh: true, at: field.current?.center() }); }}
         onOpenPages={(pages) => { setBoardOpen(false); void openTabs(pages); }} onConnectModel={() => { setBoardOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onClose={() => setBoardOpen(false)} />}
       <ExtensionsHub onOpenUrl={openUrl} />
-      {stationOpen && <AgentStation reduced={reduced} onSettings={() => { setStationOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} agents={crew} runs={runs}
+      {stationOpen && <AgentStation reduced={reduced} onSettings={() => { setStationOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} onOpenUrl={(url, title) => { setStationOpen(false); openUrl(url, title); }} agents={crew} runs={runs}
         onSave={(a) => keepCrew((c) => (c.some((x) => x.id === a.id) ? c.map((x) => (x.id === a.id ? a : x)) : [...c, a]))}
         onDelete={(id) => { stops.current.get(id)?.abort(); keepCrew((c) => c.filter((a) => a.id !== id)); }}
         onStart={startAgent} onStop={(id) => stops.current.get(id)?.abort()} onClose={() => setStationOpen(false)} />}

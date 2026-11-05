@@ -1,7 +1,9 @@
-// The Agent Station: a starship bridge for a crew of agents, each on the model the person chose. Summon one, give it a name, a mission and powers,
-// then watch it work on deck. Several can run at once; each asks before anything that needs you.
+// The Agent Station: mission control for a crew of agents, each on the model the person chose. Give any task to the
+// deploy bar and a crewmate (or a new agent drafted for it) takes it on; the board shows every agent live: what it's
+// doing, how far along it is, what it needs from you, and when it next runs. Several can run at once; each asks
+// before anything that needs you. The bridge, the crew on deck, is a view away.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ACCESS, ORDERS, SKILLS, isLocal, moodOf, rankOf, skillsOf, stepText, type Agent, type Run, type Skill } from "../lib/agents.ts";
+import { ACCESS, ORDERS, SKILLS, doingText, isLocal, moodOf, nextRun, orderFor, rankOf, scheduleText, skillsOf, stepText, type Agent, type Run, type Schedule, type Skill } from "../lib/agents.ts";
 import { crewPlan, getBrains, type Brain } from "../lib/api.ts";
 import { desktop } from "../lib/desktop.ts";
 import { Markdown } from "./Assistant.tsx";
@@ -118,6 +120,7 @@ function Summon({ agent, isNew, brains, onSave, onCancel, onDelete }: { agent: A
             {ACCESS.map((o) => <label key={o.id} className={a.access === o.id ? "is-on" : ""}><input type="radio" name="access" checked={a.access === o.id} onChange={() => set({ access: o.id })} /><b>{o.label}</b><small>{o.hint}</small></label>)}
           </fieldset>
           <label>Model<MindSelect brains={brains} provider={a.provider} model={a.model} onPick={(provider, model) => set({ provider, model })} /></label>
+          <Repeat value={a.schedule} onChange={(schedule) => set({ schedule })} />
           <label>Plan, one step per line<textarea rows={4} value={planText} onChange={(e) => setPlanText(e.target.value)} placeholder="Leave empty and the agent works it out" /></label>
           {error && <p className="agents__error" role="alert">{error}</p>}
           <footer className="summon__foot">
@@ -127,6 +130,104 @@ function Summon({ agent, isNew, brains, onSave, onCancel, onDelete }: { agent: A
           </footer>
         </div>
       )}
+    </div>
+  );
+}
+
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+/** How often it runs by itself. A new schedule counts from now, so nothing runs the moment it's set. */
+function Repeat({ value, onChange }: { value?: Schedule; onChange: (s: Schedule | undefined) => void }) {
+  const set = (p: Partial<Schedule>) => onChange({ every: value?.every ?? "day", at: value?.at ?? "09:00", day: value?.day ?? 1, ...p, last: Date.now() });
+  return (
+    <fieldset className="repeat"><legend>Runs by itself</legend>
+      <select value={value?.every ?? "off"} onChange={(e) => (e.target.value === "off" ? onChange(undefined) : set({ every: e.target.value as Schedule["every"] }))} aria-label="How often">
+        <option value="off">Only when I run it</option><option value="hour">Every hour</option><option value="day">Every day</option><option value="week">Every week</option>
+      </select>
+      {value?.every === "week" && <select value={value.day ?? 1} onChange={(e) => set({ day: Number(e.target.value) })} aria-label="Day">{DAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}</select>}
+      {value && value.every !== "hour" && <input type="time" value={value.at ?? "09:00"} onChange={(e) => set({ at: e.target.value })} aria-label="At" />}
+      {value && <small>While AetherDeck is open. Anything that posts, sends or buys still waits for you.</small>}
+    </fieldset>
+  );
+}
+
+/** One line for any task: a crewmate takes it, or a new agent is drafted for it. */
+function DeployBar({ agents, runs, brains, onDeploy, onNew }: { agents: Agent[]; runs: Record<string, Run>; brains: Brain[]; onDeploy: (a: Agent, task: string) => void; onNew: (a: Agent) => void }) {
+  const [task, setTask] = useState("");
+  const [who, setWho] = useState("new");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const brain = brains.find((b) => b.ready);
+  async function go() {
+    const t = task.trim();
+    if (!t) return;
+    setError("");
+    if (who !== "new") { const a = agents.find((x) => x.id === who); if (a) { onDeploy(a, t); setTask(""); } return; }
+    if (!brain) { setError("Connect a model first."); return; }
+    setBusy(true);
+    const o = orderFor(t);
+    const a: Agent = { ...blank(), order: o.id, hue: o.hue, skills: o.skills, access: o.access, role: o.role, name: o.names[Math.floor(Math.random() * o.names.length)], task: t, provider: brain.id, model: brain.models[0]?.id ?? "", plan: [] };
+    try { const r = await crewPlan(t, a.role, a.provider!, a.model); a.plan = r.plan; } catch { /* it works the steps out itself */ }
+    setBusy(false);
+    setTask("");
+    onNew(a);
+  }
+  return (
+    <form className="deploy" onSubmit={(e) => { e.preventDefault(); void go(); }} data-keys>
+      <span className="deploy__orb" aria-hidden="true" />
+      <input value={task} onChange={(e) => setTask(e.target.value)} placeholder="Give the crew any task: research, build a site, post my videos, fill a form…" aria-label="A task for the crew" maxLength={4000} />
+      <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Who takes it">
+        <option value="new">A new agent for it</option>
+        {agents.map((a) => <option key={a.id} value={a.id} disabled={runs[a.id]?.status === "working"}>{a.name}{runs[a.id]?.status === "working" ? " (busy)" : ""}</option>)}
+      </select>
+      <button className="deck__btn deck__btn--go" disabled={!task.trim() || busy}>{busy ? "Drafting…" : "Deploy"}</button>
+      {error && <p className="agents__error" role="alert">{error}</p>}
+    </form>
+  );
+}
+
+const STATUS: Record<string, string> = { working: "Working", done: "Done", failed: "Hit a snag", stopped: "Stopped" };
+const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+const when = (t: number) => new Date(t).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+
+/** The board: every agent at a glance, live. */
+function Board({ agents, runs, picked, onPick, onStart, onStop }: { agents: Agent[]; runs: Record<string, Run>; picked: string | null; onPick: (id: string) => void; onStart: (a: Agent) => void; onStop: (id: string) => void }) {
+  const counts = { working: 0, waiting: 0, done: 0, scheduled: agents.filter((a) => a.schedule).length };
+  for (const a of agents) { const r = runs[a.id]; if (r?.ask) counts.waiting++; else if (r?.status === "working") counts.working++; else if (r?.status === "done") counts.done++; }
+  return (
+    <div className="board">
+      <div className="board__kpis">
+        <span><b>{counts.working}</b>working</span><span className={counts.waiting ? "is-hot" : ""}><b>{counts.waiting}</b>need you</span>
+        <span><b>{counts.done}</b>done this session</span><span><b>{counts.scheduled}</b>on a schedule</span>
+      </div>
+      {!agents.length && <p className="board__empty">No agents yet. Give the crew a task above, and an agent is drafted for it.</p>}
+      <div className="board__grid">
+        {agents.map((a) => {
+          const r = runs[a.id];
+          const last = r?.steps[r.steps.length - 1];
+          const state = r?.ask ? "waiting" : r?.status ?? (a.schedule ? "scheduled" : "idle");
+          const line = r?.ask ? r.ask.question : r?.status === "working" ? (last?.status === "running" ? doingText(last) : r.said || "Thinking it through…") : r?.error ?? (r?.report ?? a.last?.report ?? a.task);
+          const plan = Math.max(a.plan.length, 1);
+          const done = r ? r.steps.filter((x) => x.status === "done").length : 0;
+          return (
+            <article key={a.id} className={`mission is-${state} ${picked === a.id ? "is-picked" : ""}`} style={{ ["--hue" as string]: a.hue }}>
+              <button className="mission__open" onClick={() => onPick(a.id)} aria-label={`${a.name}: open`}>
+                <AgentAvatar hue={a.hue} order={a.order} mood={moodOf(a, r)} size={46} />
+                <span className="mission__who"><b>{a.name}</b><small>{r?.from && r.from !== "you" ? `Helping ${r.from}` : rankOf(a.xp)}</small></span>
+                <span className={`mission__state is-${state}`}>{r?.ask ? "Needs you" : STATUS[r?.status ?? ""] ?? (a.schedule ? "Scheduled" : "Ready")}</span>
+              </button>
+              <p className="mission__task">{r?.task ?? a.task}</p>
+              <p className="mission__line">{line.replace(/[#*_`>]/g, "").slice(0, 180)}</p>
+              {r?.status === "working" && <span className="mission__bar" aria-label={`${r.steps.length} steps so far`}><i style={{ width: `${Math.min(96, (done / (plan * 3)) * 100 + 6)}%` }} /></span>}
+              <footer className="mission__foot">
+                <small>{r?.status === "working" ? `${r.steps.length} steps · ${done} done` : a.schedule ? `${scheduleText(a.schedule)} · next ${when(nextRun(a.schedule, a.schedule.last ?? Date.now()))}` : a.last ? `Last run ${ago(a.last.at)}` : "Not run yet"}</small>
+                {r?.ask ? <span className="mission__acts"><button className="deck__btn deck__btn--go" onClick={() => r.ask?.answer(true)}>Allow</button><button className="deck__btn" onClick={() => r.ask?.answer(false)}>Decline</button></span>
+                  : r?.status === "working" ? <button className="deck__btn" onClick={() => onStop(a.id)}>Stop</button>
+                  : <button className="deck__btn deck__btn--go" onClick={() => onStart(a)}>Run</button>}
+              </footer>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -155,7 +256,8 @@ function EngineBar({ runs }: { runs: Record<string, Run> }) {
   );
 }
 
-interface AppInfo { id: string; title: string; agent: string }
+interface AppInfo { id: string; title: string; agent: string; kind?: "app" | "artifact" }
+interface SiteInfo { name: string; url: string }
 interface Props {
   agents: Agent[];
   runs: Record<string, Run>;
@@ -163,13 +265,16 @@ interface Props {
   onSettings: () => void;
   onSave: (a: Agent) => void;
   onDelete: (id: string) => void;
-  onStart: (a: Agent) => void;
+  onStart: (a: Agent, task?: string) => void;
+  onOpenUrl: (url: string, title?: string) => void;
   onStop: (id: string) => void;
   onOpenApp: (id: string, title: string) => void;
   onClose: () => void;
 }
 
-export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDelete, onStart, onStop, onOpenApp, onClose }: Props) {
+export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDelete, onStart, onStop, onOpenApp, onOpenUrl, onClose }: Props) {
+  const [view, setView] = useState<"board" | "bridge">("board");
+  const [sites, setSites] = useState<SiteInfo[]>([]);
   const [picked, setPicked] = useState<string | null>(agents[0]?.id ?? null);
   const [editing, setEditing] = useState<Agent | null>(agents.length ? null : blank());
   const [apps, setApps] = useState<AppInfo[]>([]);
@@ -182,8 +287,11 @@ export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDele
   const steps = useRef<HTMLOListElement>(null);
   const agent = agents.find((a) => a.id === picked);
   const run = agent && runs[agent.id];
-  const builtSomething = Object.values(runs).flatMap((r) => r.steps).filter((s) => s.tool === "build_app" && s.status === "done").length;
-  useEffect(() => { void desktop?.invoke<AppInfo[]>("apps:list").then(setApps).catch(() => undefined); }, [builtSomething]);
+  const builtSomething = Object.values(runs).flatMap((r) => r.steps).filter((s) => ["build_app", "make_artifact", "build_site"].includes(s.tool) && s.status === "done").length;
+  useEffect(() => {
+    void desktop?.invoke<AppInfo[]>("apps:list").then(setApps).catch(() => undefined);
+    void desktop?.invoke<SiteInfo[]>("sites:list").then(setSites).catch(() => undefined);
+  }, [builtSomething]);
   useEffect(() => { steps.current?.lastElementChild?.scrollIntoView({ block: "nearest" }); }, [run?.steps.length]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); if (editing && agents.length) setEditing(null); else onClose(); } };
@@ -204,7 +312,9 @@ export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDele
       return { id: a.id, label: a.name, on: a.id === picked && !editing, hint: r?.ask ? "Needs you" : r?.status === "working" ? "Working" : rankOf(a.xp),
         icon: <AgentAvatar hue={a.hue} order={a.order} mood={moodOf(a, r)} size={24} />, badge: r?.ask ? "!" : r?.status === "working" ? r.steps.length : undefined, onClick: () => choose(a.id) };
     }) },
-    { label: "Built apps", items: apps.filter((x) => match(x.title)).map((x) => ({ id: x.id, label: x.title, hint: `Built by ${x.agent}`, icon: <Glyph d={GLYPHS.app} />, onClick: () => onOpenApp(x.id, x.title) })) },
+    { label: "Artifacts", items: apps.filter((x) => x.kind === "artifact" && match(x.title)).map((x) => ({ id: x.id, label: x.title, hint: `Made by ${x.agent}`, icon: <Glyph d={GLYPHS.star} />, onClick: () => onOpenApp(x.id, x.title) })) },
+    { label: "Websites", items: sites.filter((x) => match(x.name)).map((x) => ({ id: x.url, label: x.name, hint: x.url, icon: <Glyph d={GLYPHS.link} />, onClick: () => onOpenUrl(x.url, x.name) })) },
+    { label: "Built apps", items: apps.filter((x) => x.kind !== "artifact" && match(x.title)).map((x) => ({ id: x.id, label: x.title, hint: `Built by ${x.agent}`, icon: <Glyph d={GLYPHS.app} />, onClick: () => onOpenApp(x.id, x.title) })) },
     { label: "General", items: [
       { id: "summon", label: "Summon an agent", icon: <Glyph d={GLYPHS.plus} />, act: true, on: !!editing && !agents.some((a) => a.id === editing.id), onClick: () => setEditing(fresh()) },
       { id: "settings", label: "Models and keys", icon: <Glyph d={GLYPHS.gear} />, act: true, onClick: onSettings },
@@ -221,7 +331,16 @@ export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDele
       {brains && !ready && <ConnectGate brains={brains} onRefresh={refresh} onSettings={onSettings} />}
       <div className="deck__body">
         <div className="deck__stage">
-          <AgentStage agents={agents} runs={runs} picked={picked} reduced={reduced} onPick={(id) => { setPicked(id); setEditing(null); }} />
+          <div className="deck__top">
+            <DeployBar agents={agents} runs={runs} brains={brains ?? []} onDeploy={(a, task) => { choose(a.id); onStart(a, task); }} onNew={(a) => { onSave(a); setPicked(a.id); onStart(a); }} />
+            <div className="deck__views" role="tablist" aria-label="View">
+              <button role="tab" aria-selected={view === "board"} className={view === "board" ? "is-on" : ""} onClick={() => setView("board")}>Board</button>
+              <button role="tab" aria-selected={view === "bridge"} className={view === "bridge" ? "is-on" : ""} onClick={() => setView("bridge")}>Bridge</button>
+            </div>
+          </div>
+          {view === "board"
+            ? <Board agents={agents} runs={runs} picked={picked} onPick={choose} onStart={(a) => onStart(a)} onStop={onStop} />
+            : <AgentStage agents={agents} runs={runs} picked={picked} reduced={reduced} onPick={(id) => { setPicked(id); setEditing(null); }} />}
           {editing && <Summon key={editing.id} agent={editing.model ? editing : { ...editing, provider: brains?.find((b) => b.ready)?.id ?? "", model: brains?.find((b) => b.ready)?.models[0]?.id ?? "" }} isNew={!agents.some((a) => a.id === editing.id)} brains={brains ?? []} onCancel={() => setEditing(null)} onSave={(a) => { onSave(a); setPicked(a.id); setEditing(null); }}
             onDelete={agents.some((a) => a.id === editing.id) ? () => { onDelete(editing.id); setEditing(null); setPicked(null); } : undefined} />}
         </div>
@@ -236,7 +355,7 @@ export function AgentStation({ agents, runs, reduced, onSettings, onSave, onDele
                   ? <button className="deck__btn" onClick={() => onStop(agent.id)}>Stop</button>
                   : <button className="deck__btn deck__btn--go" disabled={!runnable(agent)} title={runnable(agent) ? undefined : "Its model isn't connected. Press Edit to choose another."} onClick={() => onStart(agent)}>Run</button>}
               </div>
-              <p className="deck__task">{agent.task}</p>
+              <p className="deck__task">{run?.task ?? agent.task}{agent.schedule && <small className="deck__when">{scheduleText(agent.schedule)}</small>}</p>
               {run?.ask && (
                 <div className="deck__ask" role="alert">
                   <p>{run.ask.question}</p>

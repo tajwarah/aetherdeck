@@ -10,7 +10,7 @@ export interface BudgetLimits {
 export const DEFAULT_LIMITS: BudgetLimits = {
   providerCalls: 8,
   sourceOpens: 6,
-  llmCalls: 2,
+  llmCalls: 3, // planning, the answer, the evidence map
   llmMaxTokens: 6000,
   deadlineMs: 45_000,
 };

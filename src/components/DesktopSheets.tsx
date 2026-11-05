@@ -195,6 +195,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
           {saved && <p className="prefs__saved" role="status">{saved}</p>}
 
           {page === "ai" && <>
+            <ChatGPTPlan />
             <div className="group">
               <div className="group__row">
                 <span>Status</span>
@@ -331,5 +332,38 @@ function Shields() {
       </div>
       <p className="group__note">Free and open source: blocks ads, trackers and known malware addresses (Ghostery's engine with community lists), moves pages to https, removes tracking tags from links, asks sites not to sell your data, and hides your local network address from WebRTC.</p>
     </>
+  );
+}
+
+/** Sign in with ChatGPT: research, Cosmonaut and agents run on the person's Plus or Pro plan instead of an API key. */
+function ChatGPTPlan() {
+  const [st, setSt] = useState<{ signedIn: boolean; email?: string; available: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const read = () => void desktop?.invoke<{ signedIn: boolean; email?: string; available: boolean }>("chatgpt:status").then(setSt).catch(() => undefined);
+  useEffect(read, []);
+  const go = async () => {
+    setBusy(true); setErr("");
+    try { await desktop!.invoke("chatgpt:signIn"); } catch (e) { setErr((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "")); }
+    setBusy(false); read();
+  };
+  if (!st) return null;
+  return (
+    <div className="group chatgpt">
+      <div className="group__row">
+        <span>ChatGPT plan</span>
+        <span className={st.signedIn ? "group__ok" : "group__dim"}>{st.signedIn ? `Signed in${st.email ? ` as ${st.email}` : ""}` : "Not signed in"}</span>
+        {st.signedIn
+          ? <button className="btn btn--small" onClick={() => void desktop!.invoke("chatgpt:signOut").then(read)}>Sign out</button>
+          : <button className="btn btn--small btn--primary" disabled={busy || !st.available} onClick={() => void go()}>{busy ? "Waiting for ChatGPT…" : "Sign in with ChatGPT"}</button>}
+      </div>
+      <p className="group__note">
+        {st.signedIn
+          ? "Agents you give the ChatGPT model run on your plan, and so do research and Cosmonaut unless you connect another provider below. It counts up to the share you allow AetherDeck in ChatGPT's settings."
+          : "Use your ChatGPT Plus or Pro plan instead of an API key. You sign in on chatgpt.com in your browser, and AetherDeck never sees your password. Requests count toward your plan, up to a limit you set in ChatGPT."}
+        {busy && " Finish signing in in your browser."}
+      </p>
+      {err && <p className="fine fine--error" role="alert">{err}</p>}
+    </div>
   );
 }

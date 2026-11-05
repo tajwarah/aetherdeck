@@ -1,4 +1,5 @@
-// Search as a mind map: the question in the middle, branches (sub-questions, or kinds of site) to either side,
+// Search as a mind map: the question in the middle, answered there first in a few sentences, each numbered to the
+// sites it rests on (the same numbers sit on those sites, threaded to the answer); branches (sub-questions, or kinds of site) to either side,
 // and every site the search found as a card on its branch. Cards can be dragged anywhere. Drag one onto another,
 // or pull a thread from a card's edge to another card, to connect them: connected sites form a group that moves
 // together and opens together as a group of windows. Nothing here leaves this screen; the arrangement lasts as
@@ -62,6 +63,11 @@ export function MindMapView({ model, layout, selectedId, onSelect, onOpen, onOpe
   const [links, setLinks] = useState<Link[]>([]);
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [picked, setPicked] = useState<string | null>(null); // keyboard: the first card of a connection
+  const [lit, setLit] = useState<string[] | null>(null); // the sources of the answer's sentence under the pointer
+  const answer = model.answer;
+  // Each cited source's number, in the order the answer first cites it.
+  const citeNo = new Map<string, number>();
+  for (const x of answer?.sentences ?? []) for (const id of x.sourceIds) if (!citeNo.has(id)) citeNo.set(id, citeNo.size + 1);
   const g = useRef<Gesture | null>(null);
   const frame = useRef(0);
 
@@ -163,6 +169,11 @@ export function MindMapView({ model, layout, selectedId, onSelect, onOpen, onOpe
     lines.push({ key: `b-${b.id}`, d: curve(root, bp), hue: b.hue, kind: "trunk" });
     for (const id of b.leaves) { const lp = at(id); if (lp) lines.push({ key: `l-${id}`, d: curve(bp, lp), hue: b.hue, kind: "twig" }); }
   }
+  // the answer's threads: from the answer to every site it cites
+  for (const id of citeNo.keys()) {
+    const lp = at(`src:${id}`);
+    if (lp) lines.push({ key: `c-${id}`, d: curve({ x: root.x + Math.sign(lp.x || 1) * 250, y: root.y }, lp), hue: 258, kind: lit?.includes(id) ? "cite is-lit" : "cite" });
+  }
   const threadFrom = gesture?.kind === "thread" ? at(gesture.id) : undefined;
 
   let order = 0;
@@ -178,10 +189,37 @@ export function MindMapView({ model, layout, selectedId, onSelect, onOpen, onOpe
       </svg>
 
       <Spot at={root} className="z-top">
-        <div className="question mm__question">
-          <span className="question__eyebrow">{model.complete ? `${model.sources.length} sites` : "Searching"}</span>
-          <h1 className="question__title">{model.intent.query}</h1>
-        </div>
+        {answer ? (
+          <section className="answer" data-ui aria-label="The answer">
+            <span className="answer__by">{answer.by === "ai" ? `Answer · written by ${answer.model ?? "AI"} from the sites around it` : "Answer · in the sites' own words"}</span>
+            <h1 className="answer__q">{model.intent.query}</h1>
+            <ol className="answer__body">
+              {answer.sentences.map((x, i) => (
+                <li key={i} onPointerEnter={() => setLit(x.sourceIds)} onPointerLeave={() => setLit(null)}>
+                  {answer.by === "extract" ? `“${x.text}”` : x.text}
+                  {x.sourceIds.map((id) => {
+                    const node = nodeById.get(`src:${id}`);
+                    const src = sourceById.get(id);
+                    return (
+                      <button key={id} className="answer__cite" title={src ? `${src.title} · ${src.domain}` : undefined} aria-label={`Source ${citeNo.get(id)}${src ? `: ${src.title}` : ""}`}
+                        onFocus={() => setLit([id])} onBlur={() => setLit(null)}
+                        onClick={() => node && onSelect(node, at(node.id))}>{citeNo.get(id)}</button>
+                    );
+                  })}
+                </li>
+              ))}
+            </ol>
+            <span className="answer__foot">
+              {model.complete ? `${model.sources.length} sites around it, ${citeNo.size} cited` : "Still searching: more sites are arriving"}
+              {answer.by === "extract" && <> · Connect a model in Settings (or sign in with ChatGPT) for a written answer</>}
+            </span>
+          </section>
+        ) : (
+          <div className="question mm__question">
+            <span className="question__eyebrow">{model.complete ? `${model.sources.length} sites` : "Searching"}</span>
+            <h1 className="question__title">{model.intent.query}</h1>
+          </div>
+        )}
       </Spot>
 
       {branches.map((b) => {
@@ -221,7 +259,7 @@ export function MindMapView({ model, layout, selectedId, onSelect, onOpen, onOpe
         const group = groupOf(id);
         return (
           <Spot key={id} at={p} delay={delay} card className={dragging ? "z-top" : ""}>
-            <SiteCard node={n} source={s} hue={hueOf.get(id) ?? 38} selected={selectedId === id} grouped={!!group} picked={picked === id} dragging={dragging}
+            <SiteCard node={n} source={s} hue={hueOf.get(id) ?? 38} cite={citeNo.get(s.id)} lit={!!lit?.includes(s.id)} selected={selectedId === id} grouped={!!group} picked={picked === id} dragging={dragging}
               onPointerDown={(e) => startCard(e, group && e.altKey ? group : [id])}
               onPointerUp={(e) => onUp(e, () => onSelect(n, p))}
               onKey={() => onSelect(n, p)}
@@ -252,21 +290,22 @@ export function MindMapView({ model, layout, selectedId, onSelect, onOpen, onOpe
   );
 }
 
-function SiteCard({ node, source, hue, selected, grouped, picked, dragging, onPointerDown, onPointerUp, onKey, onOpen, onThread, onThreadUp, onPick }: {
-  node: InformationNode; source: SearchResult; hue: number; selected: boolean; grouped: boolean; picked: boolean; dragging: boolean;
+function SiteCard({ node, source, hue, cite, lit, selected, grouped, picked, dragging, onPointerDown, onPointerUp, onKey, onOpen, onThread, onThreadUp, onPick }: {
+  node: InformationNode; source: SearchResult; hue: number; cite?: number; lit: boolean; selected: boolean; grouped: boolean; picked: boolean; dragging: boolean;
   onPointerDown: (e: RPointerEvent) => void; onPointerUp: (e: RPointerEvent) => void; onKey: () => void; onOpen: () => void;
   onThread: (e: RPointerEvent) => void; onThreadUp: (e: RPointerEvent) => void; onPick: () => void;
 }) {
   const [icon, setIcon] = useState(true);
   const site = source.publisher && !source.publisher.startsWith("Discussed") ? source.publisher : source.domain;
   return (
-    <div className={`mm__site ${selected ? "is-selected" : ""} ${grouped ? "is-grouped" : ""} ${picked ? "is-picked" : ""} ${dragging ? "is-dragging" : ""}`} style={{ ["--hue" as string]: hue }} data-site={node.id}>
+    <div className={`mm__site ${lit ? "is-lit" : ""} ${selected ? "is-selected" : ""} ${grouped ? "is-grouped" : ""} ${picked ? "is-picked" : ""} ${dragging ? "is-dragging" : ""}`} style={{ ["--hue" as string]: hue }} data-site={node.id}>
       <button className="mm__site-body" data-node data-hint="Inspect · drag to move" onPointerDown={onPointerDown} onPointerUp={onPointerUp} onDoubleClick={onOpen} onClick={(e) => { if (e.detail === 0) onKey(); }}
         onKeyDown={(e) => { if (e.key === "g" || e.key === "G") { e.preventDefault(); onPick(); } }}
         aria-label={`${source.title}, ${site}${source.publicationDate ? `, ${formatDate(source.publicationDate)}` : ""}. Press G here and on another site to connect them.`}>
         <span className="mm__site-head">
           {icon && !source.domain.includes(" ") ? <img className="mm__icon" src={`https://${source.domain}/favicon.ico`} alt="" referrerPolicy="no-referrer" onError={() => setIcon(false)} /> : <SourceMark source={source} />}
           <span className="mm__site-name">{site}{source.publicationDate ? ` · ${formatDate(source.publicationDate)}` : ""}</span>
+          {cite && <span className="mm__cite" title="Cited in the answer">{cite}</span>}
         </span>
         <span className="mm__site-title">{node.title}</span>
         <span className="mm__site-snippet lod-2">{source.snippet}</span>

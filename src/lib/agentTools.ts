@@ -2,6 +2,7 @@
 // apps and memory. Big results stay here on the workbench and only a short preview enters the conversation, so a long
 // run neither grows the app's memory nor pays again for rows Claude has already seen.
 import { appUrl, extractScript, inboxScript, inGmail, INBOX_READY, ROWS_LIMIT, stamp, TEXT_LIMIT, threadScript, THREAD_READY, toCsv, videoScript, type ExtractKind, type Row } from "../../shared/harvest.ts";
+import { artifactHtml, type ArtifactKind } from "../../shared/artifact.ts";
 import { desktop } from "./desktop.ts";
 import type { Agent } from "./agents.ts";
 
@@ -17,7 +18,7 @@ interface Ctx {
 }
 interface Visited<T> { url: string; title: string; humanCheck: boolean; result: T }
 
-const ENGINE = new Set(["fetch_page", "extract_data", "crawl_pages", "save_file", "read_inbox", "read_email", "watch_video", "build_app"]);
+const ENGINE = new Set(["fetch_page", "extract_data", "crawl_pages", "save_file", "read_inbox", "read_email", "watch_video", "build_app", "make_artifact", "build_site", "pick_files"]);
 
 const CHECK = "The site is asking for a human check. Agents never get around those: tell the person, and they can open the page and do it themselves.";
 const wrap = (url: string, text: string) => `<page_content source="${url.replace(/"/g, "")}">\n${text}\n</page_content>`;
@@ -122,6 +123,26 @@ export async function engineTool(name: string, input: Record<string, unknown>, c
       await ipc!.invoke("apps:save", { id, title, agent: c.agent.name, html: String(input.html ?? "") });
       c.openUrl(appUrl(id), title);
       return `Built and opened ${title}, id ${id}. Pass this id to improve it.`;
+    }
+    case "make_artifact": {
+      const given = String(input.id ?? "");
+      const id = /^[a-z0-9]{4,24}$/.test(given) ? given : `r${Date.now().toString(36)}`;
+      const title = String(input.title ?? "Untitled").slice(0, 80);
+      const kind = (["document", "page", "chart", "code"].includes(String(input.kind)) ? input.kind : "document") as ArtifactKind;
+      await ipc!.invoke("apps:save", { id, title, agent: c.agent.name, kind: "artifact", html: artifactHtml({ title, kind, content: String(input.content ?? ""), agent: c.agent.name }) });
+      c.openUrl(appUrl(id), title);
+      return `Made the ${kind} “${title}”, id ${id}, and opened it. It's kept in the Agent Station under Artifacts. Pass this id to revise it.`;
+    }
+    case "build_site": {
+      const files = Array.isArray(input.files) ? (input.files as { path: string; content: string }[]) : [];
+      if (!files.length) throw new Error("Send at least one file, such as index.html");
+      const r = await ipc!.invoke<{ url: string; folder: string; files: string[] }>("sites:write", { agent: c.agent.name, name: String(input.name ?? "site"), files });
+      c.openUrl(r.url, String(input.name ?? "Website"));
+      return `Wrote ${r.files.join(", ")} to ${r.folder}. The site is at ${r.url} (this computer only) and is open in a window.`;
+    }
+    case "pick_files": {
+      const picked = await ipc!.invoke<{ name: string; mb: number }[]>("media:pick", { agent: c.agent.name, purpose: String(input.purpose ?? "") });
+      return picked.length ? JSON.stringify(picked) : "The person didn't choose any files.";
     }
     case "remember":
       c.remember(String(input.fact ?? ""));

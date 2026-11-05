@@ -1,14 +1,15 @@
 // The agent workflow for one intent: interpret → locate → retrieve (parallel) → read → compare → compose.
 // It emits a fresh EnvironmentModel snapshot after each meaningful step so the client renders progressively.
 import { randomUUID } from "node:crypto";
-import type { AgentTask, EnvironmentModel, Evidence, ExploreRequest, Notice, SearchIntent, SearchResult } from "../shared/types.ts";
+import type { AgentTask, Answer, EnvironmentModel, Evidence, ExploreRequest, Notice, SearchIntent, SearchResult } from "../shared/types.ts";
 import type { Provider, ProviderOutput, ProviderQuery } from "./providers/types.ts";
 import { PROVIDERS, demoForced, webEngines } from "./providers/index.ts";
 import { looksTechnical } from "./providers/stackexchange.ts";
 import { rankOpenWeb } from "./rank.ts";
 import { geocode } from "./providers/osm.ts";
 import { planIntent } from "./intent.ts";
-import { llmEnabled, llmInfo, refineIntent, synthesize } from "./llm.ts";
+import { llmEnabled, llmInfo, refineIntent, synthesize, writeAnswer } from "./llm.ts";
+import { extractAnswer, onTopic, readTop } from "./answer.ts";
 import { extractEvidence, dedupeResults } from "./evidence.ts";
 import { buildActions, buildNodes, chooseVisualization } from "./environment.ts";
 import { previewUrl } from "./preview.ts";
@@ -124,6 +125,7 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
       { id: "interpret", label: "Interpreting", status: "running" },
       { id: "retrieve", label: "Searching", status: "pending" },
       { id: "read", label: "Reading", status: "pending" },
+      { id: "answer", label: "Answering", status: "pending" },
       { id: "compare", label: "Comparing", status: "pending" },
       { id: "compose", label: "Arranging", status: "pending" },
     ],
@@ -157,6 +159,8 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
   let texts: Record<string, string> = {};
   let evidence: Evidence[] = [];
   let synthesisMode: EnvironmentModel["synthesisMode"] = "pending";
+  let answer: Answer | undefined;
+  const failures: Notice[] = []; // a source that didn't answer: in the trace, and a notice only if nothing else did
   const demo = demoForced();
 
   const snapshot = (complete: boolean): EnvironmentModel => {
@@ -168,6 +172,7 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
       visualization: viz,
       dataMode: modes.size === 0 ? "none" : modes.size === 2 ? "mixed" : modes.has("sample") ? "sample" : "live",
       synthesisMode,
+      ...(answer ? { answer } : {}),
       nodes: buildNodes(intent, viz, sources, evidence),
       sources,
       evidence,
@@ -246,7 +251,7 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
     step("retrieve", "running", `Asking ${[...new Set(runnable.map((c) => c.provider.label))].join(", ")}`);
 
     const merge = (out: ProviderOutput) => {
-      sources = rankSources(intent, dedupeResults([...sources, ...out.results]));
+      sources = rankSources(intent, dedupeResults([...sources, ...out.results.filter((r) => onTopic(intent, r))]));
       texts = { ...texts, ...out.texts };
     };
 
@@ -276,7 +281,7 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
         } catch (err) {
           const e = err as ProviderError;
           task.toolCalls.push({ provider: c.provider.id, query: c.q.query, status: "error", ms: Date.now() - t0, count: 0, note: e.message });
-          notices.push({ level: "warning", code: `${c.provider.id}_${e.code ?? "error"}`, message: `${c.provider.label} unavailable: ${e.message}` });
+          failures.push({ level: "warning", code: `${c.provider.id}_${e.code ?? "error"}`, message: `${c.provider.label} unavailable: ${e.message}` });
           log("warn", "provider_failed", { provider: c.provider.id, code: e.code, error: e.message });
         }
       }),
@@ -298,6 +303,7 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
   const okCalls = task.toolCalls.filter((t) => t.status === "ok" || t.status === "cached").length;
   step("retrieve", sources.length ? "done" : "failed", `${sources.length} results from ${okCalls} ${okCalls === 1 ? "source" : "sources"}`);
   if (!sources.length) {
+    notices.push(...failures);
     notices.push({ level: "warning", code: "no_results", message: isLocal ? "Nothing listed nearby matched. Try a wider area or different words." : "No results. Try different words." });
   } else if (intent.intentType === "news" && intent.constraints.time === "today" && sources.some((s) => s.contentType === "news")) {
     const newest = Math.max(...sources.filter((s) => s.contentType === "news").map((s) => Date.parse(s.publicationDate ?? "0")));
@@ -308,13 +314,31 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
     notices.push({ level: "info", code: "no_recent_news", message: `No reports about “${intent.constraints.topic}” were found in the open news sources for the past week. Background reading is shown instead.` });
   }
 
-  // 4. Read — use the text providers returned (intros, abstracts, listings), within the open budget.
+  // 4. Read — the top pages in full where they only have a snippet, then what providers returned (intros, abstracts).
+  const answers = ["research", "explore", "news"].includes(intent.intentType) && sources.length > 0;
+  let pagesRead = 0;
+  if (answers && !demo) {
+    step("read", "running", "Reading the top pages");
+    emit(snapshot(false));
+    const full = await readTop(sources, texts, budget, signal);
+    pagesRead = Object.keys(full).length;
+    texts = { ...texts, ...full };
+  }
   const readable = sources.filter((s) => texts[s.id]);
-  const opened = readable.slice(0, budget.limits.sourceOpens);
-  budget.take("sourceOpens", opened.length);
-  step("read", opened.length ? "done" : "skipped", opened.length ? `Read ${opened.length} ${opened.length === 1 ? "source" : "sources"}` : "Headlines and listings only");
+  const opened = readable.slice(0, Math.max(budget.limits.sourceOpens, 8));
+  step("read", opened.length ? "done" : "skipped", opened.length ? `Read ${pagesRead ? `${pagesRead} pages in full, ` : ""}${opened.length} ${opened.length === 1 ? "source" : "sources"} in all` : "Headlines and listings only");
 
-  // 5. Compare — AI synthesis with verified citations when configured; verbatim excerpts otherwise.
+  // 5. Answer — first, so the person reads the answer while the map fills in around it.
+  if (answers) {
+    step("answer", "running", llmEnabled() ? `Writing the answer (${llmInfo()?.label ?? "model"})` : "Choosing the sentences that answer it");
+    emit(snapshot(false));
+    if (llmEnabled() && budget.take("llmCalls")) answer = (await writeAnswer(intent, sources, texts)) ?? undefined;
+    answer ??= extractAnswer(intent, sources, texts);
+    step("answer", answer ? "done" : "skipped", answer ? (answer.by === "ai" ? `Written by ${answer.model ?? "AI"} from ${new Set(answer.sentences.flatMap((x) => x.sourceIds)).size} sources` : "In the sources' own words") : "The sources don't answer it directly");
+    emit(snapshot(false));
+  } else step("answer", "skipped");
+
+  // 6. Compare — AI synthesis with verified citations when configured; verbatim excerpts otherwise.
   step("compare", "running");
   emit(snapshot(false));
   const wantsEvidence = ["research", "explore"].includes(intent.intentType) || (intent.intentType === "news" && llmEnabled());
@@ -340,9 +364,6 @@ export async function explore(req: ExploreRequest, emit: (m: EnvironmentModel) =
       synthesisMode = "extractive";
       if (llmEnabled()) notices.push({ level: "info", code: "llm_synthesis_unavailable", message: "The AI model didn't return a usable evidence map in time, so exact excerpts are shown." });
       step("compare", "done", `${evidence.filter((e) => e.evidenceType === "direct_excerpt").length} excerpts`);
-      if (!llmEnabled()) {
-        notices.push({ level: "info", code: "extractive", message: "Showing exact sentences from sources. AI summaries and disagreement detection turn on when a model key is set (free options: OpenRouter, Groq, Gemini)." });
-      }
     }
   } else {
     synthesisMode = "extractive";

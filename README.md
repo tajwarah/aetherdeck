@@ -22,6 +22,17 @@ Windows and Linux update themselves. On macOS, AetherDeck tells you when a new v
 
 ## Agents
 
+Give the Agent Station any task in one line and a crewmate takes it, or a new agent is drafted for it. The board shows every agent live: what it's doing, how far along it is, what it needs from you, and when it next runs. Agents can:
+
+- **research** a question and get back a cited answer, with the map laid out for you;
+- **think** a hard step through, and **ask a crewmate** to do part of the work;
+- make **artifacts** (reports, pages, charts, code) you keep under Artifacts;
+- **build websites** of several files in a folder you approve, served at a link only this computer can see; several agents can work on one site;
+- **post** to Facebook, Instagram, YouTube, X and others where you're signed in, with files you choose, showing you every post before it goes;
+- work in any web app you're signed into (Canva, Notion, Figma, Google Docs…), and **run on a schedule** (every hour, day or week) while AetherDeck is open.
+
+Agents never sign in, type passwords, pay, or get around a human check; anything that posts, sends, buys or deletes waits for your OK.
+
 Agents can run on the model you choose, one model per agent, so they don't have to cost anything:
 
 | Model | Cost | Setup |
@@ -29,6 +40,7 @@ Agents can run on the model you choose, one model per agent, so they don't have 
 | [Ollama](https://ollama.com/download) on your computer | Free. Nothing leaves your computer | Install it, then run `ollama pull qwen3`. A model must support tools |
 | LM Studio on your computer | Free | Start its local server |
 | Ollama Cloud | Free plan includes `gemma4:31b-cloud`; other models need [credit or a plan](https://ollama.com/pricing) | Sign in to Ollama and run `ollama pull gemma4:31b-cloud`, or add a key from [ollama.com/settings/keys](https://ollama.com/settings/keys) in Settings |
+| Your ChatGPT Plus or Pro plan | Counts toward your plan, up to the share you allow AetherDeck in ChatGPT | **Sign in with ChatGPT** in Settings → AI. You sign in on chatgpt.com in your browser; AetherDeck never sees your password |
 | Groq, Gemini, OpenRouter | Free tiers with daily limits | Add a key in Settings |
 | OpenAI, Anthropic Claude | Paid per use | Add a key in Settings |
 

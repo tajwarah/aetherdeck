@@ -2,7 +2,7 @@
 // is configured (see models.ts). It never supplies facts of its own: it plans searches, and it writes claims
 // that must cite retrieved sources with verbatim quotes. Every citation is checked before it is shown.
 import { z } from "zod/v4";
-import type { Evidence, SearchIntent, SearchResult } from "../shared/types.ts";
+import type { Answer, Evidence, SearchIntent, SearchResult } from "../shared/types.ts";
 import { IntentType, VisualizationKind } from "../shared/types.ts";
 import { stableId } from "./http.ts";
 import { log } from "./log.ts";
@@ -141,6 +141,46 @@ export async function synthesize(intent: SearchIntent, sources: SearchResult[], 
     return out ? verifyPoints(out.subquestions, sources, texts) : null;
   } catch (err) {
     log("warn", "llm_synthesis_failed", { error: (err as Error).message });
+    return null;
+  }
+}
+
+// --- the answer ----------------------------------------------------------------
+
+const Written = z.object({
+  sentences: z.array(z.object({
+    text: z.string().describe("One sentence of the answer"),
+    sources: z.array(z.string()).describe("The ids of the sources that support this sentence"),
+  })),
+});
+
+/**
+ * The question answered in a few plain sentences, from the sources alone. A sentence that cites no source given
+ * here is dropped, so everything shown can be traced to a site on the map.
+ */
+export async function writeAnswer(intent: SearchIntent, sources: SearchResult[], texts: Record<string, string>): Promise<Answer | null> {
+  const given = sources.filter((s) => texts[s.id] || s.snippet).slice(0, 12);
+  if (given.length < 2) return null;
+  const material = given
+    .map((s) => `<source id="${s.id}" title="${s.title.replace(/"/g, "'")}" site="${s.publisher ?? s.domain}" date="${s.publicationDate?.slice(0, 10) ?? "unknown"}">\n${(texts[s.id] ?? s.snippet).slice(0, 2200)}\n</source>`)
+    .join("\n");
+  try {
+    const out = await parse(
+      Written,
+      "You answer a question for someone who wants to understand it, using ONLY the sources provided: no outside facts. " +
+        "Write 4-6 short, plain sentences that answer it directly, the most important first. " +
+        "After each sentence list the ids of the sources that support it. If the sources don't answer part of the question, say so in one sentence citing the closest source.",
+      `Question: ${intent.query}\n\n${material}`,
+      1800,
+    );
+    if (!out) return null;
+    const ids = new Set(given.map((s) => s.id));
+    const sentences = out.sentences
+      .map((x) => ({ text: x.text.trim(), sourceIds: [...new Set(x.sources.filter((id) => ids.has(id)))] }))
+      .filter((x) => x.text && x.sourceIds.length);
+    return sentences.length >= 2 ? { by: "ai", sentences, model: llmInfo()?.label } : null;
+  } catch (err) {
+    log("warn", "llm_answer_failed", { error: (err as Error).message });
     return null;
   }
 }

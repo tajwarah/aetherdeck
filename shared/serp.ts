@@ -22,8 +22,42 @@ export function serpUrl(engine: Engine, query: string, lang = "en", news = false
   return `https://html.duckduckgo.com/html/?q=${q}`;
 }
 
+/**
+ * When an engine changes its layout, the reader written for it finds nothing. This one reads any results page:
+ * every link with a heading in it (or a long title) that leads off the engine's own site, through its redirect
+ * when there is one, minus ads. Run inside the page; changes nothing.
+ */
+const ANY_RESULTS = `(() => {
+  const own = location.hostname.replace(/^www\\./, "").split(".").slice(-2).join(".");
+  const out = (href) => { try {
+    const u = new URL(href, location.href);
+    if (u.pathname === "/url") return u.searchParams.get("q") || u.searchParams.get("url") || "";
+    if (u.pathname.startsWith("/ck/")) { const v = (u.searchParams.get("u") || "").replace(/^a1/, ""); return atob(v.replace(/-/g, "+").replace(/_/g, "/")); }
+    if (u.pathname === "/l/") return u.searchParams.get("uddg") || "";
+    return u.hostname.endsWith(own) || !/^https?:$/.test(u.protocol) ? "" : u.href;
+  } catch { return ""; } };
+  const hits = [], seen = new Set();
+  const main = document.querySelector("main, #b_results, #rso, #search, #links, [role=main]") || document.body;
+  for (const a of main.querySelectorAll("a[href]")) {
+    if (a.closest("[data-text-ad], .b_ad, #tads, #bottomads, .result--ad, [aria-label*='Sponsored'], [aria-label*='Ads']")) continue;
+    const head = a.querySelector("h2, h3, [role=heading]") || (a.closest("h2, h3") ? a : null);
+    const title = (head ? head.innerText : "").trim();
+    if (title.length < 12) continue;
+    const url = out(a.href);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    const box = a.closest("li, article, .g, .MjjYud, .b_algo, .result, div[data-hveid]") || a.parentElement;
+    const snippet = box ? box.innerText.split("\\n").map((l) => l.trim()).filter((l) => l.length > 40 && l !== title && !/^https?:|›/.test(l)).slice(0, 2).join(" ") : "";
+    hits.push({ url, title: title.slice(0, 300), snippet: snippet.slice(0, 400), site: "" });
+  }
+  return hits;
+})()`;
+
+/** An engine's own reader first, the general one when it finds fewer than three results. */
+const withFallback = (read: string) => `(() => { const r = ${read}; if (r.hits.length >= 3 || r.blocked) return r; const more = ${ANY_RESULTS}; return more.length > r.hits.length ? { hits: more, blocked: undefined } : r; })()`;
+
 // Run inside the results page the person is looking at. Each returns { hits, blocked } and changes nothing.
-export const SERP_READ: Record<Engine, string> = {
+const OWN_READ: Record<Engine, string> = {
   google: `(() => {
     const blocked = location.hostname.startsWith("consent.") ? "consent"
       : location.pathname.startsWith("/sorry") || document.querySelector("#captcha-form, iframe[src*='recaptcha']") ? "verify" : undefined;
@@ -70,3 +104,8 @@ export const SERP_READ: Record<Engine, string> = {
   })()`,
 };
 
+export const SERP_READ: Record<Engine, string> = {
+  google: withFallback(OWN_READ.google),
+  bing: withFallback(OWN_READ.bing),
+  duckduckgo: withFallback(OWN_READ.duckduckgo),
+};

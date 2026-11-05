@@ -14,6 +14,8 @@ import { CONFIG_NAMES, KEY_NAMES, Store, type ConfigName, type KeyName } from ".
 import { curvedPages } from "./curved.ts";
 import { extensions } from "./extensions.ts";
 import { agentApps, registerAppScheme } from "./apps.ts";
+import { agentSites } from "./sites.ts";
+import { chatgptSignIn } from "./chatgpt.ts";
 import { agentEngine } from "./engine.ts";
 import { phones } from "./phone.ts";
 import { shields } from "./shields.ts";
@@ -402,6 +404,8 @@ app.whenReady().then(async () => {
   void shield.load();
   engine = agentEngine({ partition: WEB, guard: (wc) => shield.guard(wc), downloads: () => app.getPath("downloads") });
   agentApps(join(app.getPath("userData"), "library", "apps")).serve(session.fromPartition(WEB));
+  agentSites({ dir: join(app.getPath("userData"), "library"), win: () => win });
+  chatgptSignIn({ dir: join(app.getPath("userData"), "library"), changed: () => void import("../server/models.ts").then((m) => m.resetBackend()) });
   shield.attach(session.fromPartition(WEB));
   shield.attach(session.fromPartition(PRIVATE));
   setUpSession(session.fromPartition(WEB));

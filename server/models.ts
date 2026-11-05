@@ -6,6 +6,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod/v4";
 import { totalmem } from "node:os";
 import { log } from "./log.ts";
+import { CHATGPT_DEFAULT, chatgptBackend, chatgptReady } from "./chatgpt.ts";
 
 /** One piece of what the person hands the assistant: text, an image, or a PDF the model can read itself. */
 export type Part = { type: "text"; text: string } | { type: "image"; mime: string; data: string } | { type: "pdf"; name: string; data: string };
@@ -391,6 +392,8 @@ function ollamaBackend(cloud: boolean, fetchImpl: typeof fetch = fetch): ModelBa
 function select(): ModelBackend | null {
   const explicit = process.env.LLM_PROVIDER?.toLowerCase();
   if (explicit === "none") return null;
+  // Signing in with ChatGPT is a deliberate choice, so it leads unless another provider was chosen.
+  if (explicit === "chatgpt" || (!explicit && chatgptReady())) return chatgptReady() ? chatgptBackend(process.env.LLM_MODEL || CHATGPT_DEFAULT) : null;
   if (explicit === "anthropic" || (!explicit && process.env.ANTHROPIC_API_KEY)) {
     return process.env.ANTHROPIC_API_KEY ? anthropicBackend() : null;
   }

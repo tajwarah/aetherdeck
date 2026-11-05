@@ -143,6 +143,7 @@ export function layoutReading(nodes: InformationNode[]): Layout {
 export const BRANCH_HUES = [38, 352, 160, 220, 280, 18, 190, 60];
 const BX = 430; // question → branch (the question is drawn up to 1.9× when zoomed out, see --ls)
 const LX = 820; // question → leaves
+const ANSWER_ROOM = 190; // with an answer in the middle (500 wide), branches and leaves step out this much further
 // Room per leaf: cards are drawn at up to 1.3× (see --lc), and a finding's three lines stand taller than a site.
 const SITE_H = 112;
 const FINDING_H = 150;
@@ -205,15 +206,16 @@ export function layoutMindMap(model: EnvironmentModel): Layout {
     return { ...b, side, hue: BRANCH_HUES[i % BRANCH_HUES.length] };
   });
   const pos: Layout["pos"] = { root: { x: 0, y: 0 } };
+  const room = model.answer ? ANSWER_ROOM : 0;
   for (const side of [1, -1] as const) {
     const mine = branches.filter((b) => b.side === side);
     let y = -sideH[side] / 2;
     for (const b of mine) {
       const h = blockH(b);
       const cy = y + h / 2;
-      pos[b.id] = { x: side * BX, y: Math.round(cy * 0.92) };
+      pos[b.id] = { x: side * (BX + room), y: Math.round(cy * 0.92) };
       let ly = cy - b.leaves.reduce((t, id) => t + leafH(id), 0) / 2;
-      for (const id of b.leaves) { pos[id] = { x: side * LX, y: Math.round(ly + leafH(id) / 2) }; ly += leafH(id); }
+      for (const id of b.leaves) { pos[id] = { x: side * (LX + room), y: Math.round(ly + leafH(id) / 2) }; ly += leafH(id); }
       y += h;
     }
   }

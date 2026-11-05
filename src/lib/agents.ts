@@ -4,7 +4,7 @@
 import { desktop } from "./desktop.ts";
 
 export type Access = "read" | "ask" | "auto";
-export type Skill = "harvest" | "mail" | "video" | "build";
+export type Skill = "harvest" | "mail" | "video" | "build" | "post";
 export type Fx = "think" | "radar" | "scan" | "harvest" | "mail" | "video" | "build" | "act";
 /** How an agent's avatar looks right now. */
 export type Mood = "idle" | "hello" | "salute" | "think" | "search" | "read" | "harvest" | "mail" | "watch" | "build" | "act" | "wait" | "done" | "failed" | "stopped";
@@ -28,13 +28,30 @@ export interface Agent {
   memory?: string[];
   /** Steps finished over its life; a bit of fun that grows into a rank. */
   xp?: number;
+  /** Runs by itself while AetherDeck is open: every hour, or each day (or one weekday) at a time. */
+  schedule?: Schedule;
 }
+export interface Schedule { every: "hour" | "day" | "week"; at?: string; day?: number; last?: number }
+
+/** When a scheduled agent next runs, after `from`. Exported for tests. */
+export function nextRun(s: Schedule, from = Date.now()): number {
+  if (s.every === "hour") return (s.last ?? from - 3_600_000) + 3_600_000;
+  const [h, m] = (s.at ?? "09:00").split(":").map(Number);
+  const d = new Date(from);
+  d.setHours(h || 0, m || 0, 0, 0);
+  const step = s.every === "week" ? 7 : 1;
+  if (s.every === "week") d.setDate(d.getDate() + (((s.day ?? 1) - d.getDay() + 7) % 7));
+  while (d.getTime() <= from || (s.last && d.getTime() - s.last < 60_000)) d.setDate(d.getDate() + step);
+  return d.getTime();
+}
+export const scheduleText = (s?: Schedule) => !s ? "" : s.every === "hour" ? "Every hour" : s.every === "day" ? `Every day at ${s.at ?? "09:00"}` : `Every ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][s.day ?? 1]} at ${s.at ?? "09:00"}`;
 
 export const SKILLS: { id: Skill; label: string; hint: string }[] = [
   { id: "harvest", label: "Harvest", hint: "Extracts tables and listings, crawls politely, saves CSV and JSON." },
   { id: "mail", label: "Mail", hint: "Reads your signed-in Gmail and prepares drafts. Only you can send." },
   { id: "video", label: "Video", hint: "Reads YouTube transcripts without playing them." },
-  { id: "build", label: "Build", hint: "Makes small apps that run here, sealed off from the internet." },
+  { id: "build", label: "Build", hint: "Makes apps that run here and websites with a link on this computer, in a folder you approve." },
+  { id: "post", label: "Post", hint: "Posts to your signed-in social accounts (Facebook, Instagram, YouTube, X…) with files you choose. You approve every post." },
 ];
 
 /** The crew an agent can be summoned from: a starting character, not a limit. Ids stay as they were so saved agents keep theirs. */
@@ -44,11 +61,12 @@ export const ORDERS: { id: string; name: string; tagline: string; hue: number; s
   { id: "ibis", name: "Comms", tagline: "Keeps your inbox clear", hue: 190, skills: ["mail"], access: "ask", role: "Reads email and turns it into what needs doing.", plan: ["List recent unread email", "Read what matters", "Save a digest and draft replies"], names: ["Quill", "Echo", "Relay", "Wren"], tasks: ["Summarize my unread email from the last two days", "Find anything in my inbox that needs a reply today"] },
   { id: "serpent", name: "Watcher", tagline: "Watches so you don't have to", hue: 340, skills: ["video"], access: "read", role: "Boils videos down to what's worth knowing.", plan: ["Get the transcript", "Pick out the main points with timestamps", "Save the summary"], names: ["Ember", "Lumen", "Cinder", "Iris"], tasks: ["Summarize this YouTube video with timestamps", "Compare what these two videos claim"] },
   { id: "artisan", name: "Engineer", tagline: "Builds apps from a sentence", hue: 280, skills: ["build", "harvest"], access: "read", role: "Designs and builds small, polished apps inside the browser.", plan: ["Work out what the app must do", "Build it as one page", "Test the idea and improve it"], names: ["Forge", "Dart", "Pixel", "Sprocket"], tasks: ["Build me a pomodoro timer with a task list", "Make a budget tracker that saves my entries"] },
+  { id: "herald", name: "Publisher", tagline: "Posts where you're signed in", hue: 320, skills: ["post"], access: "ask", role: "Posts your videos, images and words to your signed-in social accounts, showing you each post before it goes.", plan: ["Ask for the files to post", "Open each platform's new-post page", "Fill in the post and ask before publishing"], names: ["Herald", "Echo", "Beacon", "Lyra"], tasks: ["Post my three new videos to Facebook, Instagram and YouTube with a short caption each", "Every Monday at 10, share my latest blog post on LinkedIn and X"] },
   { id: "jackal", name: "Pilot", tagline: "Works through websites", hue: 18, skills: ["harvest"], access: "ask", role: "Works through a website step by step.", plan: ["Open the site", "Find the page that's needed", "Do the task, asking before each action"], names: ["Atlas", "Ranger", "Sable", "Nova"], tasks: ["Find the cancellation page for this service and tell me the steps", "Fill out this form with the details I gave you"] },
 ];
 
 /** Which effect a tool plays on the stage. */
-export const FX: Record<string, Fx> = { search_web: "radar", list_windows: "radar", read_page: "scan", see_page: "scan", fetch_page: "scan", open_page: "scan", extract_data: "harvest", crawl_pages: "harvest", query_data: "harvest", save_file: "harvest", read_inbox: "mail", read_email: "mail", draft_email: "mail", watch_video: "video", build_app: "build", click: "act", type_text: "act" };
+export const FX: Record<string, Fx> = { think: "think", research: "radar", ask_agent: "radar", make_artifact: "build", build_site: "build", pick_files: "act", attach_files: "act", search_web: "radar", list_windows: "radar", read_page: "scan", see_page: "scan", fetch_page: "scan", open_page: "scan", extract_data: "harvest", crawl_pages: "harvest", query_data: "harvest", save_file: "harvest", read_inbox: "mail", read_email: "mail", draft_email: "mail", watch_video: "video", build_app: "build", click: "act", type_text: "act" };
 
 const MOOD_OF_FX: Record<Fx, Mood> = { think: "think", radar: "search", scan: "read", harvest: "harvest", mail: "mail", video: "watch", build: "build", act: "act" };
 
@@ -67,11 +85,12 @@ export function moodOf(agent: Pick<Agent, "last">, run?: Pick<Run, "status" | "s
 /** What it says when no step is speaking for it. */
 export const MOOD_LINE: Partial<Record<Mood, string>> = { hello: "Ready when you are", salute: "On it!", think: "Thinking it through…", wait: "I need your OK", done: "Mission complete!", failed: "I hit a snag", stopped: "Standing by" };
 
-const TOOL_WORDS: Record<string, string> = { list_windows: "Looked at the windows", open_page: "Opened a page", fetch_page: "Read", search_web: "Searched the web", read_page: "Read a page", see_page: "Looked over a page", focus_window: "Brought a window forward", close_window: "Closed a window", arrange_windows: "Arranged the windows", save_note: "Saved a note", click: "Clicked", type_text: "Typed", extract_data: "Harvested data", crawl_pages: "Crawled pages", query_data: "Checked the data", save_file: "Saved a file", read_inbox: "Read the inbox", read_email: "Read an email", draft_email: "Drafted an email", watch_video: "Watched a video", build_app: "Built an app", remember: "Remembered" };
-const DOING: Record<string, string> = { list_windows: "Checking the windows", open_page: "Opening a page", fetch_page: "Reading", search_web: "Scanning the web", read_page: "Reading a page", see_page: "Looking over a page", focus_window: "Pulling up a window", close_window: "Closing a window", arrange_windows: "Tidying the windows", save_note: "Writing a note", click: "Clicking", type_text: "Typing", extract_data: "Collecting data", crawl_pages: "Crawling pages", query_data: "Checking the data", save_file: "Saving a file", read_inbox: "Opening the inbox", read_email: "Reading an email", draft_email: "Drafting an email", watch_video: "Watching a video", build_app: "Building an app", remember: "Remembering" };
+const TOOL_WORDS: Record<string, string> = { think: "Thought it through", research: "Researched", ask_agent: "Asked a crewmate", make_artifact: "Made", build_site: "Built a website", pick_files: "Asked you for files", attach_files: "Attached files", list_windows: "Looked at the windows", open_page: "Opened a page", fetch_page: "Read", search_web: "Searched the web", read_page: "Read a page", see_page: "Looked over a page", focus_window: "Brought a window forward", close_window: "Closed a window", arrange_windows: "Arranged the windows", save_note: "Saved a note", click: "Clicked", type_text: "Typed", extract_data: "Harvested data", crawl_pages: "Crawled pages", query_data: "Checked the data", save_file: "Saved a file", read_inbox: "Read the inbox", read_email: "Read an email", draft_email: "Drafted an email", watch_video: "Watched a video", build_app: "Built an app", remember: "Remembered" };
+const DOING: Record<string, string> = { think: "Thinking", research: "Researching", ask_agent: "Asking", make_artifact: "Making", build_site: "Building a website", pick_files: "Waiting for your files", attach_files: "Attaching files", list_windows: "Checking the windows", open_page: "Opening a page", fetch_page: "Reading", search_web: "Scanning the web", read_page: "Reading a page", see_page: "Looking over a page", focus_window: "Pulling up a window", close_window: "Closing a window", arrange_windows: "Tidying the windows", save_note: "Writing a note", click: "Clicking", type_text: "Typing", extract_data: "Collecting data", crawl_pages: "Crawling pages", query_data: "Checking the data", save_file: "Saving a file", read_inbox: "Opening the inbox", read_email: "Reading an email", draft_email: "Drafting an email", watch_video: "Watching a video", build_app: "Building an app", remember: "Remembering" };
 const stepWhat = (s: Step) => {
-  const i = s.input as { url?: string; query?: string; title?: string; name?: string; subject?: string; fact?: string };
-  return (i.url ?? i.query ?? i.title ?? i.name ?? i.subject ?? i.fact ?? "").replace(/^https?:\/\/(www\.)?/, "");
+  const i = s.input as { url?: string; query?: string; question?: string; agent?: string; title?: string; name?: string; subject?: string; fact?: string };
+  if (s.tool === "think") return "";
+  return (i.url ?? i.query ?? i.question ?? i.agent ?? i.title ?? i.name ?? i.subject ?? i.fact ?? "").replace(/^https?:\/\/(www\.)?/, "");
 };
 export const stepText = (s: Step) => { const what = stepWhat(s); return `${TOOL_WORDS[s.tool] ?? s.tool}${what ? `: ${what.slice(0, 64)}` : ""}`; };
 /** A live line for the speech bubble. */
@@ -118,6 +137,9 @@ export interface Run {
   error?: string;
   /** A click or typing waiting for the person. */
   ask?: { question: string; answer: (ok: boolean) => void };
+  /** Who handed this run its task, when a crewmate (or the person, from the deploy bar) did, and the task. */
+  from?: string;
+  task?: string;
   /** Tokens this run used, and how many came from the cache. */
   used?: { input: number; output: number; cached: number };
 }
@@ -129,12 +151,12 @@ export const TOKEN_LIMIT = 500_000;
 const LOCAL = new Set(["ollama", "lmstudio"]);
 export const isLocal = (a: Pick<Agent, "provider" | "model">) => LOCAL.has(a.provider ?? "") && !/[:-]cloud$/.test(a.model);
 /** Tools that only look: when Claude asks for several at once they run together. */
-export const PARALLEL = new Set(["list_windows", "fetch_page", "read_page", "see_page", "extract_data", "query_data", "watch_video", "read_inbox", "read_email"]);
+export const PARALLEL = new Set(["think", "list_windows", "fetch_page", "read_page", "see_page", "extract_data", "query_data", "watch_video", "read_inbox", "read_email"]);
 
 /** Whether a click or typing needs the person, and how to ask. Null means go ahead. */
 export function needsApproval(access: Access, what: string): string | null {
   if (access === "ask") return what;
-  return /\b(buy|order|pay|checkout|check out|purchase|subscribe|send|post|publish|submit|delete|remove|sign in|log ?in|sign up|register|confirm|transfer|book)\b/i.test(what) ? what : null;
+  return /\b(buy|order|pay|checkout|check out|purchase|subscribe|send|post|publish|share|upload|tweet|submit|delete|remove|sign in|log ?in|sign up|register|confirm|transfer|book)\b/i.test(what) ? what : null;
 }
 
 /** After email has been read, a run could be carrying someone's hidden instructions: anything that could send data out needs the person. */
@@ -209,6 +231,8 @@ const SECRET = `(e) => e.type === 'password' || /cc-|card|cvv|cvc|one-time-code|
 
 export const seeScript = `(() => { const label = ${LABEL}; return ${ELEMENTS}.map((e, i) => ({ n: i, kind: e.tagName.toLowerCase() + (e.type ? ':' + e.type : ''), label: label(e) })); })()`;
 export const labelScript = (n: number) => `(() => { const e = ${ELEMENTS}[${n}]; if (!e) return null; const label = ${LABEL}; return { label: label(e), secret: (${SECRET})(e) }; })()`;
+/** The page element see_page numbered n, as an expression evaluated in the page. */
+export const elementScript = (n: number) => `${ELEMENTS}[${Number(n) | 0}]`;
 export const clickScript = (n: number) => `(() => { const e = ${ELEMENTS}[${n}]; if (!e) return false; e.scrollIntoView({ block: 'center' }); e.click(); return true; })()`;
 export const typeScript = (n: number, text: string, submit: boolean) => `(() => { const e = ${ELEMENTS}[${n}]; if (!e || (${SECRET})(e)) return false; e.focus();
   const set = Object.getOwnPropertyDescriptor(e instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value')?.set;
@@ -216,3 +240,16 @@ export const typeScript = (n: number, text: string, submit: boolean) => `(() => 
   e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true }));
   ${submit ? `e.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true })); (e.form?.requestSubmit ? e.form.requestSubmit() : e.form?.submit());` : ""}
   return true; })()`;
+
+/** Which kind of agent suits a task, from its words: the starting point when the person deploys a new agent. Exported for tests. */
+export function orderFor(task: string): (typeof ORDERS)[number] {
+  const t = task.toLowerCase();
+  const by = (id: string) => ORDERS.find((o) => o.id === id)!;
+  if (/\b(post|publish|share|upload|instagram|facebook|tiktok|linkedin|tweet|x\.com|social)\b/.test(t)) return by("herald");
+  if (/\b(build|website|site|app|landing page|tool|game|dashboard)\b/.test(t)) return by("artisan");
+  if (/\b(email|inbox|gmail|reply|replies)\b/.test(t)) return by("ibis");
+  if (/\b(video|youtube|transcript|watch)\b/.test(t)) return by("serpent");
+  if (/\b(csv|table|spreadsheet|collect|scrape|harvest|prices|list of)\b/.test(t)) return by("scarab");
+  if (/\b(fill|form|book|cancel|order|account|canva|notion|figma)\b/.test(t)) return by("jackal");
+  return by("falcon");
+}
