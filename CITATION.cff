@@ -8,7 +8,7 @@ authors:
     alias: "tajwarah"
 repository-code: "https://github.com/tajwarah/aetherdeck"
 license: Apache-2.0
-version: 0.1.0
+version: 0.1.1
 date-released: 2026-11-05
 keywords:
   - browser

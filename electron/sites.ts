@@ -10,7 +10,7 @@
 import { app, dialog, ipcMain, shell, webContents, type BrowserWindow } from "electron";
 import { createServer, type Server } from "node:http";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join, normalize, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, posix, resolve, sep } from "node:path";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -23,8 +23,9 @@ export const siteName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-
 
 /** A path inside a site, or null when it would leave it or isn't a kind of file a site is made of. Exported for tests. */
 export function sitePath(p: string): string | null {
-  const clean = normalize(String(p).replace(/\\/g, "/").replace(/^\/+/, ""));
-  if (!clean || clean.startsWith("..") || clean.split(sep).includes("..") || /^[a-z]:/i.test(clean)) return null;
+  // Web paths, with forward slashes on every system; the file system turns them into its own when writing.
+  const clean = posix.normalize(String(p).replace(/\\/g, "/").replace(/^\/+/, ""));
+  if (!clean || clean === "." || clean.startsWith("..") || clean.split("/").includes("..") || /^[a-z]:/i.test(clean)) return null;
   return TYPES[extname(clean).toLowerCase()] ? clean : null;
 }
 
