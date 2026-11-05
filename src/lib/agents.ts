@@ -230,11 +230,11 @@ const LABEL = `(e) => (e.getAttribute('aria-label') || e.innerText || e.value ||
 const SECRET = `(e) => e.type === 'password' || /cc-|card|cvv|cvc|one-time-code|current-password|new-password|otp|ssn/i.test([e.autocomplete, e.name, e.id].join(' '))`;
 
 export const seeScript = `(() => { const label = ${LABEL}; return ${ELEMENTS}.map((e, i) => ({ n: i, kind: e.tagName.toLowerCase() + (e.type ? ':' + e.type : ''), label: label(e) })); })()`;
-export const labelScript = (n: number) => `(() => { const e = ${ELEMENTS}[${n}]; if (!e) return null; const label = ${LABEL}; return { label: label(e), secret: (${SECRET})(e) }; })()`;
+export const labelScript = (n: number) => `(() => { const e = ${ELEMENTS}[${Number(n) | 0}]; if (!e) return null; const label = ${LABEL}; return { label: label(e), secret: (${SECRET})(e) }; })()`;
 /** The page element see_page numbered n, as an expression evaluated in the page. */
 export const elementScript = (n: number) => `${ELEMENTS}[${Number(n) | 0}]`;
-export const clickScript = (n: number) => `(() => { const e = ${ELEMENTS}[${n}]; if (!e) return false; e.scrollIntoView({ block: 'center' }); e.click(); return true; })()`;
-export const typeScript = (n: number, text: string, submit: boolean) => `(() => { const e = ${ELEMENTS}[${n}]; if (!e || (${SECRET})(e)) return false; e.focus();
+export const clickScript = (n: number) => `(() => { const e = ${ELEMENTS}[${Number(n) | 0}]; if (!e) return false; e.scrollIntoView({ block: 'center' }); e.click(); return true; })()`;
+export const typeScript = (n: number, text: string, submit: boolean) => `(() => { const e = ${ELEMENTS}[${Number(n) | 0}]; if (!e || (${SECRET})(e)) return false; e.focus();
   const set = Object.getOwnPropertyDescriptor(e instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value')?.set;
   if (e.isContentEditable) e.textContent = ${JSON.stringify(text)}; else if (set) set.call(e, ${JSON.stringify(text)}); else e.value = ${JSON.stringify(text)};
   e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true }));

@@ -99,6 +99,17 @@ const meta = (html: string, name: string) =>
   html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]*content=["']([^"']*)["']`, "i"))?.[1] ??
   html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${name}["']`, "i"))?.[1];
 
+/** The page without scripts, styles and page furniture, removed until none are left (a nested one can't hide). */
+function withoutBlocks(html: string): string {
+  let out = html;
+  for (let i = 0; i < 8; i++) {
+    const next = out.replace(/<(script|style|nav|footer|header)\b[\s\S]*?<\/\1\s*>/gi, "");
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
 export async function previewUrl(input: string): Promise<{ result: SearchResult; text: string }> {
   const url = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`);
   try {
@@ -119,7 +130,7 @@ export async function previewUrl(input: string): Promise<{ result: SearchResult;
   const description = decodeEntities(meta(html, "og:description") ?? meta(html, "description") ?? "").trim();
   const canonical = html.match(/<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']+)["']/i)?.[1];
   const published = meta(html, "article:published_time");
-  const paragraphs = [...html.replace(/<(script|style|nav|footer|header)[\s\S]*?<\/\1>/gi, "").matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+  const paragraphs = [...withoutBlocks(html).matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
     .map((m) => decodeEntities(m[1]).replace(/\s+/g, " ").trim())
     .filter((p) => p.length > 60)
     .slice(0, 8);

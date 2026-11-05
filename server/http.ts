@@ -88,14 +88,25 @@ export function stableId(provider: string, key: string): string {
   return `${provider}-${(h >>> 0).toString(36)}`;
 }
 
+/** Text without markup. Repeated until nothing changes, so a nested trick like <scr<script>ipt> can't survive one pass. */
+export function stripTags(s: string): string {
+  let out = s;
+  for (let i = 0; i < 8; i++) {
+    const next = out.replace(/<[^<>]*>/g, "");
+    if (next === out) break;
+    out = next;
+  }
+  return out.replace(/[<>]/g, "");
+}
+
+/** Markup removed, then entities decoded. The result is plain text: it is always shown as text, never as HTML. */
 export function decodeEntities(s: string): string {
-  return s
-    .replace(/<[^>]+>/g, "")
+  return stripTags(s)
     .replace(/&quot;/g, '"')
     .replace(/&#0?39;|&apos;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#(\d+);/g, (_, n) => { const c = Number(n); return c > 0 && c <= 0x10ffff ? String.fromCodePoint(c) : ""; })
     .replace(/&amp;/g, "&");
 }

@@ -2,7 +2,7 @@
 // browsing session (so their sign-ins count), loading text and layout but no images, video or fonts. Pages are reused,
 // retired before they grow, closed when idle, and the pool shrinks if the app is using too much of the computer's memory.
 import { app, BrowserWindow, ipcMain, net, type WebContents } from "electron";
-import { mkdirSync, existsSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { totalmem } from "node:os";
 import { basename, extname, join } from "node:path";
 import { CRAWL_LIMIT, isHumanCheck, linksScript, paceFor, robotsAllow, robotsRules, safeFileName, textScript } from "../shared/harvest.ts";
@@ -190,10 +190,11 @@ export function agentEngine(deps: { partition: string; guard: (wc: WebContents) 
     const clean = safeFileName(name);
     const ext = /^\.(csv|json|md|txt|html)$/i.test(extname(clean)) ? extname(clean) : ".txt";
     const stem = basename(clean, extname(clean));
-    let path = join(dir, `${stem}${ext}`);
-    for (let i = 1; existsSync(path); i++) path = join(dir, `${stem} (${i})${ext}`);
-    writeFileSync(path, String(content).slice(0, 20_000_000));
-    return path;
+    // "wx" creates the file only if no file of that name exists, so nothing already there is ever overwritten.
+    for (let i = 0; ; i++) {
+      const path = join(dir, i ? `${stem} (${i})${ext}` : `${stem}${ext}`);
+      try { writeFileSync(path, String(content).slice(0, 20_000_000), { flag: "wx" }); return path; } catch (err) { if ((err as NodeJS.ErrnoException).code !== "EEXIST" || i > 999) throw err; }
+    }
   });
 
   return {

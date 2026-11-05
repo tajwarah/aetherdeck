@@ -45,3 +45,11 @@ describe("what stays on the map", () => {
     expect(onTopic(intent, found)).toBe(true);
   });
 });
+
+describe("text from pages", () => {
+  it("leaves no tag behind, however it is nested", async () => {
+    const { decodeEntities, stripTags } = await import("../../server/http.ts");
+    expect(stripTags("a<scr<script>ipt>alert(1)</script>b")).not.toMatch(/<|>/);
+    expect(decodeEntities("Fish &amp; chips &#128512; &#99999999;")).toBe("Fish & chips 😀 ");
+  });
+});

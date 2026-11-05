@@ -10,6 +10,10 @@ updates:
       dev-tools:
         dependency-type: development
         update-types: [minor, patch]
+    # Major versions (React 19, Vite 8, TypeScript 7…) change how things work: they're upgraded on purpose, not by a bot.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

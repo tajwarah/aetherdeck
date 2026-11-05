@@ -19,7 +19,7 @@ export function parseDay(html: string, isoDate: string, topicTerms: string[], re
   for (const raw of items) {
     const links = [...raw.matchAll(/<a[^>]+class="external text"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
       .map((m) => ({ href: decodeEntities(m[1]), label: decodeEntities(m[2]).trim() }))
-      .filter((l) => /^https?:\/\//.test(l.href) && !/wikipedia\.org|wikimedia\.org/.test(l.href));
+      .filter((l) => { try { const u = new URL(l.href); return /^https?:$/.test(u.protocol) && !/(^|\.)(wikipedia|wikimedia)\.org$/.test(u.hostname); } catch { return false; } });
     if (!links.length) continue;
     const haystack = decodeEntities(raw.replace(/<a[^>]+title="([^"]*)"[^>]*>/g, " $1 ")).toLowerCase();
     if (topicTerms.length && !topicTerms.every((t) => haystack.includes(t))) continue;

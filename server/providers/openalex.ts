@@ -3,7 +3,7 @@
 import { z } from "zod/v4";
 import type { Provider } from "./types.ts";
 import type { SearchResult } from "../../shared/types.ts";
-import { fetchJson, stableId } from "../http.ts";
+import { fetchJson, stableId, stripTags } from "../http.ts";
 
 const Work = z.object({
   id: z.string(),
@@ -58,9 +58,9 @@ export const openalex: Provider = {
       const authors = (w.authorships ?? []).map((a) => a.author.display_name).filter(Boolean) as string[];
       return [{
         id,
-        title: w.title.replace(/<[^>]+>/g, ""),
+        title: stripTags(w.title),
         canonicalUrl: url,
-        domain: url.startsWith("https://doi.org") ? "doi.org" : new URL(url).hostname,
+        domain: new URL(url).hostname,
         publisher: venue ?? "OpenAlex record",
         contentType: "paper" as const,
         snippet: abstract ? abstract.slice(0, 320) + (abstract.length > 320 ? "…" : "") : `${venue ?? "Scholarly work"}${w.cited_by_count ? ` · cited ${w.cited_by_count.toLocaleString("en")} times` : ""}. No abstract available in the open index.`,
