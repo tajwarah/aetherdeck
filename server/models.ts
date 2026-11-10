@@ -140,7 +140,7 @@ const ChatResponse = z.object({
 });
 
 export function compatBackend(presetName: string, preset: CompatPreset, apiKey: string, fetchImpl: typeof fetch = fetch): ModelBackend {
-  const baseUrl = (process.env.LLM_BASE_URL || preset.baseUrl).replace(/\/$/, "");
+  const baseUrl = ((presetName === "custom" || presetName === "lmstudio") && process.env.LLM_BASE_URL || preset.baseUrl).replace(/\/$/, "");
   let model: string | undefined = process.env.LLM_MODEL || preset.defaultModel;
   let modelInfo: { supported_parameters?: string[] } | undefined;
   let resolving: Promise<string> | null = null;
@@ -408,12 +408,12 @@ function select(): ModelBackend | null {
       return null;
     }
     const key = process.env[preset.keyEnv] || (explicit ? process.env.LLM_API_KEY : undefined);
-    if (!key) continue;
+    if (!key && !(name === "custom" && explicit && process.env.LLM_BASE_URL)) continue;
     if (name === "custom" && !process.env.LLM_BASE_URL) {
       log("warn", "llm_custom_needs_base_url", {});
       return null;
     }
-    return compatBackend(name, preset, key);
+    return compatBackend(name, preset, key || "none");
   }
   return null;
 }
@@ -437,6 +437,8 @@ export const AI_PROVIDERS = [
   { id: "ollama", label: "Ollama", keyEnv: "" },
   { id: "ollama-cloud", label: "Ollama Cloud", keyEnv: "OLLAMA_API_KEY" },
   { id: "lmstudio", label: "LM Studio", keyEnv: "" },
+  { id: "moonshot", label: "Moonshot (Kimi)", keyEnv: "MOONSHOT_API_KEY" },
+  { id: "custom", label: "Custom endpoint", keyEnv: "LLM_API_KEY" },
 ] as const;
 
 const CHAT_MODEL = /^(gpt-|o\d|chatgpt-)/;
@@ -468,7 +470,7 @@ export async function listModels(provider: string, apiKey: string, fetchImpl: ty
   }
   const preset = PRESETS[provider];
   if (!preset) throw new Error(`Unknown provider ${provider}`);
-  const res = await fetchImpl(`${preset.baseUrl}/models`, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(provider === "lmstudio" ? 3000 : 15_000) }).catch(() => { throw new Error(`${preset.label} isn't running on this computer`); });
+  const res = await fetchImpl(`${(provider === "custom" || provider === "lmstudio" ? process.env.LLM_BASE_URL || preset.baseUrl : preset.baseUrl).replace(/\/$/, "")}/models`, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(provider === "lmstudio" ? 3000 : 15_000) }).catch(() => { throw new Error(provider === "custom" ? "That address can't be reached" : `${preset.label} isn't running on this computer`); });
   if (res.status === 401 || res.status === 403) throw new Error(`${preset.label} did not accept that key`);
   if (!res.ok) throw new Error(`${preset.label} answered HTTP ${res.status}`);
   const body = (await res.json()) as { data?: { id: string; name?: string; created?: number }[] };

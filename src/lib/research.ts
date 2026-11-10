@@ -1,7 +1,7 @@
 // The research board: every search can stay as a card, and cards can be connected, grouped and summarised together by
 // the person's own model. Kept on this computer in one small file: a personal board needs no database.
 import type { EnvironmentModel } from "../../shared/types.ts";
-import { desktop } from "./desktop.ts";
+import { desktop, roomBridge } from "./desktop.ts";
 
 export interface ResearchSource { title: string; url: string; domain: string; snippet: string }
 export interface Research { id: string; question: string; at: number; x: number; y: number; sources: ResearchSource[]; findings: string[]; group?: string }
@@ -113,11 +113,13 @@ export function checkCitations(text: string, count: number) {
 }
 
 export async function loadBoard(): Promise<Board> {
-  const saved = desktop ? await desktop.invoke<Board | null>("research:load").catch(() => null) : (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? "null") as Board | null; } catch { return null; } })();
+  const store = desktop ?? roomBridge;
+  const saved = store ? await store.invoke<Board | null>("research:load").catch(() => null) : (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? "null") as Board | null; } catch { return null; } })();
   return { ...EMPTY_BOARD, ...saved };
 }
 
 export function saveBoard(board: Board) {
-  if (desktop) return void desktop.invoke("research:save", board);
+  const store = desktop ?? roomBridge;
+  if (store) return void store.invoke("research:save", board);
   try { localStorage.setItem(KEY, JSON.stringify(board)); } catch { /* lasts for this visit */ }
 }

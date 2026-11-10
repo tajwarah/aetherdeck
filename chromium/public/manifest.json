@@ -1,0 +1,76 @@
+{
+  "manifest_version": 3,
+  "name": "AetherDeck Sidekick",
+  "version": "0.1.0",
+  "description": "Ask Cosmonaut about the page you are on, and explore anything you select in AetherDeck. Runs against the AetherDeck server on your own computer.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAod4DptuQBMWG4/h04gCPDF9O/CN7EPoY1iD5kYRfr9Db2La44T+7hr480ECOkh1TAZF6tz76+1Qm7YLSSUj9YyCqy16qdMJNRtl/NMHVANpAyhN/Av/1uvEWJh7UTV+u+EvF5kNRG9ZM2KBLAAUYo/nQrJLO9msEROeOwRaJsIS8BcaIqm/pr/KEv/jnX8+P7t2Rie8UR904HOW3uLiu7DIaWYP92oiEDy3IcW/+cfDgyTA/oSvy9n2LMYdXJzjtAL6AE07APsfvaIsdDnbkVkkF4fVatPNmBdgLOI3nbC125lgX/mAmwMuTxWuhiXTuF8wQ9KTxGQpaojqyfQqK8QIDAQAB",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "Ask Cosmonaut about this page",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "storage",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8787/*",
+    "http://localhost:8787/*"
+  ],
+  "optional_permissions": [
+    "webNavigation"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "commands": {
+    "open-room": {
+      "suggested_key": {
+        "default": "Alt+Shift+R"
+      },
+      "description": "Open the AetherDeck Room"
+    },
+    "room-prev": {
+      "suggested_key": {
+        "default": "Alt+Shift+Left"
+      },
+      "description": "Room: turn to the previous pane"
+    },
+    "room-next": {
+      "suggested_key": {
+        "default": "Alt+Shift+Right"
+      },
+      "description": "Room: turn to the next pane"
+    },
+    "room-overview": {
+      "suggested_key": {
+        "default": "Alt+Shift+O"
+      },
+      "description": "Room: show all panes"
+    }
+  },
+  "omnibox": {
+    "keyword": "ad"
+  }
+}

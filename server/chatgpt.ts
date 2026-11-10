@@ -18,7 +18,6 @@ let source: Source | null = null;
 /** The desktop app hands over a way to get a fresh access token once the person has signed in. */
 export function setChatGPT(s: Source | null) { source = s; }
 export const chatgptReady = () => !!source?.ready();
-export const chatgptAccount = () => source?.email?.();
 
 type Item = Record<string, unknown>;
 interface Done { output: { type: string; content?: { type: string; text?: string }[]; call_id?: string; name?: string; arguments?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { cached_tokens?: number } }; status?: string; incomplete_details?: { reason?: string } }

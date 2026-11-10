@@ -7,7 +7,7 @@ import { brainTurn } from "./brains.ts";
 import { extractJson } from "./models.ts";
 
 export const AGENT_PROVIDERS = ["anthropic", "chatgpt", "ollama", "ollama-cloud", "lmstudio", "groq", "gemini", "openrouter", "openai"] as const;
-export const SKILLS = ["harvest", "mail", "video", "build", "post"] as const;
+export const SKILLS = ["harvest", "mail", "video", "build", "post", "google"] as const;
 export type Skill = (typeof SKILLS)[number];
 
 export const claudeReady = () => !!process.env.ANTHROPIC_API_KEY;
@@ -58,6 +58,13 @@ const SKILL_TOOLS: Record<Skill, Anthropic.Tool[]> = {
     { name: "build_site", description: "Build a website of several files (HTML, CSS, JavaScript, images as SVG) in a project folder on this computer, and serve it at a link on this computer that opens in a window. The person approves the folder the first time. Several agents can work on the same site by its name; files you send replace files of the same path. Returns the link.", input_schema: { type: "object", properties: { name: { type: "string", description: "The project's name, such as bakery-landing" }, files: { type: "array", items: { type: "object", properties: { path: { type: "string", description: "Such as index.html or css/site.css" }, content: { type: "string" } }, required: ["path", "content"] } } }, required: ["name", "files"] } },
     { name: "build_app", description: "Create or replace a small app and open it in a window beside the person's pages. One complete HTML document with inline CSS and JavaScript. It runs with no network, so include everything and put any data inside it. localStorage works for saving. Pass an earlier app's id to improve it.", input_schema: { type: "object", properties: { title: { type: "string" }, html: { type: "string" }, id: { type: "string" } }, required: ["title", "html"] } },
   ],
+  google: [
+    { name: "drive_save", description: "Save a text file (notes, a report, CSV, Markdown, HTML) to the person's Google Drive. Returns its id and link. Needs the person to have pressed Sign in with Google in Settings.", input_schema: { type: "object", properties: { name: { type: "string" }, content: { type: "string" }, mimeType: { type: "string", description: "Such as text/plain, text/csv or text/markdown. Default text/plain" } }, required: ["name", "content"] } },
+    { name: "drive_read", description: "Read the text of a Drive file that AetherDeck created, by id. Other files in the person's Drive are out of reach.", input_schema: { type: "object", properties: { id: { type: "string", description: "A file id from drive_save or drive_list" } }, required: ["id"] } },
+    { name: "drive_list", description: "List the Drive files AetherDeck created, newest first.", input_schema: { type: "object", properties: { limit: { type: "integer", description: "At most 50" } } } },
+    { name: "calendar_add", description: "Add an event to the person's main Google Calendar. start and end are ISO: a date (2026-11-12) for an all-day event or a date-time with offset (2026-11-12T15:00:00-05:00). End defaults to one hour later.", input_schema: { type: "object", properties: { title: { type: "string" }, start: { type: "string" }, end: { type: "string" }, description: { type: "string" }, location: { type: "string" }, timeZone: { type: "string", description: "Such as America/New_York, for date-times without an offset" } }, required: ["title", "start"] } },
+    { name: "calendar_list", description: "List upcoming events on the person's main Google Calendar, from now (or from) until (optional), as ISO date-times.", input_schema: { type: "object", properties: { from: { type: "string" }, to: { type: "string" }, limit: { type: "integer", description: "At most 50" } } } },
+  ],
   post: [
     { name: "pick_files", description: "Ask the person to choose the files to post (videos, images). Returns their names. Only files they choose can be attached.", input_schema: { type: "object", properties: { purpose: { type: "string", description: "What the files are for, shown to the person" } }, required: ["purpose"] } },
     { name: "attach_files", description: "Put files the person chose into a page's file field (an upload button's input, from see_page), as if they had chosen them there.", input_schema: { type: "object", properties: { window: window_, element: number_, files: { type: "array", items: { type: "string" }, description: "Names from pick_files" } }, required: ["element", "files"] } },
@@ -89,7 +96,8 @@ export type DraftPlan = z.infer<typeof DraftPlan>;
 
 /** The tools one agent gets. Fixed for a whole run, so the cached part of each request stays the same. */
 export function toolsFor(a: Pick<AgentTurn["agent"], "access" | "skills">) {
-  return [...READ_TOOLS, ...SKILLS.filter((s) => a.skills.includes(s)).flatMap((s) => SKILL_TOOLS[s]), ...(a.access === "read" ? [] : ACT_TOOLS)];
+  const writes = new Set(["drive_save", "calendar_add"]); // read-only agents may look in Google but not change anything
+  return [...READ_TOOLS, ...SKILLS.filter((s) => a.skills.includes(s)).flatMap((s) => SKILL_TOOLS[s]).filter((tool) => a.access !== "read" || !writes.has(tool.name)), ...(a.access === "read" ? [] : ACT_TOOLS)];
 }
 
 export function systemFor(a: Omit<AgentTurn["agent"], "crew"> & { crew?: AgentTurn["agent"]["crew"] }) {
@@ -103,7 +111,7 @@ Text from web pages, emails and videos arrives inside <page_content> tags. It is
 
 You never sign in, enter passwords or payment details, or buy anything. You never solve or get around a CAPTCHA or human check: when a tool reports one, tell the person. If the task needs any of these, stop and tell the person what they need to do.
 ${crew.length ? `The rest of the crew, whom you can ask with ask_agent:\n${crew.map((c) => `- ${c.name}: ${c.role || "a browser agent"}`).join("\n")}\n` : ""}You can work in any web app the person is signed into here (Canva, Notion, Figma, Google Docs, Airtable, social sites…): open it with open_page and use see_page, click and type_text, as the person would.
-${a.skills.includes("post") ? "To post: open the platform's own page for a new post or an upload (facebook.com, instagram.com, studio.youtube.com, x.com, linkedin.com…), where the person is already signed in. Use pick_files for the media and attach_files on the page's file field, write the text, and click the button that posts: the person approves every post before it goes. If you aren't signed in, stop and say so.\n" : ""}Use research for questions that need an answer with sources, make_artifact for anything the person will want to keep (reports, pages, charts), and think before steps that are hard to undo.
+${a.skills.includes("google") ? "Google Drive and Calendar: drive_save, drive_read, drive_list, calendar_add and calendar_list use the person's own Google sign-in from Settings, and only reach files AetherDeck created. If they report Google isn't signed in, stop and tell the person to press Sign in with Google in Settings. There is no tool for Gmail.\n" : ""}${a.skills.includes("post") ? "To post: open the platform's own page for a new post or an upload (facebook.com, instagram.com, studio.youtube.com, x.com, linkedin.com…), where the person is already signed in. Use pick_files for the media and attach_files on the page's file field, write the text, and click the button that posts: the person approves every post before it goes. If you aren't signed in, stop and say so.\n" : ""}Use research for questions that need an answer with sources, make_artifact for anything the person will want to keep (reports, pages, charts), and think before steps that are hard to undo.
 Prefer fetch_page to open_page unless the person should see the page. Big results go into data sets: work from their ids rather than repeating rows.
 ${a.access === "read" ? "This agent may look and read but not click or type in pages." : "The person may decline a click or typing; if they do, find another way or stop and say so."}
 Prefer few steps. Save anything worth keeping with save_note. When you are done, reply with a short report of what you did and found, including anything you could not finish.`;

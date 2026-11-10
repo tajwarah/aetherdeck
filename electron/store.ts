@@ -15,11 +15,11 @@ function writeJson(file: string, value: unknown) {
 }
 
 /** Keys the person can set in Settings. They become the server's environment when the app starts. */
-export const KEY_NAMES = ["BRAVE_API_KEY", "TAVILY_API_KEY", "YOUTUBE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OLLAMA_API_KEY"] as const;
+export const KEY_NAMES = ["BRAVE_API_KEY", "TAVILY_API_KEY", "YOUTUBE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OLLAMA_API_KEY", "MOONSHOT_API_KEY", "LLM_API_KEY"] as const;
 export type KeyName = (typeof KEY_NAMES)[number];
 
 /** Settings that are not secret: which AI provider and model to use, and a SearXNG address. */
-export const CONFIG_NAMES = ["LLM_PROVIDER", "LLM_MODEL", "SEARXNG_URL", "AETHERDECK_SEARCH_ENGINE", "AETHERDECK_VOICE", "AETHERDECK_SHIELDS"] as const;
+export const CONFIG_NAMES = ["LLM_PROVIDER", "LLM_MODEL", "LLM_BASE_URL", "OLLAMA_URL", "SEARXNG_URL", "AETHERDECK_SEARCH_ENGINE", "AETHERDECK_VOICE", "AETHERDECK_SHIELDS"] as const;
 export type ConfigName = (typeof CONFIG_NAMES)[number];
 
 export interface HistoryEntry { url: string; title: string; at: number }
@@ -45,9 +45,6 @@ export class Store {
     this.agents = readJson(join(dir, "agents.json"), []);
     this.research = readJson(join(dir, "research.json"), null);
     this.settings = readJson(join(dir, "settings.json"), { keys: {} });
-    // Settings saved as Warpnaut (WARPNAUT_VOICE, …) are kept under their AetherDeck names.
-    const config = this.settings.config as Record<string, string> | undefined;
-    if (config) for (const k of Object.keys(config)) if (k.startsWith("WARPNAUT_")) { config[`AETHERDECK_${k.slice(9)}`] ??= config[k]; delete config[k]; }
   }
 
   private saveSoon() {

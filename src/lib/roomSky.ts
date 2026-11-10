@@ -39,7 +39,7 @@ export const wraps = (w: number, h: number) => h > 0 && w / h >= 1.6;
 
 function db(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const open = indexedDB.open("warpnaut-room", 1) /* named before AetherDeck; kept so a saved photo stays */;
+    const open = indexedDB.open("aetherdeck-pod", 1);
     open.onupgradeneeded = () => open.result.createObjectStore("sky");
     open.onsuccess = () => resolve(open.result);
     open.onerror = () => reject(open.error);

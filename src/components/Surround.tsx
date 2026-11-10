@@ -198,7 +198,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   const pickSky = (id: SkyId) => { setSky(id); chooseSky(id); setSkyNote(""); };
   const addPhoto = async (file: File | undefined) => {
     if (!file) return;
-    setSkyNote("Fitting your photo to the room…");
+    setSkyNote("Fitting your photo to the pod…");
     const blob = await keepPhoto(file).catch(() => undefined);
     if (blob === undefined) return setSkyNote("AetherDeck couldn’t read that image. Use a JPEG, PNG or WebP.");
     if (!blob) return setSkyNote("That photo doesn’t go all the way round. Use a 360° photo, or a panorama at least twice as wide as it is tall.");
@@ -396,7 +396,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
   // On the page itself, above everything: the windows' own layer stacks below the search field.
   return createPortal(
     <div className="surround" data-ui>
-      <canvas ref={canvas} className="surround__room" data-surround data-keys tabIndex={0} aria-label={`Surround room with ${panels.length} page${panels.length === 1 ? "" : "s"} around you. Option and the arrow keys turn to the next page.`}
+      <canvas ref={canvas} className="surround__room" data-surround data-keys tabIndex={0} aria-label={`Pod with ${panels.length} page${panels.length === 1 ? "" : "s"} around you. Option and the arrow keys turn to the next page.`}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { gesture.current = null; }} onPointerLeave={() => setHover(null)}
         onContextMenu={(e) => e.preventDefault()} onKeyDown={(e) => keys("keyDown", e)} onKeyUp={(e) => keys("keyUp", e)} />
       {!panels.length && <p className="surround__empty">Press + on the bar to open a tab.</p>}
@@ -429,7 +429,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
         </div>
       )}
       {skies && (
-        <div className="surround__skies" role="dialog" aria-label="Room background">
+        <div className="surround__skies" role="dialog" aria-label="Pod view">
           <p className="surround__skyhead">Environment</p>
           <div className="surround__places">
             {SKIES.filter((k) => k.thumb).map((k) => (
@@ -459,7 +459,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
         </div>
       )}
       <div className="surround__hud" role="toolbar" aria-label="Tabs and turning">
-        <span className="surround__strip" role="slider" aria-label="Turn the room" aria-valuemin={-180} aria-valuemax={180} aria-valuenow={0} title="Drag to turn"
+        <span className="surround__strip" role="slider" aria-label="Turn the pod" aria-valuemin={-180} aria-valuemax={180} aria-valuenow={0} title="Drag to turn"
           onPointerDown={stripDown} onPointerMove={stripMove} onPointerUp={stripUp} onPointerCancel={stripUp}>
           <span className="surround__wedge" ref={wedge} style={{ width: STRIP * 0.24 }} />
           {panels.map((p) => <button key={p.id} className={`surround__mark ${p.id === focus ? "is-on" : ""}`} aria-label="Go to this tab" style={{ left: (turn(p.yaw) / TAU + 0.5) * STRIP }} onPointerDown={(e) => e.stopPropagation()} onClick={() => go2(p)} />)}
@@ -482,7 +482,7 @@ export function Surround({ wins, controls, dock, onFocus, onOpen, onDock, onClos
         </span>
         <button className="orn" aria-label="New tab" title="New tab" aria-expanded={adding} onClick={() => { setAdding((a) => !a); setSkies(false); }}><Icon d="M12 5v14M5 12h14" /></button>
         <button className="orn" aria-label="Widgets" title="Widgets" aria-expanded={widgetMenu} onClick={() => { setWidgetMenu((v) => !v); setSkies(false); setAdding(false); }}><Icon d="M4 4h7v7H4ZM13 4h7v7h-7ZM4 13h7v7H4ZM13 13h7v7h-7Z" /></button>
-        <button className="orn" aria-label="Background" title="Room background" aria-expanded={skies} onClick={() => { setSkies((v) => !v); setAdding(false); setWidgetMenu(false); }}><Icon d="M4 6h16v12H4ZM4 15l4.5-4.5 4 4L15 12l5 5M15.5 9.5h.01" /></button>
+        <button className="orn" aria-label="Background" title="Pod view" aria-expanded={skies} onClick={() => { setSkies((v) => !v); setAdding(false); setWidgetMenu(false); }}><Icon d="M4 6h16v12H4ZM4 15l4.5-4.5 4 4L15 12l5 5M15.5 9.5h.01" /></button>
         <button className="orn" aria-label="Full screen" title="Full screen" onClick={() => void desktop?.invoke("app:toggleFullscreen")}><Icon d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></button>
         <button className="orn" aria-label="Floating windows" title="Switch to floating windows" onClick={onFloating}><Icon d="M4 5h10v8H4ZM10 13v6h10v-8h-6" /></button>
         <button className="orn" aria-label="Home" title="Home" onClick={onHome}><Icon d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" /></button>

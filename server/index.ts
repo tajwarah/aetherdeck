@@ -1,4 +1,6 @@
 // AetherDeck API — a small node:http server. Credentials stay here; the browser never sees them.
+import { webChatGPT } from "./chatgpt-signin.ts";
+import { getSettings, loadSettings, modelsFor, sameOriginOnly, saveSettings } from "./settings.ts";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -21,6 +23,7 @@ import { log } from "./log.ts";
 import { contactConfigured } from "./http.ts";
 import { MAX_BLOB, SyncError, SyncStore, validId, validToken } from "./sync.ts";
 import { networkInterfaces } from "node:os";
+import { allowedExtensionIds, extensionToken, judge } from "./extension.ts";
 
 const MAX_BODY = 32 * 1024;
 
@@ -107,15 +110,44 @@ const tokenOk = (req: IncomingMessage, token: string) => {
 
 /** Starts the API (and, when built, the interface). Resolves with the port it listens on. */
 export function startServer(opts: ServerOptions): Promise<{ port: number; close: () => void }> {
+  loadSettings(opts.dataDir);
+  // Sign in with ChatGPT for the browser version. The desktop app signs in through Electron instead and never uses this.
+  const chatgptAuth = opts.token ? null : webChatGPT(opts.dataDir);
   const sync = new SyncStore(opts.dataDir);
+  const extensionIds = allowedExtensionIds();
+  const extension = extensionToken(opts.dataDir);
   const server = createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
   const url = new URL(req.url ?? "/", "http://localhost");
   const ip = req.socket.remoteAddress ?? "unknown";
-  if (opts.token && !tokenOk(req, opts.token)) return send(res, 403, { error: "Forbidden" });
+  // The Sidekick browser extension: its own origin, its own token, a short list of endpoints (server/extension.ts).
+  const verdict = judge(req, url.pathname, extensionIds, extension.token);
+  for (const [k, v] of Object.entries(verdict.headers)) res.setHeader(k, v);
+  if (!verdict.go) {
+    if (verdict.body === undefined) { res.writeHead(verdict.status); return void res.end(); }
+    return send(res, verdict.status, verdict.body);
+  }
+  if (opts.token && !verdict.extension && !tokenOk(req, opts.token)) return send(res, 403, { error: "Forbidden" });
   try {
     if (url.pathname === "/api/health") {
       return send(res, 200, { ok: true, demo: demoForced(), llm: llmEnabled(), model: llmInfo(), vision: getBackend()?.vision ?? false, voice: voiceService()?.label ?? null, claude: claudeReady(), providers: providerStatus(), videoSearch: videoSearchConfigured(), sync: true, publicUrl: process.env.PUBLIC_URL || null, lan: lanAddresses() });
+    }
+
+    // AI keys and choices for the browser version, from the page this server serves.
+    if (url.pathname.startsWith("/api/chatgpt/")) {
+      if (!chatgptAuth || !sameOriginOnly(req)) return send(res, 403, { error: "Settings can only be changed from AetherDeck's own page." });
+      if (url.pathname === "/api/chatgpt/status" && req.method === "GET") return send(res, 200, chatgptAuth.status());
+      if (url.pathname === "/api/chatgpt/start" && req.method === "POST") {
+        try { await chatgptAuth.begin(); return send(res, 200, chatgptAuth.status()); } catch (err) { return send(res, 502, { error: (err as Error).message }); }
+      }
+      if (url.pathname === "/api/chatgpt/cancel" && req.method === "POST") { chatgptAuth.cancel(); return send(res, 200, chatgptAuth.status()); }
+      if (url.pathname === "/api/chatgpt/signout" && req.method === "POST") { chatgptAuth.signOut(); return send(res, 200, chatgptAuth.status()); }
+    }
+    if (url.pathname.startsWith("/api/settings") || url.pathname === "/api/ai/models") {
+      if (!sameOriginOnly(req)) return send(res, 403, { error: "Settings can only be changed from AetherDeck's own page." });
+      if (url.pathname === "/api/settings" && req.method === "GET") return send(res, 200, getSettings(opts.dataDir));
+      if (url.pathname === "/api/settings" && req.method === "POST") return send(res, 200, saveSettings(opts.dataDir, (await readBody(req, 64 * 1024)) as never));
+      if (url.pathname === "/api/ai/models" && req.method === "POST") { const b = (await readBody(req, 16 * 1024)) as { provider?: string; key?: string }; return send(res, 200, await modelsFor(opts.dataDir, String(b.provider ?? ""), b.key)); }
     }
 
     if (url.pathname === "/api/explore" && req.method === "POST") {
@@ -297,6 +329,7 @@ export function startServer(opts: ServerOptions): Promise<{ port: number; close:
     server.listen(opts.port, opts.host, () => {
       if (!contactConfigured) log("warn", "contact_missing", { hint: "Set AETHERDECK_CONTACT (an email or URL). Wikimedia and OpenStreetMap ask API clients to identify themselves and throttle anonymous ones." });
       log("info", "listening", { port: opts.port, llm: llmInfo()?.provider ?? "off", demo: demoForced(), providers: providerStatus().filter((p) => p.configured).map((p) => p.id) });
+      if (extension.file) log("info", "extension_token", { file: extension.file, hint: "Paste its contents into the AetherDeck Sidekick extension's options." });
       const addr = server.address();
       resolve({ port: typeof addr === "object" && addr ? addr.port : opts.port, close: () => server.close() });
     });

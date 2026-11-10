@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Framed-site cookie test</title><link rel="stylesheet" href="common.css"></head>
+<body><main>
+<h1>Framed-site cookie test</h1>
+<p>Question: when a web page is shown inside an extension page (as AetherDeck's panes would be), does it still see the cookies and sign-in you have in a normal tab? Run the three tests, answer what you see, then press <b>Copy report</b> and paste it back.</p>
+
+<h2>Test 1: a harmless probe (no sign-in needed)</h2>
+<p>Uses httpbin.org, a public test service, to set one ordinary cookie and show it back.</p>
+<div class="row"><button id="set">1. Set the probe cookie in a normal tab</button><button id="show">2. Show httpbin's cookies in a frame</button></div>
+<iframe id="probe" title="probe frame" referrerpolicy="no-referrer"></iframe>
+<label>What does the frame show?</label>
+<div class="row" id="a1">
+  <label><input type="radio" name="t1" value="cookie present"> it lists <code>aetherdeck_probe</code></label>
+  <label><input type="radio" name="t1" value="cookies empty"> it shows empty cookies</label>
+  <label><input type="radio" name="t1" value="blank or error"> blank or an error</label>
+</div>
+
+<h2>Test 2: a site you are signed in to, framed as it is</h2>
+<p>Open a site you are signed in to in a normal tab first (for example your GitHub, Reddit or news account), then type its address here. Only the site's address (origin) goes in the report, never what the frame shows.</p>
+<div class="row"><input id="site" type="url" placeholder="https://example.com/" style="flex:1;min-width:220px"><button id="frame2">Show in frame</button></div>
+<iframe id="f2" title="site frame"></iframe>
+<div class="row" id="a2">
+  <label><input type="radio" name="t2" value="signed in"> loads, and I am signed in</label>
+  <label><input type="radio" name="t2" value="logged out"> loads, but I look signed out</label>
+  <label><input type="radio" name="t2" value="refused"> refuses to load in a frame</label>
+</div>
+
+<h2>Test 3: the same site with the framing block removed</h2>
+<p>Removes the <code>X-Frame-Options</code> and <code>Content-Security-Policy</code> response headers for frames in this tab only, using a temporary browser rule. The browser asks permission for that one site.</p>
+<div class="row"><button id="strip">Allow this site and remove the block</button><button id="unstrip">Remove the rule</button><span id="rule" role="status"></span></div>
+<iframe id="f3" title="site frame without block"></iframe>
+<div class="row" id="a3">
+  <label><input type="radio" name="t3" value="signed in"> loads, and I am signed in</label>
+  <label><input type="radio" name="t3" value="logged out"> loads, but I look signed out</label>
+  <label><input type="radio" name="t3" value="still refused"> still refuses or is blank</label>
+</div>
+
+<h2>Report</h2>
+<pre id="report"></pre>
+<div class="row"><button id="copy" class="primary">Copy report</button><button id="clean">Remove the probe cookie</button><span id="done" role="status"></span></div>
+</main><script src="cookie-test.js"></script></body></html>

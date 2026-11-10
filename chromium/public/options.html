@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AetherDeck Sidekick options</title><link rel="stylesheet" href="common.css"></head>
+<body><main>
+<h1>AetherDeck Sidekick</h1>
+<p>The Sidekick talks to the AetherDeck server on this computer. Start it with <code>npm run build &amp;&amp; npm start</code> in the AetherDeck folder.</p>
+<label for="server">Server address</label>
+<input id="server" type="url" placeholder="http://127.0.0.1:8787" autocomplete="off">
+<label for="token">Extension token</label>
+<input id="token" type="password" autocomplete="off" placeholder="Paste the contents of data/sync/extension-token">
+<p>The server creates this token the first time it starts and keeps it in <code>extension-token</code> in its data folder (the path is printed when it starts). Anything without it is refused. It is stored in this browser's extension storage on this computer.</p>
+<div class="row"><button id="save" class="primary">Save and test</button><span id="status" role="status"></span></div>
+<p>AI model keys belong to the server (its <code>.env</code> file or the AetherDeck desktop app), not to this extension. Nothing from a page is sent anywhere until you ask a question, and then only to the address above.</p>
+</main><script src="options.js"></script></body></html>

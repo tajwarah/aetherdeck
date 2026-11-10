@@ -1,0 +1,10 @@
+#!/bin/bash
+# Runs Mozilla's mach in the Firefox source with our Python, state directory and mozconfig:  browser/scripts/mach build
+# Runs with a scrubbed environment on purpose: mach's build logs print the whole environment, and the shell that started us
+# can hold tokens. Only what a build needs is passed through.
+set -euo pipefail
+. "$(dirname "$0")/env.sh"
+cd "$ENGINE"
+exec env -i HOME="$HOME" USER="${USER:-}" LANG="${LANG:-en_US.UTF-8}" TERM="${TERM:-dumb}" TMPDIR="${TMPDIR:-/tmp}" \
+  PATH="$PATH" MOZBUILD_STATE_PATH="$MOZBUILD_STATE_PATH" MOZCONFIG="$MOZCONFIG" \
+  "$PY" mach "$@"

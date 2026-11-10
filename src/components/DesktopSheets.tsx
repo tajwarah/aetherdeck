@@ -1,6 +1,7 @@
 // The desktop app's own sheets: Library (history, bookmarks, downloads), Settings (keys, default browser,
 // updates) and the prompt a page triggers when it asks for the camera, microphone, location or notifications.
 import { useEffect, useState } from "react";
+import { webBridge } from "../lib/webSettings.ts";
 import { desktop, type AppInfo, type Download, type HistoryEntry, type PermissionAsk } from "../lib/desktop.ts";
 
 export type LibraryTab = "history" | "bookmarks" | "downloads";
@@ -89,7 +90,16 @@ export const AI_CHOICES = [
   { id: "ollama", label: "Ollama, on this computer", key: "", url: "https://ollama.com/download", note: "Free and private: nothing leaves your computer. Needs the Ollama app and a downloaded model." },
   { id: "ollama-cloud", label: "Ollama Cloud", key: "OLLAMA_API_KEY", url: "https://ollama.com/settings/keys", note: "Open models on Ollama's computers, so yours can be small. See its plans at ollama.com/pricing." },
   { id: "lmstudio", label: "LM Studio, on this computer", key: "", url: "https://lmstudio.ai", note: "Free and private. Start LM Studio's local server first." },
+  { id: "moonshot", label: "Moonshot (Kimi)", key: "MOONSHOT_API_KEY", url: "https://platform.moonshot.ai/console/api-keys", note: "Kimi models. Paid per use." },
+  { id: "custom", label: "Other (any OpenAI-compatible service)", key: "LLM_API_KEY", url: "https://platform.openai.com/docs/api-reference/chat", note: "Paste the service's address (it ends in /v1) and, if it needs one, its key. Works with vLLM, llama.cpp, Together, Mistral, DeepSeek, Fireworks and many more." },
 ] as const;
+
+/** Providers whose address can be changed, and the setting that holds it. */
+const ADDRESS: Record<string, { name: "OLLAMA_URL" | "LLM_BASE_URL"; hint: string }> = {
+  ollama: { name: "OLLAMA_URL", hint: "http://127.0.0.1:11434 (another computer on your network works too)" },
+  lmstudio: { name: "LLM_BASE_URL", hint: "http://127.0.0.1:1234/v1" },
+  custom: { name: "LLM_BASE_URL", hint: "https://api.example.com/v1" },
+};
 
 const VOICE_CHOICES = [["", "Automatic", ""], ["openai", "Whisper · OpenAI", "OPENAI_API_KEY"], ["groq", "Whisper · Groq", "GROQ_API_KEY"], ["gemini", "Gemini", "GEMINI_API_KEY"]] as const;
 
@@ -100,7 +110,8 @@ const SEARCH: { name: string; label: string; help: string; url: string }[] = [
   { name: "TAVILY_API_KEY", label: "Tavily", help: "Web search made for research, with readable extracts. 1,000 free searches a month.", url: "https://app.tavily.com/" },
 ];
 
-const open = (url: string) => (e: React.MouseEvent) => { e.preventDefault(); void desktop?.invoke("app:openExternal", url); };
+const bridge = { invoke: <T,>(channel: string, ...args: unknown[]): Promise<T> => (desktop ?? webBridge).invoke<T>(channel, ...args) };
+const open = (url: string) => (e: React.MouseEvent) => { e.preventDefault(); void bridge.invoke("app:openExternal", url).catch(() => undefined); };
 
 const PAGES = [
   { id: "ai", label: "AI and Claude", tint: "#c8743c", icon: "M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9Z" },
@@ -114,6 +125,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [provider, setProvider] = useState<string>("anthropic");
   const [aiKey, setAiKey] = useState("");
+  const [address, setAddress] = useState("");
   const [models, setModels] = useState<{ id: string; name: string }[] | null>(null);
   const [model, setModel] = useState("");
   const [checking, setChecking] = useState(false);
@@ -124,11 +136,13 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState("");
   const [page, setPage] = useState<(typeof PAGES)[number]["id"]>("ai");
   useEffect(() => {
-    void desktop?.invoke<AppInfo>("app:info").then((i) => {
+    void bridge.invoke<AppInfo>("app:info").then((i) => {
       setInfo(i);
       const current = i.config.LLM_PROVIDER ?? AI_CHOICES.find((a) => a.key && i.keys[a.key])?.id;
       if (current) setProvider(current);
       if (i.config.LLM_MODEL) setModel(i.config.LLM_MODEL);
+      const a = ADDRESS[current ?? ""];
+      if (a) setAddress(i.config[a.name] ?? "");
     });
   }, []);
   // Escape closes the sheet wherever focus is (a button that becomes disabled drops focus to the page).
@@ -140,18 +154,22 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const p = AI_CHOICES.find((a) => a.id === provider) ?? AI_CHOICES[0];
   const connected = info ? (info.config.LLM_PROVIDER ? AI_CHOICES.find((a) => a.id === info.config.LLM_PROVIDER && (!a.key || info.keys[a.key])) : AI_CHOICES.find((a) => a.key && info.keys[a.key])) : undefined;
 
+  const addr = ADDRESS[provider];
+  /** The address must be in force before the models are listed from it. */
+  const saveAddress = async () => { if (addr && address.trim()) await bridge.invoke("app:setKeys", {}, contact ?? undefined, { [addr.name]: address.trim() }); };
   const check = async () => {
     setChecking(true);
     setAiError("");
-    const r = await desktop!.invoke<{ models?: { id: string; name: string }[]; error?: string }>("ai:models", provider, aiKey);
+    await saveAddress();
+    const r = await bridge.invoke<{ models?: { id: string; name: string }[]; error?: string }>("ai:models", provider, aiKey);
     setChecking(false);
     if (r.error || !r.models) { setModels(null); setAiError(r.error ?? "No models were listed."); return; }
     setModels(r.models);
     if (!r.models.some((m) => m.id === model)) setModel(r.models[0]?.id ?? "");
   };
   const apply = async (keys: Record<string, string>, config?: Record<string, string>, note = "Saved. In use now.") => {
-    const k = await desktop!.invoke<Record<string, boolean>>("app:setKeys", keys, contact ?? undefined, config);
-    const fresh = await desktop!.invoke<AppInfo>("app:info");
+    const k = await bridge.invoke<Record<string, boolean>>("app:setKeys", keys, contact ?? undefined, config);
+    const fresh = await bridge.invoke<AppInfo>("app:info");
     setInfo({ ...fresh, keys: k });
     setSaved(note);
   };
@@ -159,11 +177,13 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const connect = async () => {
     setChecking(true);
     setAiError("");
-    const r = await desktop!.invoke<{ models?: { id: string; name: string }[]; error?: string }>("ai:models", provider, aiKey);
+    if (provider === "custom" && !address.trim()) { setChecking(false); setAiError("Enter the service's address first."); return; }
+    await saveAddress();
+    const r = await bridge.invoke<{ models?: { id: string; name: string }[]; error?: string }>("ai:models", provider, aiKey);
     setChecking(false);
     if (r.error || !r.models?.length) { setAiError(r.error ?? "No models were listed."); return; }
     const best = r.models.find((m) => m.id === model) ?? r.models.find((m) => m.id === "claude-opus-5-5") ?? r.models[0];
-    await apply(aiKey && p.key ? { [p.key]: aiKey } : {}, { LLM_PROVIDER: provider, LLM_MODEL: best.id }, `Connected to ${p.label} · ${best.name}.`);
+    await apply(aiKey && p.key ? { [p.key]: aiKey } : {}, { LLM_PROVIDER: provider, LLM_MODEL: best.id, ...(addr && address.trim() ? { [addr.name]: address.trim() } : {}) }, `Connected to ${p.label} · ${best.name}.`);
     setModel(best.id);
     setModels(r.models);
     setAiKey("");
@@ -179,7 +199,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
       <section className="prefs" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <nav className="prefs__side" aria-label="Settings">
           <h2 className="prefs__title" id="settings-title">Settings</h2>
-          {PAGES.map((x) => (
+          {PAGES.filter((x) => desktop || x.id === "ai" || x.id === "search").map((x) => (
             <button key={x.id} className={`prefs__item ${page === x.id ? "is-on" : ""}`} aria-current={page === x.id ? "page" : undefined} onClick={() => { setPage(x.id); setSaved(""); }}>
               <span className="prefs__tile" style={{ background: x.tint }}><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={x.icon} /></svg></span>
               {x.label}
@@ -196,6 +216,8 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
 
           {page === "ai" && <>
             <ChatGPTPlan />
+            {desktop && <GoogleForAgents />}
+            {!desktop && <p className="group__note">Keys and the ChatGPT sign-in are saved on this computer only, in files nobody else can read, and sent only to the provider you pick.</p>}
             <div className="group">
               <div className="group__row">
                 <span>Status</span>
@@ -208,9 +230,13 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
                   {AI_CHOICES.map((a) => <option key={a.id} value={a.id}>{a.label}{info?.keys[a.key] ? " ✓" : ""}</option>)}
                 </select>
               </div>
+              {addr && <label className="group__row">
+                <span>Address</span>
+                <input type="url" autoComplete="off" spellCheck={false} placeholder={addr.hint} value={address} onChange={(e) => { setAddress(e.target.value); setSaved(""); setAiError(""); setModels(null); }} />
+              </label>}
               {p.key && <label className="group__row">
                 <span>API key</span>
-                <input type="password" autoComplete="off" spellCheck={false} placeholder={info?.keys[p.key] ? "Saved ••••••••" : "Paste your key"} value={aiKey} onChange={(e) => { setAiKey(e.target.value); setSaved(""); setAiError(""); }} />
+                <input type="password" autoComplete="off" spellCheck={false} placeholder={info?.keys[p.key] ? "Saved ••••••••" : provider === "custom" ? "Paste the key, if it needs one" : "Paste your key"} value={aiKey} onChange={(e) => { setAiKey(e.target.value); setSaved(""); setAiError(""); }} />
               </label>}
               {models && (
                 <div className="group__row">
@@ -224,12 +250,13 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
             <div className="prefs__actions">
               {aiError && <span className="fine fine--error" role="alert">{aiError}</span>}
               {(!p.key || info?.keys[p.key]) && !aiKey && !models && <button className="btn" disabled={checking} onClick={() => void check()}>{checking ? "Checking…" : "Choose model"}</button>}
-              <button className="btn btn--primary" disabled={checking || (!!p.key && !aiKey && !info?.keys[p.key])} onClick={() => void connect()}>{checking ? "Checking…" : `Connect ${p.label}`}</button>
+              <button className="btn btn--primary" disabled={checking || (!!p.key && provider !== "custom" && !aiKey && !info?.keys[p.key])} onClick={() => void connect()}>{checking ? "Checking…" : `Connect ${p.label}`}</button>
             </div>
-            <p className="group__note">{p.note} {p.key ? <>A key is separate from a ChatGPT or Claude subscription: <a href={p.url} onClick={open(p.url)}>create one with {p.label}</a>.</> : <a href={p.url} onClick={open(p.url)}>Get {p.label}</a>} {p.key && <>It's encrypted with your system keychain and sent only to {p.label}.</>} This model powers research maps, Cosmonaut and file reading. Each agent chooses its own.</p>
+            <p className="group__note">{p.note} {p.key ? <>A key is separate from a ChatGPT or Claude subscription: <a href={p.url} onClick={open(p.url)}>create one with {p.label}</a>.</> : <a href={p.url} onClick={open(p.url)}>Get {p.label}</a>} {p.key && <>{desktop ? "It's encrypted with your system keychain and sent only to" : "It's kept in a private file on this computer and sent only to"} {p.label}.</>} This model powers research maps, Cosmonaut and file reading. Each agent chooses its own.</p>
           </>}
 
           {page === "search" && <>
+            {desktop && <>
             <p className="group__title">Search engine</p>
             <div className="seg" role="radiogroup" aria-label="Search engine">
               {ENGINE_CHOICES.map(([id, label]) => {
@@ -238,6 +265,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
               })}
             </div>
             <p className="group__note">Your engine's results page opens beside the map, as if you had searched yourself. If it asks you something first, its window stays in front for you to answer. Off: AetherDeck uses the services below and open sources only.</p>
+            </>}
             <p className="group__title">Search services</p>
             <div className="group">
               {SEARCH.map((k) => (
@@ -254,10 +282,10 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
                 <span>YouTube Data API key</span>
                 <input type="password" autoComplete="off" spellCheck={false} placeholder={info?.keys.YOUTUBE_API_KEY ? "Saved ••••••••" : "Not set"} value={draft.YOUTUBE_API_KEY ?? ""} onChange={(e) => { setSaved(""); setDraft((d) => ({ ...d, YOUTUBE_API_KEY: e.target.value })); }} />
               </label>
-              <label className="group__row">
+              {desktop && <label className="group__row">
                 <span>Contact for open data</span>
                 <input placeholder="you@example.com" value={contact ?? info?.contact ?? ""} onChange={(e) => { setSaved(""); setContact(e.target.value); }} />
-              </label>
+              </label>}
             </div>
             <div className="prefs__actions"><button className="btn btn--primary" disabled={!dirty} onClick={save}>Save</button></div>
             <p className="group__note">{SEARCH.map((k, i) => <span key={k.name}>{i ? " · " : ""}<a href={k.url} onClick={open(k.url)}>Get a {k.label} key</a></span>)}. Wikipedia and OpenStreetMap ask apps to say who they are; the contact is sent to them, nowhere else.</p>
@@ -344,12 +372,22 @@ export function ChatGPTPlan() {
   const [st, setSt] = useState<{ signedIn: boolean; email?: string; available: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const read = () => void desktop?.invoke<{ signedIn: boolean; email?: string; available: boolean }>("chatgpt:status").then(setSt).catch(() => undefined);
+  const [browser, setBrowser] = useState("");
+  const [copied, setCopied] = useState(false);
+  const read = () => void bridge.invoke<{ signedIn: boolean; email?: string; available: boolean }>("chatgpt:status").then(setSt).catch(() => undefined);
   useEffect(read, []);
+  useEffect(() => desktop?.on("chatgpt:opened", (p) => setBrowser((p as { browser: string }).browser)), []);
   const go = async () => {
-    setBusy(true); setErr("");
-    try { await desktop!.invoke("chatgpt:signIn"); } catch (e) { setErr((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "")); }
+    setBusy(true); setErr(""); setBrowser(""); setCopied(false);
+    try { await bridge.invoke("chatgpt:signIn"); } catch (e) {
+      const m = (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+      if (m !== "cancelled") setErr(m);
+    }
     setBusy(false); read();
+  };
+  const copyLink = async () => {
+    const url = await bridge.invoke<string>("chatgpt:link");
+    if (url) { await navigator.clipboard.writeText(url).catch(() => undefined); setCopied(true); }
   };
   if (!st) return null;
   return (
@@ -358,15 +396,90 @@ export function ChatGPTPlan() {
         <span>ChatGPT plan</span>
         <span className={st.signedIn ? "group__ok" : "group__dim"}>{st.signedIn ? `Signed in${st.email ? ` as ${st.email}` : ""}` : "Not signed in"}</span>
         {st.signedIn
-          ? <button className="btn btn--small" onClick={() => void desktop!.invoke("chatgpt:signOut").then(read)}>Sign out</button>
-          : <button className="btn btn--small btn--primary" disabled={busy || !st.available} onClick={() => void go()}>{busy ? "Waiting for ChatGPT…" : "Sign in with ChatGPT"}</button>}
+          ? <button className="btn btn--small" onClick={() => void bridge.invoke("chatgpt:signOut").then(read)}>Sign out</button>
+          : busy
+            ? <button className="btn btn--small" onClick={() => void bridge.invoke("chatgpt:cancel")}>Cancel</button>
+            : <button className="btn btn--small btn--primary" disabled={!st.available} onClick={() => void go()}>Sign in with ChatGPT</button>}
       </div>
       <p className="group__note">
         {st.signedIn
           ? "Agents you give the ChatGPT model run on your plan, and so do research and Cosmonaut unless you connect another provider below. It counts up to the share you allow AetherDeck in ChatGPT's settings."
           : "Use your ChatGPT Plus or Pro plan instead of an API key. You sign in on chatgpt.com in your browser, and AetherDeck never sees your password. Requests count toward your plan, up to a limit you set in ChatGPT."}
-        {busy && " Finish signing in in your browser."}
       </p>
+      {busy && (
+        <p className="group__note chatgpt__wait" role="status">
+          <b>Finish signing in {browser ? `in ${browser}` : "in your browser"}.</b> This page waits for it. Didn't open, or want another browser?{" "}
+          <button className="linkbtn" onClick={() => void copyLink()}>{copied ? "Link copied" : "Copy the sign-in link"}</button> and paste it into any browser on this computer.
+        </p>
+      )}
+      {err && <p className="fine fine--error" role="alert">{err}</p>}
+    </div>
+  );
+}
+
+/** Sign in with Google for agents (Drive and Calendar). The person brings their own OAuth client ID. */
+export function GoogleForAgents() {
+  type St = { signedIn: boolean; email?: string; available: boolean; hasClient: boolean; clientId?: string; hasSecret: boolean };
+  const [st, setSt] = useState<St | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [browser, setBrowser] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [id, setId] = useState("");
+  const [secret, setSecret] = useState("");
+  const clean = (e: unknown) => (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+  const read = () => void desktop?.invoke<St>("google:status").then(setSt).catch(() => undefined);
+  useEffect(read, []);
+  useEffect(() => desktop?.on("google:opened", (p) => setBrowser((p as { browser: string }).browser)), []);
+  const go = async () => {
+    setBusy(true); setErr(""); setBrowser(""); setCopied(false);
+    try { await bridge.invoke("google:signIn"); } catch (e) { if (clean(e) !== "cancelled") setErr(clean(e)); }
+    setBusy(false); read();
+  };
+  const saveClient = async () => {
+    setErr("");
+    try { await bridge.invoke("google:setClient", id, secret); setEditing(false); setSecret(""); read(); } catch (e) { setErr(clean(e)); }
+  };
+  const copyLink = async () => {
+    const url = await bridge.invoke<string>("google:link");
+    if (url) { await navigator.clipboard.writeText(url).catch(() => undefined); setCopied(true); }
+  };
+  if (!st) return null;
+  const showForm = editing || !st.hasClient;
+  return (
+    <div className="group google">
+      <div className="group__row">
+        <span>Google for agents</span>
+        <span className={st.signedIn ? "group__ok" : "group__dim"}>{st.signedIn ? `Signed in${st.email ? ` as ${st.email}` : ""}` : "Not signed in"}</span>
+        {st.signedIn
+          ? <button className="btn btn--small" onClick={() => void bridge.invoke("google:signOut").then(read)}>Sign out</button>
+          : busy
+            ? <button className="btn btn--small" onClick={() => void bridge.invoke("google:cancel")}>Cancel</button>
+            : <button className="btn btn--small btn--primary" disabled={!st.available || !st.hasClient} onClick={() => void go()}>Sign in with Google</button>}
+      </div>
+      <p className="group__note">
+        Lets agents with the Google power save files to your Drive and add Calendar events. It never reads your Gmail, and only reaches files AetherDeck made. You approve it on Google's page in your browser; AetherDeck never sees your password. You use your own Google client ID: <a href="https://github.com/tajwarah/aetherdeck/blob/main/docs/USING.md#google-for-agents" target="_blank" rel="noreferrer">how to make one</a>.
+      </p>
+      {showForm ? (
+        <div className="google__form">
+          <input value={id} onChange={(e) => setId(e.target.value)} placeholder="Client ID, ending in .apps.googleusercontent.com" aria-label="Google client ID" spellCheck={false} autoComplete="off" />
+          <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="Client secret (if Google gave one)" aria-label="Google client secret" spellCheck={false} autoComplete="off" />
+          <button className="btn btn--small btn--primary" disabled={!id.trim()} onClick={() => void saveClient()}>Save</button>
+          {st.hasClient && <button className="btn btn--small" onClick={() => setEditing(false)}>Cancel</button>}
+        </div>
+      ) : (
+        <div className="group__row">
+          <span>Client ID</span><span className="group__dim google__id">{st.clientId}{st.hasSecret ? " · secret saved" : ""}</span>
+          <button className="btn btn--small" onClick={() => { setId(st.clientId ?? ""); setEditing(true); }}>Change</button>
+        </div>
+      )}
+      {busy && (
+        <p className="group__note chatgpt__wait" role="status">
+          <b>Finish signing in {browser ? `in ${browser}` : "in your browser"}.</b> This page waits for it. Didn't open, or want another browser?{" "}
+          <button className="linkbtn" onClick={() => void copyLink()}>{copied ? "Link copied" : "Copy the sign-in link"}</button> and paste it into any browser on this computer.
+        </p>
+      )}
       {err && <p className="fine fine--error" role="alert">{err}</p>}
     </div>
   );

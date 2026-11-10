@@ -1,0 +1,18 @@
+# AetherDeck, built from the pinned Firefox release.
+# Optimized, no debug, no tests, no crash reporter, no updater: the smallest build that is still a real browser.
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-full
+ac_add_options --enable-application=browser
+ac_add_options --enable-optimize
+ac_add_options --disable-debug
+ac_add_options --disable-tests
+ac_add_options --disable-crashreporter
+ac_add_options --disable-updater
+ac_add_options --with-branding=browser/branding/aetherdeck
+# AetherDeck's own identity: its name and the name other programs use to reach it. Its maker and profile folder
+# (~/Library/Application Support/AetherDeck/Browser) are set in browser/moz.configure by scripts/prepare.sh, so it never
+# opens or shares a Firefox profile. The add-on ID stays Firefox's, so extensions made for Firefox install.
+ac_add_options --with-app-basename=AetherDeck
+ac_add_options MOZ_APP_REMOTINGNAME=aetherdeck
+# Four jobs at a time: enough for a 16 GB Mac to stay usable while it builds.
+mk_add_options MOZ_MAKE_FLAGS="-j4"
+ac_add_options --with-distribution-id=com.aetherdeck

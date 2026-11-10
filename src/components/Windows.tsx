@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type R
 import { captureBeforeMinimize, desktop, pages } from "../lib/desktop.ts";
 import { LiveControls, LivePage, type LiveState } from "./LivePage.tsx";
 import { Assistant } from "./Assistant.tsx";
+import { Cosmo } from "./Cosmo.tsx";
 import { CurvedPage } from "./CurvedPage.tsx";
 import type { DockItem } from "../lib/dock.ts";
 import { PhoneScreen } from "./PhoneScreen.tsx";
@@ -390,7 +391,7 @@ function phoneShape(aspect: number, vw: number, vh: number) {
 function Favicon({ tab }: { tab: Tab }) {
   const [failed, setFailed] = useState(false);
   if (tab.icon && !failed) return <img className="win__mark win__mark--icon" src={tab.icon} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
-  if (tab.kind === "assistant") return <span className="win__mark win__mark--assistant" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9Z" fill="currentColor" /></svg></span>;
+  if (tab.kind === "assistant") return <span className="win__mark win__mark--assistant" aria-hidden="true"><Cosmo size={16} /></span>;
   if (tab.kind !== "web") return <span className="win__mark win__mark--video" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M9 7l8 5-8 5Z" fill="currentColor" /></svg></span>;
   if (failed) return <span className="win__mark" aria-hidden="true">{tab.domain.charAt(0).toUpperCase()}</span>;
   return <img className="win__mark win__mark--icon" src={`https://${tab.domain}/favicon.ico`} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;

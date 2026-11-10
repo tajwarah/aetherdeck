@@ -1,5 +1,6 @@
 node_modules
 dist
+chromium/dist-room
 .env
 .env.*
 !.env.example
@@ -11,3 +12,4 @@ data
 .e2e-data
 dist-electron
 release
+browser/work/

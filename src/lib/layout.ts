@@ -245,7 +245,3 @@ export function fitCamera(b: Bounds, vw: number, vh: number, maxScale = 1) {
   const cy = (b.minY + b.maxY) / 2;
   return { s, x: vw / 2 - cx * s, y: vh / 2 - cy * s };
 }
-
-export function sourceFor(model: EnvironmentModel, node: InformationNode): SearchResult | undefined {
-  return model.sources.find((s) => s.id === node.sourceIds[0]);
-}

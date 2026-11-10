@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AetherDeck Room</title>
+  </head>
+  <body>
+    <header id="bar">
+      <strong>Room</strong>
+      <form id="go"><input id="addr" type="text" placeholder="Open a site as a pane, e.g. github.com" aria-label="Address" autocomplete="off" spellcheck="false"></form>
+      <button id="prev" title="Previous pane (←)">‹</button>
+      <button id="next" title="Next pane (→)">›</button>
+      <button id="over" title="Show all (0)">Show all</button>
+      <button id="direct" title="Let clicks reach every pane, even far to the side (D)">Direct: off</button>
+      <button id="add" title="Add an empty pane">+ Pane</button>
+      <span id="detect"></span>
+      <span id="note" role="status"></span>
+    </header>
+    <div id="stage"><div id="world"></div></div>
+    <footer id="strip"><div id="wedge"></div></footer>
+    <div id="meter"></div>
+    <script type="module" src="./src/room.ts"></script>
+  </body>
+</html>

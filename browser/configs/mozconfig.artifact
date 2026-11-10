@@ -1,0 +1,4 @@
+# Front-end-only builds: Mozilla's compiled parts are downloaded, only JS/CSS/markup are built here.
+# Breaks if any C, C++ or Rust is changed. Whether it works for this tarball and our branding is what task 1 tests.
+ac_add_options --enable-artifact-builds
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-artifact

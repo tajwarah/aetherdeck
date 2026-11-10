@@ -6,6 +6,7 @@ import { groupName, type Win } from "../lib/windows.ts";
 import { PLACES, PlacesGrid, type Place } from "./Launcher.tsx";
 import { hostOf, moveItem, siteItem, type DockItem } from "../lib/dock.ts";
 import { thumbs } from "../lib/desktop.ts";
+import { AgentBot, Cosmo, ResearchOwl } from "./Cosmo.tsx";
 
 interface Props {
   wins: Win[];
@@ -16,6 +17,9 @@ interface Props {
   onPlace: (place: Place, at: { x: number; y: number }) => void;
   onOverview: (on: boolean) => void;
   onRestore: (ids: string[]) => void;
+  /** Minimize or close windows by id, from the Windows list. */
+  onMinimize: (ids: string[]) => void;
+  onCloseWins: (ids: string[]) => void;
   /** Sync across devices: off, shared groups only, or the personal space's connection state. */
   syncState: "off" | "shared" | "connecting" | "live" | "offline" | "gone";
   onSync: () => void;
@@ -35,9 +39,9 @@ function Glyph({ item }: { item: DockItem }) {
   const [failed, setFailed] = useState(0);
   if (item.action === "files") return <span className="dk__tile dk__tile--files">{icon(<><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" fill="currentColor" fillOpacity="0.25" /><path d="M3.5 10h17" /></>, 26)}</span>;
   if (item.action === "phone") return <span className="dk__tile dk__tile--phone">{icon(<><rect x="7" y="3" width="10" height="18" rx="2.2" /><path d="M11 18h2" /></>)}</span>;
-  if (item.action === "station") return <span className="dk__tile dk__tile--station">{icon(<><circle cx="12" cy="12" r="2.4" /><circle cx="5" cy="5" r="1.9" /><circle cx="19" cy="5" r="1.9" /><circle cx="5" cy="19" r="1.9" /><circle cx="19" cy="19" r="1.9" /><path d="M6.4 6.4l3.9 3.9M17.6 6.4l-3.9 3.9M6.4 17.6l3.9-3.9M17.6 17.6l-3.9-3.9M7 5h10M7 19h10" /></>)}</span>;
-  if (item.action === "research") return <span className="dk__tile dk__tile--research">{icon(<><path d="M12 3.5 3 8l9 4.5L21 8Z" fill="currentColor" fillOpacity="0.2" /><path d="M3 12l9 4.5 9-4.5M3 16l9 4.5 9-4.5" /></>)}</span>;
-  if (item.action === "ai") return <span className="dk__tile dk__tile--ai">{icon(<><path d="M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9Z" fill="currentColor" fillOpacity="0.85" /><path d="M18 15.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8Z" fill="currentColor" /></>, 26)}</span>;
+  if (item.action === "station") return <span className="dk__tile dk__tile--station"><AgentBot size={40} /></span>;
+  if (item.action === "research") return <span className="dk__tile dk__tile--research"><ResearchOwl size={40} /></span>;
+  if (item.action === "ai") return <span className="dk__tile dk__tile--ai"><Cosmo size={40} /></span>;
   const host = hostOf(item.url ?? "");
   if (host === "youtube.com") return <svg className="dk__brand" viewBox="0 0 28 28" width="34" height="34" aria-hidden="true"><rect x="2" y="6" width="24" height="16.5" rx="5" fill="#ff1f1f" /><path d="M11.5 10.3v7.9l6.6-3.95Z" fill="#fff" /></svg>;
   if (host === "open.spotify.com" || host === "spotify.com") return <svg className="dk__brand" viewBox="0 0 28 28" width="34" height="34" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#1ed760" /><path d="M7.6 10.6c4.2-1.3 9.3-.9 12.9 1.2M8.3 14.2c3.5-1 7.6-.6 10.6 1.1M9 17.6c2.8-.7 5.6-.4 7.9.9" fill="none" stroke="#0b0b0b" strokeWidth="1.9" strokeLinecap="round" /></svg>;
@@ -47,10 +51,11 @@ function Glyph({ item }: { item: DockItem }) {
   return <img className="dk__site" src={sources[failed]} alt="" referrerPolicy="no-referrer" onError={() => setFailed((n) => n + 1)} />;
 }
 
-export function ControlBar({ wins, overview, items, onItems, onItem, onPlace, onOverview, onRestore, syncState, onSync, onSettings, onLibrary, downloading = 0, aiReady }: Props) {
+export function ControlBar({ wins, overview, items, onItems, onItem, onPlace, onOverview, onRestore, onMinimize, onCloseWins, syncState, onSync, onSettings, onLibrary, downloading = 0, aiReady }: Props) {
   const [gridOpen, setGridOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const [menu, setMenu] = useState<{ index: number; x: number } | null>(null);
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
   const visible = wins.filter((w) => !w.minimized);
@@ -66,6 +71,7 @@ export function ControlBar({ wins, overview, items, onItems, onItem, onPlace, on
   return (
     <>
       {gridOpen && <PlacesGrid onPick={(p, a) => { setGridOpen(false); onPlace(p, a); }} onClose={() => setGridOpen(false)} />}
+      {listOpen && wins.length > 0 && <WindowList wins={wins} onRestore={onRestore} onMinimize={onMinimize} onCloseWins={onCloseWins} onClose={() => setListOpen(false)} />}
       {adding && <AddPanel items={items} wins={wins} onAdd={(it) => { onItems([...items.filter((x) => x.id !== it.id), it]); setAdding(false); }} onClose={() => setAdding(false)} />}
       {moreOpen && (
         <div className="dk__more" data-ui role="menu" aria-label="More" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setMoreOpen(false); } }}>
@@ -116,11 +122,16 @@ export function ControlBar({ wins, overview, items, onItems, onItem, onPlace, on
                 <button key={e.key} className="dk__min" onClick={() => onRestore(e.ids)} title={`Restore ${e.label}`} aria-label={`Restore ${e.label}${e.count > 1 ? `, ${e.count} pages` : ""}`}>
                   {shot ? <img src={shot} alt="" /> : <span className="dk__min-name">{e.first.page.kind === "assistant" ? "✦" : e.first.page.domain.replace(/^www\./, "").charAt(0).toUpperCase()}<small>{e.label}</small></span>}
                   {e.count > 1 && <span className="cb__count">{e.count}</span>}
+                  <span className="dk__min-x" role="button" aria-label={`Close ${e.label}`} title="Close" onClick={(ev) => { ev.stopPropagation(); onCloseWins(e.ids); }}>×</span>
                 </button>
               );
             })}
           </div>
         )}
+        {wins.length > 0 && <button className={`dk__chev dk__wins ${listOpen ? "is-on" : ""}`} onClick={() => { setListOpen((v) => !v); setMoreOpen(false); }} aria-expanded={listOpen} aria-label={`Open windows, ${wins.length}`} title="Open windows: minimize or close any">
+          {icon(<><rect x="3.5" y="6.5" width="12" height="10" rx="2" /><path d="M8.5 6.5V5a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 19.5 5v8a1.5 1.5 0 0 1-1.5 1.5h-2.5" /></>, 18)}
+          <span className="dk__wins-n">{wins.length}</span>
+        </button>}
         <button className={`dk__chev ${moreOpen ? "is-on" : ""}`} onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen} aria-label="More: all places, windows, library, devices, settings" title="More">
           {icon(<path d={moreOpen ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} />, 18)}
           {(downloading > 0 || syncState === "live") && <span className="cb__sync-dot cb__sync-dot--busy" aria-hidden="true" />}
@@ -162,5 +173,35 @@ function AddPanel({ items, wins, onAdd, onClose }: { items: DockItem[]; wins: Wi
         </div>
       )}
     </section>
+  );
+}
+
+/** Every open and minimized window in one list, each with its own minimize/restore and close. */
+function WindowList({ wins, onRestore, onMinimize, onCloseWins, onClose }: { wins: Win[]; onRestore: (ids: string[]) => void; onMinimize: (ids: string[]) => void; onCloseWins: (ids: string[]) => void; onClose: () => void }) {
+  const open = wins.filter((w) => !w.minimized);
+  return (
+    <>
+      <div className="dk__scrim" onPointerDown={onClose} />
+      <section className="dk__list" data-ui role="dialog" aria-label="Open windows" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
+        <p className="dk__add-title">Open windows</p>
+        <ul>
+          {[...wins].sort((a, b) => b.z - a.z).map((w) => (
+            <li key={w.id} className={w.minimized ? "is-min" : ""}>
+              <button className="dk__list-name" onClick={() => { onRestore([w.id]); onClose(); }} title={w.minimized ? "Bring back" : "Bring to front"}>
+                <span className="dk__list-mark">{w.page.kind === "assistant" ? <Cosmo size={18} /> : (w.page.domain || w.page.title).replace(/^www\./, "").charAt(0).toUpperCase()}</span>
+                <span className="dk__list-title">{w.page.title || w.page.domain}</span>
+                {w.minimized && <small>minimized</small>}
+              </button>
+              <button className="dk__list-btn" aria-label={w.minimized ? `Bring back ${w.page.title}` : `Minimize ${w.page.title}`} title={w.minimized ? "Bring back" : "Minimize"} onClick={() => (w.minimized ? onRestore([w.id]) : onMinimize([w.id]))}>{w.minimized ? "▢" : "–"}</button>
+              <button className="dk__list-btn dk__list-btn--x" aria-label={`Close ${w.page.title}`} title="Close" onClick={() => onCloseWins([w.id])}>×</button>
+            </li>
+          ))}
+        </ul>
+        <div className="sheet__row">
+          <button className="btn btn--small" disabled={!open.length} onClick={() => onMinimize(open.map((w) => w.id))}>Minimize all</button>
+          <button className="btn btn--small btn--danger" onClick={() => { onCloseWins(wins.map((w) => w.id)); onClose(); }}>Close all</button>
+        </div>
+      </section>
+    </>
   );
 }

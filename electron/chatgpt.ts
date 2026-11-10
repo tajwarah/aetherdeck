@@ -4,7 +4,8 @@
 // 127.0.0.1, no client secret. The first sign-in registers AetherDeck and returns its client id, kept for later
 // sign-ins. Tokens are kept encrypted by the system keychain (safeStorage); the access token lasts an hour and is
 // renewed from the refresh token, which is replaced on every renewal. AetherDeck never sees the password.
-import { ipcMain, safeStorage, shell } from "electron";
+import { app, ipcMain, safeStorage, shell } from "electron";
+import { execFile } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -16,6 +17,22 @@ const RESOURCE = "https://api.openai.com/v1";
 const SCOPE = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct";
 const PATH = "/auth/callback";
 const PORT = 1455;
+
+/**
+ * Opens the sign-in in the person's browser. When AetherDeck is their default browser it would open inside
+ * AetherDeck, behind Settings, where Google also refuses "Continue with Google"; then it opens in the browser
+ * the system comes with. Returns that browser's name for the person.
+ */
+export async function openOutside(url: string): Promise<string> {
+  try {
+    if (app.isDefaultProtocolClient("https")) {
+      if (process.platform === "win32") { await shell.openExternal(`microsoft-edge:${url}`); return "Microsoft Edge"; }
+      if (process.platform === "darwin") { await new Promise<void>((ok, fail) => execFile("open", ["-a", "Safari", url], (e) => (e ? fail(e) : ok()))); return "Safari"; }
+    }
+  } catch { /* that browser isn't there: the default one opens it */ }
+  await shell.openExternal(url);
+  return "your browser";
+}
 
 interface Saved { clientId?: string; host: string; access?: string; refresh?: string; expires?: number; idToken?: string; email?: string }
 const b64url = (b: Buffer) => b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -53,8 +70,10 @@ export function chatgptSignIn(o: { dir: string; changed: () => void }) {
   setChatGPT({ ready: signedIn, token, email: () => saved.email });
 
   let pending: Server | null = null;
-  async function signIn(): Promise<{ email?: string }> {
-    pending?.close();
+  let link = ""; // the sign-in page, for the person to open in another browser
+  let cancel: (() => void) | null = null;
+  async function signIn(opened: (browser: string) => void): Promise<{ email?: string }> {
+    cancel?.();
     const verifier = b64url(randomBytes(48));
     const state = b64url(randomBytes(24));
     const nonce = b64url(randomBytes(24));
@@ -75,7 +94,8 @@ export function chatgptSignIn(o: { dir: string; changed: () => void }) {
       ...(saved.idToken ? { id_token_hint: saved.idToken } : {}), ...(saved.email ? { login_hint: saved.email } : {}),
     });
     const back = new Promise<{ code: string; clientId?: string }>((ok, fail) => {
-      const timer = setTimeout(() => { server.close(); fail(new Error("The sign-in took too long. Try again.")); }, 5 * 60_000);
+      const timer = setTimeout(() => { server.close(); fail(new Error("The sign-in took too long. Try again.")); }, 10 * 60_000);
+      cancel = () => { clearTimeout(timer); server.close(); fail(new Error("cancelled")); };
       server.on("request", (req, res) => {
         const u = new URL(req.url ?? "/", redirect);
         if (u.pathname !== PATH) { res.writeHead(404).end(); return; }
@@ -91,8 +111,9 @@ export function chatgptSignIn(o: { dir: string; changed: () => void }) {
         ok({ code, clientId: issued });
       });
     });
-    await shell.openExternal(`${AUTH}/authorize?${q}`);
-    const { code, clientId } = await back.finally(() => { if (pending === server) pending = null; });
+    link = `${AUTH}/authorize?${q}`;
+    opened(await openOutside(link));
+    const { code, clientId } = await back.finally(() => { if (pending === server) { pending = null; cancel = null; link = ""; } });
     const id = saved.clientId ?? clientId;
     if (!id) throw new Error("ChatGPT didn't return an app id for AetherDeck.");
     const res = await fetch(`${AUTH}/oauth/token`, {
@@ -110,7 +131,9 @@ export function chatgptSignIn(o: { dir: string; changed: () => void }) {
   }
 
   ipcMain.handle("chatgpt:status", () => ({ signedIn: signedIn(), email: saved.email, available: safeStorage.isEncryptionAvailable() }));
-  ipcMain.handle("chatgpt:signIn", () => signIn());
+  ipcMain.handle("chatgpt:signIn", (e) => signIn((browser) => { if (!e.sender.isDestroyed()) e.sender.send("chatgpt:opened", { browser }); }));
+  ipcMain.handle("chatgpt:cancel", () => cancel?.());
+  ipcMain.handle("chatgpt:link", () => link);
   ipcMain.handle("chatgpt:signOut", () => {
     saved = { host: saved.host, clientId: saved.clientId }; // the app id stays, so signing in again is quicker
     if (existsSync(file)) rmSync(file);

@@ -1,10 +1,10 @@
 // The Agent Station's agents: who they are, where they're kept, and the loop that runs one. Their model decides each
 // step; the steps run here in the browser, in view. Clicks and typing that could change something out in the
 // world wait for the person.
-import { desktop } from "./desktop.ts";
+import { desktop, roomBridge } from "./desktop.ts";
 
 export type Access = "read" | "ask" | "auto";
-export type Skill = "harvest" | "mail" | "video" | "build" | "post";
+export type Skill = "harvest" | "mail" | "video" | "build" | "post" | "google";
 export type Fx = "think" | "radar" | "scan" | "harvest" | "mail" | "video" | "build" | "act";
 /** How an agent's avatar looks right now. */
 export type Mood = "idle" | "hello" | "salute" | "think" | "search" | "read" | "harvest" | "mail" | "watch" | "build" | "act" | "wait" | "done" | "failed" | "stopped";
@@ -52,6 +52,7 @@ export const SKILLS: { id: Skill; label: string; hint: string }[] = [
   { id: "video", label: "Video", hint: "Reads YouTube transcripts without playing them." },
   { id: "build", label: "Build", hint: "Makes apps that run here and websites with a link on this computer, in a folder you approve." },
   { id: "post", label: "Post", hint: "Posts to your signed-in social accounts (Facebook, Instagram, YouTube, X…) with files you choose. You approve every post." },
+  { id: "google", label: "Google", hint: "Saves files to your Drive and adds Calendar events, after you press Sign in with Google in Settings. Never touches Gmail." },
 ];
 
 /** The crew an agent can be summoned from: a starting character, not a limit. Ids stay as they were so saved agents keep theirs. */
@@ -66,7 +67,7 @@ export const ORDERS: { id: string; name: string; tagline: string; hue: number; s
 ];
 
 /** Which effect a tool plays on the stage. */
-export const FX: Record<string, Fx> = { think: "think", research: "radar", ask_agent: "radar", make_artifact: "build", build_site: "build", pick_files: "act", attach_files: "act", search_web: "radar", list_windows: "radar", read_page: "scan", see_page: "scan", fetch_page: "scan", open_page: "scan", extract_data: "harvest", crawl_pages: "harvest", query_data: "harvest", save_file: "harvest", read_inbox: "mail", read_email: "mail", draft_email: "mail", watch_video: "video", build_app: "build", click: "act", type_text: "act" };
+export const FX: Record<string, Fx> = { think: "think", research: "radar", ask_agent: "radar", make_artifact: "build", build_site: "build", pick_files: "act", attach_files: "act", search_web: "radar", list_windows: "radar", read_page: "scan", see_page: "scan", fetch_page: "scan", open_page: "scan", extract_data: "harvest", crawl_pages: "harvest", query_data: "harvest", save_file: "harvest", read_inbox: "mail", read_email: "mail", draft_email: "mail", watch_video: "video", drive_save: "harvest", drive_read: "harvest", drive_list: "harvest", calendar_add: "act", calendar_list: "harvest", build_app: "build", click: "act", type_text: "act" };
 
 const MOOD_OF_FX: Record<Fx, Mood> = { think: "think", radar: "search", scan: "read", harvest: "harvest", mail: "mail", video: "watch", build: "build", act: "act" };
 
@@ -85,7 +86,7 @@ export function moodOf(agent: Pick<Agent, "last">, run?: Pick<Run, "status" | "s
 /** What it says when no step is speaking for it. */
 export const MOOD_LINE: Partial<Record<Mood, string>> = { hello: "Ready when you are", salute: "On it!", think: "Thinking it through…", wait: "I need your OK", done: "Mission complete!", failed: "I hit a snag", stopped: "Standing by" };
 
-const TOOL_WORDS: Record<string, string> = { think: "Thought it through", research: "Researched", ask_agent: "Asked a crewmate", make_artifact: "Made", build_site: "Built a website", pick_files: "Asked you for files", attach_files: "Attached files", list_windows: "Looked at the windows", open_page: "Opened a page", fetch_page: "Read", search_web: "Searched the web", read_page: "Read a page", see_page: "Looked over a page", focus_window: "Brought a window forward", close_window: "Closed a window", arrange_windows: "Arranged the windows", save_note: "Saved a note", click: "Clicked", type_text: "Typed", extract_data: "Harvested data", crawl_pages: "Crawled pages", query_data: "Checked the data", save_file: "Saved a file", read_inbox: "Read the inbox", read_email: "Read an email", draft_email: "Drafted an email", watch_video: "Watched a video", build_app: "Built an app", remember: "Remembered" };
+const TOOL_WORDS: Record<string, string> = { think: "Thought it through", research: "Researched", ask_agent: "Asked a crewmate", make_artifact: "Made", build_site: "Built a website", pick_files: "Asked you for files", attach_files: "Attached files", list_windows: "Looked at the windows", open_page: "Opened a page", fetch_page: "Read", search_web: "Searched the web", read_page: "Read a page", see_page: "Looked over a page", focus_window: "Brought a window forward", close_window: "Closed a window", arrange_windows: "Arranged the windows", save_note: "Saved a note", click: "Clicked", type_text: "Typed", extract_data: "Harvested data", crawl_pages: "Crawled pages", query_data: "Checked the data", save_file: "Saved a file", read_inbox: "Read the inbox", read_email: "Read an email", draft_email: "Drafted an email", watch_video: "Watched a video", drive_save: "Saved to Google Drive", drive_read: "Read a Drive file", drive_list: "Listed Drive files", calendar_add: "Added a calendar event", calendar_list: "Checked the calendar", build_app: "Built an app", remember: "Remembered" };
 const DOING: Record<string, string> = { think: "Thinking", research: "Researching", ask_agent: "Asking", make_artifact: "Making", build_site: "Building a website", pick_files: "Waiting for your files", attach_files: "Attaching files", list_windows: "Checking the windows", open_page: "Opening a page", fetch_page: "Reading", search_web: "Scanning the web", read_page: "Reading a page", see_page: "Looking over a page", focus_window: "Pulling up a window", close_window: "Closing a window", arrange_windows: "Tidying the windows", save_note: "Writing a note", click: "Clicking", type_text: "Typing", extract_data: "Collecting data", crawl_pages: "Crawling pages", query_data: "Checking the data", save_file: "Saving a file", read_inbox: "Opening the inbox", read_email: "Reading an email", draft_email: "Drafting an email", watch_video: "Watching a video", build_app: "Building an app", remember: "Remembering" };
 const stepWhat = (s: Step) => {
   const i = s.input as { url?: string; query?: string; question?: string; agent?: string; title?: string; name?: string; subject?: string; fact?: string };
@@ -118,12 +119,14 @@ export const ACCESS: { id: Access; label: string; hint: string }[] = [
 const KEY = "aetherdeck.agents.v1";
 
 export async function loadAgents(): Promise<Agent[]> {
-  if (desktop) return (await desktop.invoke<Agent[]>("agents:list").catch(() => [])) ?? [];
+  const store = desktop ?? roomBridge;
+  if (store) return (await store.invoke<Agent[]>("agents:list").catch(() => [])) ?? [];
   try { return JSON.parse(localStorage.getItem(KEY) ?? "[]") as Agent[]; } catch { return []; }
 }
 
 export function saveAgents(agents: Agent[]) {
-  if (desktop) return void desktop.invoke("agents:save", agents);
+  const store = desktop ?? roomBridge;
+  if (store) return void store.invoke("agents:save", agents);
   try { localStorage.setItem(KEY, JSON.stringify(agents)); } catch { /* lasts for this visit */ }
 }
 

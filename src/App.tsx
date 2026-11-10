@@ -31,7 +31,7 @@ import { useSync } from "./lib/useSync.ts";
 import { parseInvite } from "./lib/sync.ts";
 import { SyncSheet } from "./components/SyncSheet.tsx";
 import { JoinSheet } from "./components/JoinSheet.tsx";
-import { captureBeforeMinimize, desktop, pages, type AppInfo, type Download, type PermissionAsk } from "./lib/desktop.ts";
+import { captureBeforeMinimize, desktop, pages, roomBridge, type AppInfo, type Download, type PermissionAsk } from "./lib/desktop.ts";
 import { hostOf, loadDock, saveDock, siteItem, type DockItem } from "./lib/dock.ts";
 import { ACCEPT, readFile } from "./lib/files.ts";
 import { materials } from "./components/Assistant.tsx";
@@ -286,6 +286,8 @@ export function App() {
    * when none is showing. With addTo, it opens beside that window instead, in its group.
    */
   const openTab = useCallback((tab: Omit<Tab, "id">, near?: { x: number; y: number }, addTo?: string, from?: { x: number; y: number }, opts: { private?: boolean; tabIn?: string } = {}) => {
+    // Inside AetherDeck for Mac a site is a pane in the Room, not a window of this page.
+    if (roomBridge && (tab.kind === "web" || tab.kind === "video") && /^https?:\/\//i.test(tab.href)) { void roomBridge.invoke("room:open", tab.href).catch(() => undefined); return; }
     setWins((ws) => {
       const top = Math.max(0, ...ws.map((w) => w.z)) + 1;
       const page: Tab = { ...tab, id: uid("t") };
@@ -496,6 +498,13 @@ export function App() {
     void desktop.invoke<string[]>("app:ready").then((urls) => urls.forEach((u) => openLink(u)));
     return () => offs.forEach((off) => off());
   }, [openLink]);
+  // "Explore in AetherDeck" from the browser extension arrives as /?q=…: ask it once, then tidy the address.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q")?.trim().slice(0, 400);
+    if (!q) return;
+    history.replaceState(null, "", window.location.pathname);
+    runCommand.current("ask", q);
+  }, []);
   const askAtBar = useCallback((initial = "", listen = false) => setComposer({ x: window.innerWidth / 2 - 260, y: window.innerHeight - 100, initial, fromBar: true, listen }), []);
   const openPlace = useCallback((p: Place, at: { x: number; y: number }) => {
     if (!p.url) return askAtBar(p.compose ?? "");
@@ -875,7 +884,7 @@ export function App() {
           <RamBuddy />
           <Clock />
           <span className="topbar__sep" aria-hidden="true" />
-          <button className="voice topbar__gear" onClick={() => (desktop ? setSettingsOpen(true) : setPrivacyOpen(true))} aria-label="Settings" title="Settings (⌘,)">
+          <button className="voice topbar__gear" onClick={() => setSettingsOpen(true)} aria-label="Settings" title="Settings (⌘,)">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></svg>
           </button>
           <button className={`avatar ${accounts?.google ? "is-signed-in" : ""}`} onClick={() => setAccountOpen((o) => !o)} aria-label="Accounts" aria-expanded={accountOpen}
@@ -883,7 +892,7 @@ export function App() {
             {prefs.preferences.name ? prefs.preferences.name.trim().charAt(0).toUpperCase()
               : <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="9" r="3.6" /><path d="M5 20c1.3-3.6 4-5.2 7-5.2s5.7 1.6 7 5.2" strokeLinecap="round" /></svg>}
           </button>
-          {desktop && <button className="voice" onClick={enterRoom} aria-label="360° view" title="360° view: your tabs all around you">
+          {desktop && <button className="voice" onClick={enterRoom} aria-label="360° pod" title="360° pod: your tabs all around you">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><ellipse cx="12" cy="12" rx="9" ry="4" /><path d="M6 7.5V6a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1.5M6 16.5V18a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1.5" /></svg>
           </button>}
           <button className={`voice ${agents ? "is-on" : ""}`} onClick={() => setAgents((a) => (a ? null : { listen: true, key: Date.now() }))} aria-label="Agents: speak once" title="Agents: speak once, the crew does the rest (⌘⇧Space)">
@@ -973,7 +982,7 @@ export function App() {
         onRead={(url) => { setWins((ws) => ws.filter((w) => w.page.href !== url)); run(url, { fresh: true }); }}
         onAsk={(q) => { setSurround(false); minimizeAll(); run(q, { fresh: true }); }}
         findIn={findIn} onFindClose={() => setFindIn(null)} addressFocus={addressFocus}
-        ai={{ model: health?.model?.label ?? null, vision: !!health?.vision }} onConnectAI={() => (desktop ? setSettingsOpen(true) : setPrivacyOpen(true))}
+        ai={{ model: health?.model?.label ?? null, vision: !!health?.vision }} onConnectAI={() => setSettingsOpen(true)}
         onAttach={(w, f) => { setWins((ws) => ws.map((x) => (x.id === w.id ? { ...x, page: { ...x.page, title: f.name } } : x))); loadFileInto(w.page.src, f); }}
         onPin={togglePin} pinned={isPinned} />
 
@@ -981,9 +990,11 @@ export function App() {
         <button className="tabs-all" data-ui onClick={() => void openTabs(sites)}>Open all {sites.length} sites as tabs</button>
       )}
       <ControlBar wins={wins} items={dock} onItems={setDock} onItem={onDockItem} aiReady={!!health?.llm}
-        onLibrary={desktop ? () => setLibrary((l) => (l ? null : "history")) : undefined} onSettings={desktop ? () => setSettingsOpen(true) : () => setPrivacyOpen(true)}
+        onLibrary={desktop ? () => setLibrary((l) => (l ? null : "history")) : undefined} onSettings={() => setSettingsOpen(true)}
         downloading={downloads.filter((d) => d.state === "progressing").length} overview={overview} onOverview={setOverview} onPlace={openPlace}
         syncState={sync.personal ? sync.personalStatus?.state ?? "connecting" : sync.shares.length ? "shared" : "off"} onSync={() => setSyncOpen({})}
+        onMinimize={(ids) => void captureBeforeMinimize(ids).then(() => setWins((ws) => ws.map((w) => (ids.includes(w.id) ? { ...w, minimized: true } : w))))}
+        onCloseWins={(ids) => setWins((ws) => ids.reduce((acc, id) => closeTab(acc, id), ws))}
         onRestore={(ids) => setWins((ws) => { let top = Math.max(0, ...ws.map((w) => w.z)); return ws.map((w) => (ids.includes(w.id) ? { ...w, minimized: false, z: ++top } : w)); })} />
 
       {action && (
@@ -1005,10 +1016,10 @@ export function App() {
 
       {library && desktop && <LibrarySheet tab={library} downloads={downloads} onTab={setLibrary} onClose={() => setLibrary(null)} onOpen={(url) => { setLibrary(null); openLink(url); }} />}
       {boardOpen && <ResearchBoard board={board} aiReady={!!health?.llm} onChange={keepBoard} onAsk={(q) => { setBoardOpen(false); minimizeAll(); void run(q, { fresh: true, at: field.current?.center() }); }}
-        onOpenPages={(pages) => { setBoardOpen(false); void openTabs(pages); }} onConnectModel={() => { setBoardOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onClose={() => setBoardOpen(false)} />}
+        onOpenPages={(pages) => { setBoardOpen(false); void openTabs(pages); }} onConnectModel={() => { setBoardOpen(false); setSettingsOpen(true); }} onClose={() => setBoardOpen(false)} />}
       <ExtensionsHub onOpenUrl={openUrl} />
       {welcome && <Onboarding dock={dock} onDock={setDock} history={prefs.historyEnabled} onHistory={(on) => update((p) => ({ ...p, historyEnabled: on }))} onOpen={(url, title) => openUrl(url, title)} onDone={() => setWelcome(false)} />}
-      {stationOpen && <AgentStation reduced={reduced} onSettings={() => { setStationOpen(false); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} onOpenUrl={(url, title) => { setStationOpen(false); openUrl(url, title); }} agents={crew} runs={runs}
+      {stationOpen && <AgentStation reduced={reduced} onSettings={() => { setStationOpen(false); setSettingsOpen(true); }} onOpenApp={(id, title) => { setStationOpen(false); openUrl(appUrl(id), title); }} onOpenUrl={(url, title) => { setStationOpen(false); openUrl(url, title); }} agents={crew} runs={runs}
         onSave={(a) => keepCrew((c) => (c.some((x) => x.id === a.id) ? c.map((x) => (x.id === a.id ? a : x)) : [...c, a]))}
         onDelete={(id) => { stops.current.get(id)?.abort(); keepCrew((c) => c.filter((a) => a.id !== id)); }}
         onStart={startAgent} onStop={(id) => stops.current.get(id)?.abort()} onClose={() => setStationOpen(false)} />}
@@ -1019,9 +1030,9 @@ export function App() {
         </button>
       )}
       {agents && <AgentConsole key={agents.key} listen={agents.listen} voice={health?.voice ?? null} model={health?.model?.label ?? null}
-        context={agentContext} act={agentAct} onConnect={() => { setAgents(null); if (desktop) setSettingsOpen(true); else setPrivacyOpen(true); }} onClose={() => setAgents(null)} />}
+        context={agentContext} act={agentAct} onConnect={() => { setAgents(null); setSettingsOpen(true); }} onClose={() => setAgents(null)} />}
       {accountOpen && <AccountMenu accounts={accounts} onAccounts={setAccounts} onOpen={(url, title) => openUrl(url, title)} onData={() => setPrivacyOpen(true)} onClose={() => setAccountOpen(false)} />}
-      {settingsOpen && desktop && <SettingsSheet onClose={() => { setSettingsOpen(false); void getHealth().then(setHealth); loadEngine(); }} />}
+      {settingsOpen && <SettingsSheet onClose={() => { setSettingsOpen(false); void getHealth().then(setHealth); loadEngine(); }} />}
       {asks[0] && <PermissionPrompt key={asks[0].id} ask={asks[0]} onAnswer={(ok) => { void desktop?.invoke("permission:answer", asks[0].id, ok); setAsks((a) => a.slice(1)); }} />}
       {appUpdate && (
         <p className="update-note" data-ui role="status">

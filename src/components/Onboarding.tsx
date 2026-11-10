@@ -11,7 +11,6 @@ import { LogoDust } from "./Logo.tsx";
 
 const DONE = "aetherdeck.welcomed";
 export const welcomed = () => { try { return localStorage.getItem(DONE) === "1"; } catch { return true; } };
-export const welcomeAgain = () => { try { localStorage.removeItem(DONE); } catch { /* nothing kept */ } };
 
 const SIGN_IN = "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26next%3D%252F";
 const SITES: [string, string][] = [
@@ -20,7 +19,7 @@ const SITES: [string, string][] = [
   ["Notion", "https://www.notion.so/"], ["Canva", "https://www.canva.com/"], ["ChatGPT", "https://chatgpt.com/"], ["GitHub", "https://github.com/"],
 ];
 const ENGINES = [["google", "Google", "What most people use"], ["bing", "Bing", "Microsoft's search"], ["duckduckgo", "DuckDuckGo", "Doesn't track your searches"]] as const;
-const STEPS = ["Welcome", "AI", "Google", "Search", "Your dock", "Room", "Privacy"];
+const STEPS = ["Welcome", "AI", "Google", "Search", "Your dock", "Pod", "Privacy"];
 
 interface Props {
   dock: DockItem[];
@@ -142,8 +141,8 @@ export function Onboarding({ dock, onDock, history, onHistory, onOpen, onDone }:
 
         {step === 5 && (
           <section className="onb__body">
-            <h2>A room for the 360° view</h2>
-            <p className="onb__lead">Your tabs hang all around you in it. You can use your own 360° photo later.</p>
+            <h2>The view from your pod</h2>
+            <p className="onb__lead">In the 360° pod your tabs hang all around you, with this view outside. You can use your own 360° photo later.</p>
             <div className="onb__rooms">
               {SKIES.map((s) => (
                 <button key={s.id} className={`onb__room ${sky === s.id ? "is-on" : ""}`} aria-pressed={sky === s.id} onClick={() => { chooseSky(s.id); setSky(s.id); }}>

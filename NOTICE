@@ -29,3 +29,11 @@ This product includes third-party material:
   downloaded at runtime under their own licenses and are not part of this product.
 - Electron and Chromium: see their own licenses in the packaged application
   (LICENSE.electron.txt and LICENSES.chromium.html).
+- AetherDeck for Mac is built on Mozilla Firefox's open-source code, Mozilla
+  Public License 2.0. The changed and added Firefox files are in browser/ of
+  the source repository; every licence in the app is listed on its
+  about:license page. AetherDeck is not Mozilla or Firefox and is not made or
+  endorsed by Mozilla. Firefox and Mozilla are trademarks of the Mozilla
+  Foundation.
+- Node.js (bundled in AetherDeck for Mac to run the local server): MIT
+  License, Copyright Node.js contributors and Joyent, Inc.

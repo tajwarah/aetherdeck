@@ -8,8 +8,8 @@ authors:
     alias: "tajwarah"
 repository-code: "https://github.com/tajwarah/aetherdeck"
 license: Apache-2.0
-version: 0.1.1
-date-released: 2026-11-05
+version: 0.2.0
+date-released: 2026-11-11
 keywords:
   - browser
   - ai-agents

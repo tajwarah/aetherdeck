@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { askAssistant, type AssistMaterial, type AssistTurn } from "../lib/api.ts";
 import { base64Of, formatSize, type FileMaterial } from "../lib/files.ts";
 import { desktop } from "../lib/desktop.ts";
+import { Cosmo } from "./Cosmo.tsx";
 import type { Tab } from "../lib/windows.ts";
 
 export interface PageMaterial { kind: "page"; name: string; url: string; text: string }
@@ -36,6 +37,8 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
   const [draft, setDraft] = useState("");
   const [sent, setSent] = useState(false);
   const [showText, setShowText] = useState(false);
+  const [times, setTimes] = useState<number[]>([]); // when each turn happened, by index
+  const pick = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const m = materials.get(tab.src);
@@ -59,6 +62,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
     setDraft("");
     const history = thread;
     setThread((t) => [...t, { role: "user", text: question }]);
+    setTimes((t) => [...t.slice(0, history.length), Date.now()]);
     abort.current = new AbortController();
     try {
       let material: AssistMaterial | undefined;
@@ -71,10 +75,12 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
       setWorking(`Asking ${model}`);
       const r = await askAssistant(question, history, material, abort.current.signal);
       setSent(true);
+      setTimes((t) => [...t, Date.now()]);
       setThread((t) => [...t, { role: "assistant", text: r.answer + (r.truncated ? "\n\n_Only the first part of a very long file was read._" : "") }]);
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setThread((t) => t.slice(0, -1));
+      setTimes((t) => t.slice(0, -1));
       setDraft(question);
       setError((err as Error).message);
     } finally {
@@ -89,7 +95,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
     <div className="assist" onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
       onDrop={(e) => { const f = e.dataTransfer.files[0]; if (f) { e.preventDefault(); e.stopPropagation(); onAttach(f); } }}>
       <div className="assist__doc">
-        <span className={`assist__icon assist__icon--${ready?.kind ?? "none"}`} aria-hidden="true">{iconFor(ready?.kind)}</span>
+        {ready ? <span className={`assist__icon assist__icon--${ready.kind}`} aria-hidden="true">{iconFor(ready.kind)}</span> : <Cosmo size={42} className="assist__avatar" />}
         <div className="assist__meta">
           <p className="assist__name">{m?.name ?? "Cosmonaut"}</p>
           <p className="assist__detail">
@@ -97,7 +103,9 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
               : m?.kind === "error" ? m.message
               : ready && ready.kind !== "page" ? `${ready.detail} · ${formatSize(ready.size)}`
               : ready ? ready.url.replace(/^https?:\/\//, "").slice(0, 60)
-              : "Drop a file here to ask about it"}
+              : working ? "typing…"
+              : model ? "online · drop a file to ask about it"
+              : "drop a file to ask about it"}
           </p>
         </div>
         {ready && ready.kind !== "page" && ready.thumb && <img className="assist__thumb" src={ready.thumb} alt={`First page of ${ready.name}`} />}
@@ -106,6 +114,7 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
       <div className="assist__thread" aria-live="polite">
         {!thread.length && (
           <div className="assist__start">
+            {model && !ready && <div className="wa wa--in"><div className="wa__b"><p>Hi, I'm Cosmonaut 👋 Ask me anything, or drop a file or open a page and I'll read it with you.</p><span className="wa__t">{clock(Date.now())}</span></div></div>}
             {model ? (
               <p className="assist__privacy">
                 {ready ? <>This {isPage ? "page" : "file"} {isPage ? "is read" : "stays"} on this computer. {sent ? "Its text was sent" : "Its text is sent"} to <strong>{model}</strong> only with a question you ask.</> : <>Answers come from <strong>{model}</strong>.</>}
@@ -128,24 +137,31 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
             {showText && ready && ready.kind !== "page" && <pre className="assist__text">{ready.text.slice(0, 20_000)}{ready.text.length > 20_000 ? "\n…" : ""}</pre>}
           </div>
         )}
-        {thread.map((t, i) => t.role === "user"
-          ? <p key={i} className="assist__q">{t.text}</p>
-          : <div key={i} className="assist__a"><Markdown text={t.text} /></div>)}
+        {thread.map((t, i) => (
+          <div key={i} className={`wa ${t.role === "user" ? "wa--out" : "wa--in"}`}>
+            <div className="wa__b">
+              {t.role === "user" ? <p>{t.text}</p> : <div className="assist__a"><Markdown text={t.text} /></div>}
+              <span className="wa__t">{clock(times[i] ?? Date.now())}{t.role === "user" && <span className={`wa__tick ${thread[i + 1] || working ? "is-read" : ""}`} aria-hidden="true">✓✓</span>}</span>
+            </div>
+          </div>
+        ))}
         {working && (
-          <ul className="assist__steps" aria-label="Working">
-            <li className={working.startsWith("Reading") ? "is-on" : "is-done"}>{isPage ? "Reading the page" : ready ? "Reading the document" : "Preparing"}</li>
-            <li className={working.startsWith("Asking") ? "is-on" : ""}>{working.startsWith("Asking") ? working : "Asking the model"}</li>
-            <li>Writing the answer</li>
-          </ul>
+          <div className="wa wa--in" role="status" aria-label={working}>
+            <div className="wa__b wa__b--typing"><span className="wa__dot" /><span className="wa__dot" /><span className="wa__dot" /></div>
+          </div>
         )}
         {error && <p className="assist__error" role="alert">{error}</p>}
         <div ref={end} />
       </div>
 
       <form className="assist__ask" onSubmit={(e) => { e.preventDefault(); void ask(draft); }}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={ready ? `Ask about this ${isPage ? "page" : "file"}` : "Ask anything"} aria-label="Ask Cosmonaut" disabled={!!working} />
+        <input ref={pick} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onAttach(f); e.target.value = ""; }} />
+        <button type="button" className="assist__clip" aria-label="Attach a file" onClick={() => pick.current?.click()}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m20 11-8.2 8.2a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.5 17a1.7 1.7 0 0 1-2.4-2.4L14.5 7.2" /></svg>
+        </button>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={ready ? `Ask about this ${isPage ? "page" : "file"}` : "Message"} aria-label="Ask Cosmonaut" disabled={!!working} />
         {working ? <button type="button" className="assist__send" onClick={() => abort.current?.abort()} aria-label="Stop">■</button>
-          : <button type="submit" className="assist__send" disabled={!draft.trim()} aria-label="Ask">↑</button>}
+          : <button type="submit" className="assist__send" disabled={!draft.trim()} aria-label="Ask"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12 3.5 13.9Z" fill="currentColor" /></svg></button>}
       </form>
       {ready && ready.kind !== "page" && ready.path && desktop && (
         <button className="btn btn--small assist__open" onClick={() => void desktop!.invoke("downloads:open", ready.path)}>Open document</button>
@@ -153,6 +169,8 @@ export function Assistant({ tab, model, vision, onConnect, onAttach }: Props) {
     </div>
   );
 }
+
+const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
 function iconFor(kind?: string) {
   const s = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };

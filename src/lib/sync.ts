@@ -122,7 +122,7 @@ export const newCreds = (): Creds => ({ id: b64u(random(16)), key: b64u(random(3
 
 /** What the server checks writes against. Derived one way from the key, so it reveals nothing about it. */
 export async function authToken(key: string) {
-  return b64u(sha256(te.encode(`nexus-sync-auth:${key}`)));
+  return b64u(sha256(te.encode(`aetherdeck-sync-auth:${key}`)));
 }
 
 export async function seal(c: Creds, doc: Doc): Promise<string> {

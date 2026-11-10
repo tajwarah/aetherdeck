@@ -18,7 +18,7 @@ interface Ctx {
 }
 interface Visited<T> { url: string; title: string; humanCheck: boolean; result: T }
 
-const ENGINE = new Set(["fetch_page", "extract_data", "crawl_pages", "save_file", "read_inbox", "read_email", "watch_video", "build_app", "make_artifact", "build_site", "pick_files"]);
+const ENGINE = new Set(["fetch_page", "extract_data", "crawl_pages", "save_file", "read_inbox", "read_email", "watch_video", "build_app", "make_artifact", "build_site", "pick_files", "drive_save", "drive_read", "drive_list", "calendar_add", "calendar_list"]);
 
 const CHECK = "The site is asking for a human check. Agents never get around those: tell the person, and they can open the page and do it themselves.";
 const wrap = (url: string, text: string) => `<page_content source="${url.replace(/"/g, "")}">\n${text}\n</page_content>`;
@@ -139,6 +139,11 @@ export async function engineTool(name: string, input: Record<string, unknown>, c
       const r = await ipc!.invoke<{ url: string; folder: string; files: string[] }>("sites:write", { agent: c.agent.name, name: String(input.name ?? "site"), files });
       c.openUrl(r.url, String(input.name ?? "Website"));
       return `Wrote ${r.files.join(", ")} to ${r.folder}. The site is at ${r.url} (this computer only) and is open in a window.`;
+    }
+    case "drive_save": case "drive_read": case "drive_list": case "calendar_add": case "calendar_list": {
+      try { return wrap("google", JSON.stringify(await ipc!.invoke("google:api", name, input))); } catch (e) {
+        throw new Error((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ""));
+      }
     }
     case "pick_files": {
       const picked = await ipc!.invoke<{ name: string; mb: number }[]>("media:pick", { agent: c.agent.name, purpose: String(input.purpose ?? "") });

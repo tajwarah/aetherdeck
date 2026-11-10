@@ -16,5 +16,5 @@
     "resolveJsonModule": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["shared", "server", "src", "electron", "tests", "vite.config.ts", "playwright.config.ts"]
+  "include": ["shared", "server", "src", "electron", "chromium/src", "chromium/vite.config.ts", "tests", "vite.config.ts", "playwright.config.ts"]
 }

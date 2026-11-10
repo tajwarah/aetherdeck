@@ -1,6 +1,8 @@
 // The desktop app's bridge (electron/preload.ts), when AetherDeck runs as the downloadable browser. In a plain web
 // browser it is null and AetherDeck falls back to framing pages that allow it.
 
+import { extensionBridge } from "./extensionBridge.ts";
+
 export interface Bridge {
   platform: string;
   invoke<T = unknown>(channel: string, ...args: unknown[]): Promise<T>;
@@ -8,7 +10,14 @@ export interface Bridge {
   pathFor(file: File): string;
 }
 
-export const desktop: Bridge | null = (globalThis as unknown as { aetherdeck?: Bridge }).aetherdeck ?? null;
+// Two backends behind one shape: Electron's preload bridge, or (on the Sidekick extension's own pages) chrome.* messaging.
+export const desktop: Bridge | null = (globalThis as unknown as { aetherdeck?: Bridge }).aetherdeck ?? extensionBridge();
+
+/**
+ * Inside AetherDeck for Mac (the browser) the local pages get a smaller bridge, `window.aetherdeckRoom`: open a site as a
+ * pane in the Room and keep research and agents on this computer. It is deliberately not `desktop`, which means "the Electron app".
+ */
+export const roomBridge: Pick<Bridge, "invoke"> | null = (globalThis as unknown as { aetherdeckRoom?: Pick<Bridge, "invoke"> }).aetherdeckRoom ?? null;
 
 export interface AppInfo { version: string; platform: string; keys: Record<string, boolean>; contact: string; config: Record<string, string>; isDefault: boolean; packaged: boolean }
 export interface HistoryEntry { url: string; title: string; at: number }

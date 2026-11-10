@@ -17,7 +17,7 @@ Give a **crew of agents** any task. They research, build websites and post for y
 ![macOS · Windows · Linux](https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-desktop-2b2840)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-9fe6bd)](CONTRIBUTING.md)
 
-[**Download**](#-download) · [Features](#-what-it-does) · [Quick start](#-quick-start) · [Agents](#-agents) · [Guide](docs/GUIDE.md) · [Roadmap](#-roadmap) · [Contribute](CONTRIBUTING.md)
+[**Download**](#-download) · [Features](#-what-it-does) · [Quick start](#-quick-start) · [How to use it](docs/USING.md) · [Agents](#-agents) · [Guide](docs/GUIDE.md) · [Roadmap](#-roadmap) · [Contribute](CONTRIBUTING.md)
 
 <img src="docs/media/home.webp" width="100%" alt="AetherDeck's home: the mark above Earth at night, turning slowly under a peach-to-lavender horizon, and the dock">
 
@@ -47,13 +47,38 @@ It's also a complete everyday browser (Chromium inside, so every site works), wi
 </tr>
 </table>
 
-### 🥽 Your tabs, all around you
+### 🔭 A research center, not a results page
 
 <div align="center">
-<img src="docs/media/room-360.gif" width="100%" alt="The 360° room: Wikipedia, GitHub and other open tabs hang on curved glass in a circle over a seaside balcony, and the view glides from one to the next">
+<img src="docs/media/search-bar.webp" width="100%" alt="The search bar rising out of the dock over Earth at night, with a question being typed">
 </div>
 
-Press the **360°** button (or Cmd/Ctrl + Shift + U) and every tab hangs around you on curved glass, like a headset without the headset. Turn with a swipe, a drag or Alt + ←/→. Click, scroll and type in any page as usual. Watch a video full screen on its panel. Pick a seaside balcony, a home office, a glass house or a loft, or use your own 360° photo of your room. Clocks, notes and your agents hang on the wall beside your tabs, wherever you drag them.
+**One bar for everything.** Click anywhere on the home (or press `/`) and the search bar rises out of the dock. Type a question, an address, or "play …", or press the microphone and say it. A question doesn't give you ten blue links. It starts a research run.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/media/research-compare.webp" alt="The answer to 'Python vs Rust for beginners' in the middle, every sentence numbered to the sites around it, grouped into Websites, More websites and Reference"></td>
+<td width="50%"><img src="docs/media/research-history.webp" alt="The answer to 'History of space exploration', with sub-questions like 'How did the lunar race conclude?' branching out to their own sources"></td>
+</tr>
+<tr>
+<td><b>Every search result, accounted for.</b> AetherDeck reads what your search engine finds, plus Wikipedia, research papers and the news. It reads the top pages in full and writes the answer in the middle. Every result sits around the answer, grouped by kind, and you can see exactly which ones were cited. Open any site, or all of them as tabs in one click.</td>
+<td><b>Questions branch into questions.</b> A big topic splits into the sub-questions worth asking, each with its own sources. Point at a sentence and the sites behind it light up. Dates, places and videos get a timeline, a map or a gallery when that tells the story better.</td>
+</tr>
+</table>
+
+<div align="center">
+<img src="docs/media/research-board.webp" width="100%" alt="The Research board: every past search as a card with Connect, Tabs and Reopen, a search box, and a Recent list">
+</div>
+
+**The Research board keeps it all.** Open **Research** in the dock to find every search you've done, search inside them, and reopen any map exactly as you left it. Shift-click cards to group them, or **Connect** two, and ask your AI about all of them at once. Nothing leaves your computer.
+
+### 🛸 Your tabs, all around you in your pod
+
+<div align="center">
+<img src="docs/media/room-360.gif" width="100%" alt="The 360° pod: Wikipedia, GitHub and other open tabs hang on curved glass in a circle over a seaside balcony, and the view glides from one to the next">
+</div>
+
+Press the **360°** button (or Cmd/Ctrl + Shift + U) to step into your **pod**: every tab hangs around you on curved glass, like a headset without the headset. Turn with a swipe, a drag or Alt + ←/→. Click, scroll and type in any page as usual. Watch a video full screen on its panel. Pick the view outside: a seaside balcony, a home office, a glass house or a loft, or your own 360° photo. Clocks, notes and your agents hang on the wall beside your tabs, wherever you drag them.
 
 | | |
 |---|---|
@@ -65,6 +90,18 @@ Press the **360°** button (or Cmd/Ctrl + Shift + U) and every tab hangs around 
 | 🔐 **Private by design** | Keys are encrypted by your system keychain. Sync is end-to-end encrypted. No telemetry. [How your data moves](SECURITY.md). |
 
 ## 📦 Download
+
+### 🆕 AetherDeck for Mac (preview)
+
+The Mac version is now its own browser: the window **is** the 360° pod, with your real tabs on a curved ring around you and AetherDeck's home, Cosmonaut, agents and research in the first pane. Google sign-in works in it.
+
+| System | File | First launch |
+|---|---|---|
+| macOS on Apple silicon (M1 or newer) | `AetherDeck-x.y.z-mac-arm64.dmg` | Not signed yet: open it once, then **System Settings → Privacy & Security → Open Anyway**. |
+
+It brings its own local server, so there's nothing else to install. Bring your own AI from the ⚙️ on the home pane: **Sign in with ChatGPT** (Plus or Pro), an API key, Ollama on your computer, or any OpenAI-compatible address. AetherDeck is built on Firefox's open-source engine but is not Mozilla or Firefox; how it's built and how it follows Mozilla's licence and trademark rules: [browser/README.md](browser/README.md).
+
+### Windows and Linux, and the earlier Mac app
 
 Get the installer from the [**Releases**](https://github.com/tajwarah/aetherdeck/releases/latest) page:
 
@@ -84,11 +121,13 @@ Windows and Linux update themselves. On macOS, AetherDeck tells you when a new v
 
    - **AI:** sign in with ChatGPT, paste a key, or pick a free local model.
    - **Google:** sign in on Google's own page, so YouTube, Gmail and Docs work.
-   - **Search engine, dock, 360° room and privacy:** pick what suits you.
+   - **Search engine, dock, 360° pod and privacy:** pick what suits you.
 2. **Ask something.** Click anywhere on the home (or press `/`) and type a question, an address, or "play …".
 3. **Give the crew a task.** Open **Agents** in the dock, type a task, and press **Deploy**.
 
 Everything from the setup lives in **Settings**: the ⚙️ in the top bar, or Cmd/Ctrl + ,.
+
+Signing in, choosing an AI, and what to do when something goes wrong: **[How to use AetherDeck](docs/USING.md)**.
 
 ## 🤖 Agents
 
@@ -121,9 +160,11 @@ On a billed provider, a run stops at 500,000 tokens. More in the [guide](docs/GU
 git clone https://github.com/tajwarah/aetherdeck.git && cd aetherdeck
 npm install
 npm run desktop:dev   # the desktop app with live reload
-npm test              # 196 unit tests
+npm test              # unit tests
 npm run dist:mac      # or dist:win / dist:linux: installers in release/
 ```
+
+AetherDeck for Mac (the browser) has its own build, which needs about 40 GB of disk: see [browser/README.md](browser/README.md).
 
 Needs Node 22+. Architecture, data sources, environment variables and tests: [docs/GUIDE.md](docs/GUIDE.md). Design system: [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -134,6 +175,8 @@ Needs Node 22+. Architecture, data sources, environment variables and tests: [do
 - [x] Artifacts, local websites, posting with approval
 - [x] Sign in with ChatGPT
 - [x] First-run setup
+- [x] AetherDeck for Mac as its own browser, with the 360° pod as the window (preview)
+- [ ] The same browser for Windows and Linux, with automatic updates
 - [ ] Signed and notarized macOS and Windows builds
 - [ ] Publish agent-built websites to a public host (GitHub Pages, Netlify, Vercel), with your approval
 - [ ] A shared library of agent recipes the community can install
@@ -157,9 +200,10 @@ Please give your project its own name and logo. The AetherDeck name, mark and Co
 ## 🙏 Acknowledgments
 
 - Earth at night: [NASA Earth Observatory, Black Marble](https://earthobservatory.nasa.gov/features/NightLights) (public domain)
-- 360° rooms: [Poly Haven](https://polyhaven.com) (CC0)
+- 360° pod views: [Poly Haven](https://polyhaven.com) (CC0)
 - Lexend Exa typeface: [The Lexend Project](https://www.lexend.com) (SIL OFL 1.1)
 - Built with [Electron](https://www.electronjs.org), [React](https://react.dev) and [Vite](https://vite.dev)
+- AetherDeck for Mac is built on the open-source code of [Mozilla Firefox](https://www.mozilla.org/firefox/) (MPL 2.0) and runs its server on [Node.js](https://nodejs.org). AetherDeck is not made or endorsed by Mozilla
 - Open data: Wikipedia, OpenAlex, arXiv, Hacker News, Stack Overflow, OpenStreetMap (© OpenStreetMap contributors), GDELT
 
 ## ⭐ Star history

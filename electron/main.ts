@@ -2,10 +2,9 @@
 // <webview> (its own Chromium process) placed in a glass pane, so any site loads, nothing is framed or proxied.
 // This process owns what a browser must: sessions and cookies, downloads, permission prompts, popups, the
 // context menu, history and bookmarks, keys kept in the OS keychain, default-browser links, and updates.
-import { legacyEnv } from "../shared/env.ts";
 import { app, BrowserWindow, Menu, globalShortcut, systemPreferences, clipboard, dialog, ipcMain, session, shell, webContents, type MenuItemConstructorOptions, type Session, type WebContents } from "electron";
 import { randomBytes } from "node:crypto";
-import { cpSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { basename, extname, join } from "node:path";
@@ -16,6 +15,7 @@ import { extensions } from "./extensions.ts";
 import { agentApps, registerAppScheme } from "./apps.ts";
 import { agentSites } from "./sites.ts";
 import { chatgptSignIn } from "./chatgpt.ts";
+import { googleSignIn } from "./google.ts";
 import { agentEngine } from "./engine.ts";
 import { phones } from "./phone.ts";
 import { shields } from "./shields.ts";
@@ -35,19 +35,6 @@ let engine: ReturnType<typeof agentEngine> | undefined;
 let phone: ReturnType<typeof phones> | undefined;
 const pending: string[] = []; // links opened before the interface was ready
 
-/**
- * AetherDeck was called Warpnaut: everything it kept (sign-in folders, extensions, the library, this browser's saved
- * settings and notes) comes across, once, before anything opens the new folder. Caches stay behind.
- */
-function bringWarpnautData() {
-  if (app.commandLine.hasSwitch("user-data-dir")) return;
-  const dir = app.getPath("userData");
-  const old = join(app.getPath("appData"), "Warpnaut");
-  if (existsSync(join(dir, "Local State")) || existsSync(join(dir, "library")) || !existsSync(old)) return;
-  const skip = /^(Singleton\w*|\w*Cache|Code Cache|Crashpad|logs)$/;
-  try { cpSync(old, dir, { recursive: true, verbatimSymlinks: true, filter: (src) => !skip.test(basename(src)) }); } catch { /* start fresh */ }
-}
-bringWarpnautData();
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -183,15 +170,6 @@ async function savePage(wc: WebContents) {
   if (!r.canceled && r.filePath) await wc.savePage(r.filePath, "HTMLComplete");
 }
 
-/** Before Warpnaut, AetherDeck was called Horus, and NEXUS before that: history, bookmarks, agents, the research board and phone tools come across, once. */
-function bringOldData() {
-  const dir = app.getPath("userData");
-  if (existsSync(join(dir, "library"))) return;
-  const old = ["Horus", "horus", "nexus"].map((n) => join(app.getPath("appData"), n)).find((d) => existsSync(join(d, "library")));
-  if (!old) return;
-  for (const name of ["library", "phone"]) if (existsSync(join(old, name))) cpSync(join(old, name), join(dir, name), { recursive: true, verbatimSymlinks: true });
-}
-
 // ---------- the interface window ----------
 function command(name: string) { return () => send("aetherdeck:command", { name }); }
 
@@ -325,8 +303,8 @@ function handlers() {
     const p = AI_PROVIDERS.find((x) => x.id === provider);
     if (!p) return { error: "Unknown provider" };
     const apiKey = !p.keyEnv ? provider : (typeof key === "string" && key.trim()) || store.keys()[p.keyEnv as KeyName] || process.env[p.keyEnv];
-    if (!apiKey) return { error: "Enter a key first." };
-    try { return { models: await listModels(provider, apiKey) }; } catch (err) { return { error: (err as Error).message }; }
+    if (!apiKey && provider !== "custom") return { error: "Enter a key first." };
+    try { return { models: await listModels(provider, apiKey || "none") }; } catch (err) { return { error: (err as Error).message }; }
   });
   ipcMain.handle("app:restart", () => { store.flush(); app.relaunch(); app.exit(0); });
   ipcMain.handle("app:setDefault", () => {
@@ -392,11 +370,10 @@ function updates() {
 registerAppScheme();
 
 app.whenReady().then(async () => {
-  bringOldData();
   app.setAboutPanelOptions({ applicationName: "AetherDeck", applicationVersion: app.getVersion(), copyright: "Your tabs, all around you." });
   store = new Store(join(app.getPath("userData"), "library"));
   // Development only: the project's .env (keys for trying things out). Released builds use Settings alone.
-  if (!app.isPackaged && existsSync(join(import.meta.dirname, "..", ".env"))) { process.loadEnvFile(join(import.meta.dirname, "..", ".env")); legacyEnv(); }
+  if (!app.isPackaged && existsSync(join(import.meta.dirname, "..", ".env"))) { process.loadEnvFile(join(import.meta.dirname, "..", ".env")) }
   // The person's own keys, kept encrypted, become the server's environment.
   Object.assign(process.env, store.keys(), store.config());
   if (store.contact()) process.env.AETHERDECK_CONTACT = store.contact();
@@ -406,6 +383,7 @@ app.whenReady().then(async () => {
   agentApps(join(app.getPath("userData"), "library", "apps")).serve(session.fromPartition(WEB));
   agentSites({ dir: join(app.getPath("userData"), "library"), win: () => win });
   chatgptSignIn({ dir: join(app.getPath("userData"), "library"), changed: () => void import("../server/models.ts").then((m) => m.resetBackend()) });
+  googleSignIn({ dir: join(app.getPath("userData"), "library") });
   shield.attach(session.fromPartition(WEB));
   shield.attach(session.fromPartition(PRIVATE));
   setUpSession(session.fromPartition(WEB));

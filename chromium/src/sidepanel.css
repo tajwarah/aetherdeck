@@ -1,0 +1,8 @@
+/* The panel is a narrow column: the interface's own styles (src/styles.css) give Cosmonaut its look; this fits it in. */
+html, body, #root { height: 100%; margin: 0; }
+body.sidekick { overflow: hidden; background: #0b0b0d; color: #ececf1; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+#root { display: flex; flex-direction: column; min-width: 0; }
+#root > .assist { flex: 1; min-height: 0; }
+.sk__note { padding: 16px; }
+.sk__note code { background: rgba(255,255,255,.1); padding: 1px 5px; border-radius: 4px; }
+.sk__foot { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 12px; border-top: 1px solid rgba(255,255,255,.12); }
