@@ -97,7 +97,7 @@ The Mac version is now its own browser: the window **is** the 360° pod, with yo
 
 | System | File | First launch |
 |---|---|---|
-| macOS on Apple silicon (M1 or newer) | `AetherDeck-x.y.z-mac-arm64.dmg` | Not signed yet: open it once, then **System Settings → Privacy & Security → Open Anyway**. |
+| macOS on Apple silicon (M1 or newer) | [`AetherDeck-0.2.0-mac-arm64.dmg`](https://github.com/tajwarah/aetherdeck/releases/tag/v0.2.0) | Not signed yet: open it once, then **System Settings → Privacy & Security → Open Anyway**. |
 
 It brings its own local server, so there's nothing else to install. Bring your own AI from the ⚙️ on the home pane: **Sign in with ChatGPT** (Plus or Pro), an API key, Ollama on your computer, or any OpenAI-compatible address. AetherDeck is built on Firefox's open-source engine but is not Mozilla or Firefox; how it's built and how it follows Mozilla's licence and trademark rules: [browser/README.md](browser/README.md).
 
