@@ -223,7 +223,7 @@ export function Windows({ wins, update, overview, onOverview, onAddPage, onNewTa
           const tabbed = !!desktop && isWeb && !isFull;
           const tabs = tabbed ? tabsOf(wins, win) : [];
           return (
-            <section key={win.id} aria-hidden={hidden || undefined} className={`win ${hidden ? "is-min" : ""} ${fullscreen === win.id ? "is-fullscreen" : ""} ${win.private ? "is-private" : ""} ${isFront ? "is-front" : ""} ${isPhone ? "is-bent" : ""} ${grouped ? "is-grouped" : ""} ${win.group && shared.has(win.group) ? "is-shared" : ""} ${snapTo === win.id ? "is-snap" : ""} ${win.restore ? "is-max" : ""} ${bent ? "is-bent" : ""} ${tabbed ? "has-tabs" : ""}`}
+            <section key={win.id} aria-hidden={hidden || undefined} className={`win ${hidden ? "is-min" : ""} ${fullscreen === win.id ? "is-fullscreen" : ""} ${win.private ? "is-private" : ""} ${isFront ? "is-front" : ""} ${isPhone ? "is-bent" : ""} ${grouped ? "is-grouped" : ""} ${win.group && shared.has(win.group) ? "is-shared" : ""} ${snapTo === win.id ? "is-snap" : ""} ${win.restore ? "is-max" : ""} ${bent ? "is-bent" : ""} ${tabbed ? "has-tabs" : ""} ${isAssistant ? "is-side" : ""}`}
               data-window={win.id} role="dialog" aria-label={t.title}
               style={{ left: win.x, top: win.y, width: win.w, height: win.h, zIndex: win.z,
                 transformOrigin: tile ? "0 0" : win.origin ? `${win.origin.x - win.x}px ${win.origin.y - win.y}px` : undefined,

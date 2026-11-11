@@ -105,6 +105,16 @@ export function placeWindow(existing: Win[], vw: number, vh: number, near?: { x:
   return { x, y, w, h };
 }
 
+/**
+ * Cosmonaut's chat: a panel docked to the right edge, from just below the top bar (76 px) to just above the dock bar
+ * (whose top is about 116 px above the bottom), so it never sits under the dock or over the middle of the home.
+ */
+export function placeSide(vw: number, vh: number): Rect {
+  const w = Math.min(420, Math.max(300, Math.round(vw * 0.36)), vw - 32);
+  const y = 84;
+  return { x: vw - w - 16, y, w, h: Math.max(220, vh - y - 132) };
+}
+
 /** Maximize, or return to the frame it had before. */
 export function toggleMaximize(w: Win, vw: number, vh: number): Win {
   if (w.restore) return { ...w, ...w.restore, restore: undefined };

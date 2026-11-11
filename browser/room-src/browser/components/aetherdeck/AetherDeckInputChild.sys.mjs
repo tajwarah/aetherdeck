@@ -1,8 +1,44 @@
-/* AetherDeck: content half. Replays pointer input into the page, in the page's own coordinates. */
+/* AetherDeck: content half. Replays pointer input into the page, in the page's own coordinates, and tells the Pod when the
+   page has changed (so its picture is redrawn only then) and when it starts or stops playing media. */
 export class AetherDeckInputChild extends JSWindowActorChild {
+  // "The page painted something new": at most one note per 100 ms, whatever the page's frame rate.
+  handleEvent(e) {
+    if (e.type === "MozAfterPaint") {
+      if (this._painted) return;
+      this._painted = true;
+      this.contentWindow?.setTimeout(() => { this._painted = false; try { this.sendAsyncMessage("changed"); } catch (err) {} }, 100);
+      return;
+    }
+    // Media: playing (and not paused) anywhere in this frame. Video frames reach the screen without a paint, so the Pod
+    // keeps a playing pane's picture fresh by itself and never puts it to sleep.
+    if (e.type === "play" || e.type === "playing" || e.type === "pause" || e.type === "ended" || e.type === "emptied") {
+      const doc = this.document;
+      const playing = !!doc && [...doc.querySelectorAll("video, audio")].some((m) => !m.paused && !m.ended);
+      if (playing !== this._playing) { this._playing = playing; try { this.sendAsyncMessage("media", playing); } catch (err) {} }
+    }
+  }
+
+  // Protected (DRM) media started in this frame: Firefox announces it as "mediakeys-request" (the same note its own
+  // EncryptedMedia actor uses). Such video can't be drawn into a bent pane's picture, so the Pod offers its Cinema.
+  observe(subject, topic, data) {
+    if (topic !== "mediakeys-request") return;
+    try {
+      const { status, keySystem } = JSON.parse(data);
+      if ((status === "available" || status === "cdm-created") && keySystem && keySystem !== "org.w3.clearkey") this.sendAsyncMessage("eme", String(keySystem));
+    } catch (e) {}
+  }
+
   receiveMessage(msg) {
     const win = this.contentWindow;
-    if (!win) return;
+    if (!win) return undefined;
+    // The shape (width / height) of the video the page shows in full screen, so the Pod can give it a rectangle of that shape.
+    if (msg.name === "videoAspect") {
+      const doc = win.document, root = doc.fullscreenElement || doc;
+      const vids = [...root.querySelectorAll("video")].filter((v) => v.videoWidth && v.videoHeight);
+      if (root.localName === "video" && root.videoWidth) vids.push(root);
+      vids.sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight);
+      return vids[0] ? vids[0].videoWidth / vids[0].videoHeight : 0;
+    }
     const wu = win.windowUtils;
     const d = msg.data;
     try {

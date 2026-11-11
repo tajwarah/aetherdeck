@@ -17,7 +17,8 @@ export const desktop: Bridge | null = (globalThis as unknown as { aetherdeck?: B
  * Inside AetherDeck for Mac (the browser) the local pages get a smaller bridge, `window.aetherdeckRoom`: open a site as a
  * pane in the Room and keep research and agents on this computer. It is deliberately not `desktop`, which means "the Electron app".
  */
-export const roomBridge: Pick<Bridge, "invoke"> | null = (globalThis as unknown as { aetherdeckRoom?: Pick<Bridge, "invoke"> }).aetherdeckRoom ?? null;
+export type RoomBridge = Pick<Bridge, "invoke"> & Partial<Pick<Bridge, "on">>;
+export const roomBridge: RoomBridge | null = (globalThis as unknown as { aetherdeckRoom?: RoomBridge }).aetherdeckRoom ?? null;
 
 export interface AppInfo { version: string; platform: string; keys: Record<string, boolean>; contact: string; config: Record<string, string>; isDefault: boolean; packaged: boolean }
 export interface HistoryEntry { url: string; title: string; at: number }

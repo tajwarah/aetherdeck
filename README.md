@@ -100,7 +100,7 @@ AetherDeck is now its own browser: the window **is** the 360° pod, with your re
 
 | System | Status | Get it |
 |---|---|---|
-| 🍎 **macOS**, Apple silicon (M1 or newer) | **Preview, available now** | [`AetherDeck-0.2.2-mac-arm64.dmg`](https://github.com/tajwarah/aetherdeck/releases/tag/v0.2.2) |
+| 🍎 **macOS**, Apple silicon (M1 or newer) | **Preview, available now** | [`AetherDeck-0.2.3-mac-arm64.dmg`](https://github.com/tajwarah/aetherdeck/releases/tag/v0.2.3) |
 | 🪟 **Windows** | Coming soon | Not released yet |
 | 🐧 **Linux** | Coming soon | Not released yet |
 

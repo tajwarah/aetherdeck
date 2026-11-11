@@ -8,7 +8,7 @@ import { Onboarding, welcomed } from "./components/Onboarding.tsx";
 import { hasProfile, loadProfile } from "./lib/profile.ts";
 import { Logo } from "./components/Logo.tsx";
 import { Windows } from "./components/Windows.tsx";
-import { arrangeGroup, awayTabs, closeTab, frontWindow, showTab, toggleMaximize, parseOpenRequest, placeBeside, placeWindow, uid, webSearchTab, type Tab, type Win } from "./lib/windows.ts";
+import { arrangeGroup, awayTabs, closeTab, frontWindow, showTab, toggleMaximize, parseOpenRequest, placeBeside, placeSide, placeWindow, uid, webSearchTab, type Tab, type Win } from "./lib/windows.ts";
 import type { Place } from "./components/Launcher.tsx";
 import { ControlBar } from "./components/ControlBar.tsx";
 import { Composer } from "./components/Composer.tsx";
@@ -78,6 +78,10 @@ const TAB_PAUSE = 900;
 
 export function App() {
   const reduced = useReducedMotion();
+  // In the Pod (AetherDeck for Mac) the Pod says whether this home pane is the one in front, and its performance mode:
+  // the Earth turns only when it is in front and not in Lite mode (a turning Earth beside you costs pictures and GPU).
+  const [podView, setPodView] = useState<{ front: boolean; mode: string }>({ front: true, mode: "balanced" });
+  useEffect(() => roomBridge?.on?.("pod:view", (v) => setPodView(v as { front: boolean; mode: string })), []);
   const field = useRef<FieldHandle>(null);
   const { prefs, update, clearAll } = usePrefs();
   const [health, setHealth] = useState<Health | null>(null);
@@ -319,7 +323,9 @@ export function App() {
         const next = [...ws.map((w) => (w.id === anchor.id ? { ...w, group } : w)), { id: uid("w"), page, ...rect, z: top, minimized: false, group, origin: { x: anchor.x + anchor.w, y: anchor.y + anchor.h / 2 }, ...(anchor.private ? { private: true } : {}) }];
         return fits ? next : arrangeGroup(next, group, vw, vh); // no room beside: lay the group out side by side, shrunk to fit
       }
-      return [...ws, { id: uid("w"), page, ...placeWindow(ws, vw, vh, near), z: top, minimized: false, origin: from ?? near, ...(opts.private ? { private: true } : {}) }];
+      // Cosmonaut opens as a side panel on the right (it slides in), not as a box in the middle of the home.
+      const rect = tab.kind === "assistant" ? placeSide(vw, vh) : placeWindow(ws, vw, vh, near);
+      return [...ws, { id: uid("w"), page, ...rect, z: top, minimized: false, origin: tab.kind === "assistant" ? undefined : from ?? near, ...(opts.private ? { private: true } : {}) }];
     });
     setComposer(null);
     setOverview(false);
@@ -379,7 +385,9 @@ export function App() {
   const openAssistant = useCallback((title: string, near?: { x: number; y: number }, beside?: string) => {
     const key = uid("a");
     openTab({ kind: "assistant", src: key, href: "", title, domain: "aetherdeck" }, near, beside);
-    setWins((ws) => ws.map((w) => (w.page.src === key ? { ...w, w: Math.min(480, window.innerWidth - 32), h: Math.min(600, window.innerHeight - 160) } : w)));
+    // Docked on the right (placeSide), full height between the top bar and the dock: keep its x as placed, so it stays
+    // on screen, and don't stretch it over the dock.
+    setWins((ws) => ws.map((w) => (w.page.src === key && !beside ? { ...w, ...placeSide(window.innerWidth, window.innerHeight) } : w.page.src === key ? { ...w, w: Math.min(480, window.innerWidth - 32), h: Math.min(600, window.innerHeight - 160) } : w)));
     return key;
   }, [openTab]);
   const loadFileInto = useCallback((key: string, file: File) => {
@@ -869,7 +877,7 @@ export function App() {
         onKeyAsk={() => askAtBar()}
         onEscape={onEscape}
         backdrop={<>
-          <Earth dim={frames.length > 0 || surround} still={browsing} reduced={reduced} />
+          <Earth dim={frames.length > 0 || surround} still={browsing || !podView.front || podView.mode === "lite"} reduced={reduced} />
         </>}
       >
         {model && layout && View && (

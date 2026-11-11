@@ -63,7 +63,8 @@
     #ad-more .t button { flex: none; border: 0; border-radius: 7px; padding: 3px 8px; background: #6c56d8; color: #fff; font: 12px system-ui; cursor: pointer; }
     #ad-more-ghost { position: fixed; z-index: 2100; pointer-events: none; padding: 6px 10px; border-radius: 9px; background: #6c56d8; color: #fff; font: 12px system-ui; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #ad-room-rail { position: fixed; top: 34px; left: 0; bottom: 0; width: 210px; z-index: 1500; overflow: auto; background: #0b0b0fe6; color: #ececf1; font: 12px system-ui; padding: 6px; display: none; }
-    body.ad-room #ad-room-rail.open { display: block; }
+    /* The rail sits beside <body>, not in it: "body.ad-room #ad-room-rail" never matched, so the Tabs list never showed. */
+    body.ad-room ~ #ad-room-rail.open, body.ad-room #ad-room-rail.open { display: block; }
     #ad-room-rail .item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
     #ad-room-rail .item:hover, #ad-room-rail .item.here { background: #1d1d26; }
     #ad-room-rail .item .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -71,9 +72,18 @@
     #ad-room-rail .item.asleep .t { opacity: .5; }
     #ad-room-rail .item button { margin: 0; padding: 0 5px; border: 0; background: transparent; color: #9a9aa6; cursor: pointer; }
     #ad-widgets { display: none; position: fixed; inset: 0; z-index: 1003; pointer-events: none; }
+    /* The widget shelf: a tab on the left edge; widgets show only while it is open (closed by default). */
+    #ad-shelf { display: none; position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 1004; flex-direction: column; gap: 6px; }
+    body.ad-room ~ #ad-shelf, body.ad-room #ad-shelf { display: flex; }
+    :root[data-ad-theater] #ad-shelf { display: none !important; }
+    #ad-shelf button { writing-mode: vertical-rl; border: 1px solid rgba(214,202,255,.35); border-left: 0; border-radius: 0 10px 10px 0; padding: 10px 5px;
+      background: rgba(30,26,52,.86); color: #f6f1ff; font: 12px system-ui; letter-spacing: .06em; cursor: pointer; }
+    #ad-shelf button:hover { background: rgba(60,48,110,.9); }
+    #ad-shelf .reset { display: none; }
+    #ad-shelf.open .reset { display: block; }
     body.ad-room ~ #ad-widgets, body.ad-room #ad-widgets { display: block; }
     .ad-widget { position: absolute; box-sizing: border-box; min-width: 130px; min-height: 64px; max-width: 520px; max-height: 300px; padding: 10px 14px; border-radius: 16px;
-      border: 1px solid rgba(214,202,255,.32); background: linear-gradient(145deg, rgba(43,33,80,.62), rgba(20,22,34,.62)); backdrop-filter: blur(14px);
+      border: 1px solid rgba(214,202,255,.32); background: rgba(30,26,52,.86);
       color: #f6f1ff; font: 13px system-ui; pointer-events: auto; cursor: grab; box-shadow: 0 10px 34px rgba(0,0,0,.35); resize: both; overflow: hidden; container-type: size; user-select: none; }
     .ad-widget.dragging { cursor: grabbing; opacity: .9; }
     .ad-widget .k { opacity: .7; font-size: clamp(9px, 8cqh, 13px); letter-spacing: .08em; text-transform: uppercase; }
@@ -136,8 +146,56 @@
     body.ad-room .browserSidebarContainer.ad-room-pane.ad-focus { transform: none !important; opacity: 1 !important; pointer-events: auto !important; z-index: 10 !important; border-color: transparent !important; box-shadow: 0 18px 60px rgba(0,0,0,.45); }
     body.ad-room .browserSidebarContainer.ad-room-pane.ad-input { transform: none !important; pointer-events: auto !important; opacity: 0.001 !important; z-index: 5 !important; }
     #ad-room-curves.ad-passthru, #ad-room-curves.ad-passthru *, #ad-room-drag.ad-passthru { pointer-events: none !important; }
+    /* The bar at any window width: buttons never shrink below their text (they used to be squeezed until it spilled out, and
+       at 900 px "More tabs", "⤢" and "Leave" were pushed off the window); the address box gives way first, then the hint,
+       the meter and the slider's length; below 860 px the bar wraps onto two centred rows. */
+    #ad-room-hud > * { flex-shrink: 0; }
+    #ad-room-hud button { flex: none !important; }
+    #ad-room-hud input:not([type=range]) { flex: 1 1 200px !important; min-width: 80px !important; }
+    #ad-room-hud .meter { flex: 0 1 auto !important; min-width: 0 !important; }
+    @media (max-width: 1440px) { #ad-room-hud > span:first-child { display: none; } } /* the hint gives its room to the address box */
+    @media (max-width: 1000px) { #ad-room-hud .meter { display: none; } #ad-room-hud input[type=range] { width: 64px !important; flex-basis: 64px !important; } }
+    @media (max-width: 860px) { #ad-room-hud { flex-wrap: wrap; height: auto !important; min-height: 46px; padding: 6px 10px !important; row-gap: 6px; justify-content: center; } }
+    /* Theater: one pane fills the view, flat and live; widgets tuck away. */
+    :root[data-ad-theater] #ad-widgets, :root[data-ad-theater] #ad-more, :root[data-ad-theater] #ad-room-rail { display: none !important; }
+    /* Cinema: a still auditorium (drawn once: no 3D, no photo, no pictures) and one live page on its screen. */
+    #ad-cinema { display: none; position: fixed; inset: 0; z-index: 999; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 42% at 50% 36%, rgba(150, 140, 210, .18), transparent 72%),
+        linear-gradient(90deg, #2a070c 0, #5b1520 3.5%, #3a0b12 6%, transparent 10%, transparent 90%, #3a0b12 94%, #5b1520 96.5%, #2a070c 100%),
+        radial-gradient(circle at 50% 100%, #000 58%, transparent 60%) 0 100% / 64px 46px repeat-x,
+        radial-gradient(circle at 50% 100%, #07060a 58%, transparent 60%) 22px calc(100% - 34px) / 52px 38px repeat-x,
+        radial-gradient(circle at 50% 100%, #0c0a12 58%, transparent 60%) 8px calc(100% - 62px) / 42px 30px repeat-x,
+        linear-gradient(180deg, #0b0910 0%, #08070c 60%, #040306 100%); }
+    :root[data-ad-cinema] #ad-cinema { display: block; }
+    :root[data-ad-cinema] #ad-room-bg, :root[data-ad-cinema] #ad-room-curves, :root[data-ad-cinema] #ad-room-drag, :root[data-ad-cinema] #ad-shelf { display: none !important; }
+    :root[data-ad-cinema] #tabbrowser-tabpanels { perspective: none !important; z-index: 1003 !important; }
+    :root[data-ad-cinema] #tabbrowser-tabpanels > .browserSidebarContainer.ad-room-pane:not(.ad-cinema-screen) { visibility: hidden !important; }
+    :root[data-ad-cinema] body.ad-room #tabbrowser-tabpanels > .browserSidebarContainer.ad-room-pane.ad-cinema-screen { position: fixed !important; transform: none !important; margin: 0 !important;
+      left: var(--ad-cin-x) !important; top: var(--ad-cin-y) !important; width: var(--ad-cin-w) !important; height: var(--ad-cin-h) !important; opacity: 1 !important;
+      pointer-events: auto !important; border: 0 !important; border-radius: 4px !important; box-shadow: 0 0 120px rgba(160, 150, 230, .22), 0 0 0 1px rgba(255,255,255,.06) !important; }
+    #ad-cinema-ask { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 2050; width: min(460px, calc(100% - 32px)); box-sizing: border-box;
+      padding: 12px 14px; border-radius: 14px; background: rgba(24, 20, 38, .96); border: 1px solid rgba(214, 202, 255, .4); box-shadow: 0 16px 50px rgba(0,0,0,.5);
+      color: #f6f1ff; font: 13px/1.4 system-ui; display: grid; gap: 8px; }
+    #ad-cinema-ask b { font-weight: 600; } #ad-cinema-ask .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    #ad-cinema-ask button { flex: none; border: 1px solid rgba(255,255,255,.2); border-radius: 9px; padding: 5px 12px; background: rgba(255,255,255,.1); color: #fff; font: 13px system-ui; cursor: pointer; }
+    #ad-cinema-ask button.go { background: #6c56d8; border-color: #6c56d8; }
+    #ad-cinema-ask label { margin-left: auto; display: flex; gap: 6px; align-items: center; opacity: .85; cursor: pointer; }
+    :root[data-ad-cinema] #ad-cinema-ask { display: none; }
+    :root[data-ad-pane-fs] .browserSidebarContainer.ad-room-pane.ad-focus { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+    :root[data-ad-pane-fs] .browserSidebarContainer.ad-room-pane.ad-focus * { background: transparent !important; }
   `;
   document.documentElement.append(style);
+  // A page's own full screen (a video's ⛶ button) stays inside the Pod: Firefox puts the page's <browser> in the window's
+  // "top layer", filling the window with a black backdrop. This sheet (agent level, so it can outrank Firefox's built-in
+  // full-screen rules) puts it in the Theater rectangle instead, with the Pod still visible around it.
+  try {
+    const fsCss = `:root[data-ad-theater] .browserSidebarContainer browser:fullscreen { position: fixed !important; inset: auto !important;
+        left: var(--ad-fs-x, 4vw) !important; top: var(--ad-fs-y, 4vh) !important; width: var(--ad-fs-w, 92vw) !important; height: var(--ad-fs-h, 84vh) !important;
+        border-radius: 8px !important; box-shadow: none !important; }
+      :root[data-ad-theater] .browserSidebarContainer browser:fullscreen::backdrop { background: transparent !important; }`;
+    window.windowUtils.loadSheetUsingURIString("data:text/css," + encodeURIComponent(fsCss), window.windowUtils.AGENT_SHEET);
+  } catch (e) { log("full-screen sheet failed: " + e); }
 
   const hud = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
   hud.id = "ad-room-hud";
@@ -170,19 +228,17 @@
   const roomsBtn = mk("Views", "Pick the view outside your pod", () => toggleBgMenu());
   roomsBtn.style.minWidth = "54px";
   const fsBtn = mk("⤢", "Full screen", () => { window.fullScreen = !window.fullScreen; });
-  let widgetsOn = true;
-  try { widgetsOn = window.Services.prefs.getBoolPref("aetherdeck.room.widgets", true); } catch (e) {}
-  const widgetsBtn = mk("Widgets", "Show or hide the clock, tab and agent widgets", () => {
-    widgetsOn = !widgetsOn;
-    if (widgetsOn) { for (const k of Object.keys(widgetLayout)) if (widgetLayout[k]) widgetLayout[k].hidden = false; saveLayout(); }
-    try { window.Services.prefs.setBoolPref("aetherdeck.room.widgets", widgetsOn); } catch (e) {}
-    widgetsBtn.style.opacity = widgetsOn ? "1" : ".55";
-    apply();
+  let widgetsOn = false; // the shelf: closed by default
+  try { widgetsOn = window.Services.prefs.getBoolPref("aetherdeck.room.widgetShelfOpen", false); } catch (e) {}
+  const widgetsBtn = mk("Widgets", "Open or close the widget shelf (clock, tabs, agents' widgets)", () => {
+    setShelf(!widgetsOn);
   });
   widgetsBtn.style.opacity = widgetsOn ? "1" : ".55";
   const moreBtn = mk("More tabs", "Tabs beyond the eight in your pod: swap one in", () => toggleMore());
+  const cinemaBtn = mk("Cinema", "Watch the pane you're facing on a cinema screen (Esc to come back)", () => (cinemaOf ? endCinema() : cinema(targetPane())));
+  cinemaBtn.style.flex = "none";
   moreBtn.style.minWidth = "84px";
-  hud.append(title, addr, railBtn, zoomOutBtn, sizeRange, sizeLabel, zoomInBtn, fitBtn, homeBtn, roomsBtn, widgetsBtn, moreBtn, fsBtn, meter, leaveBtn);
+  hud.append(title, addr, railBtn, zoomOutBtn, sizeRange, sizeLabel, zoomInBtn, fitBtn, cinemaBtn, homeBtn, roomsBtn, widgetsBtn, moreBtn, fsBtn, meter, leaveBtn);
   const rail = document.createElementNS(X, "div");
   rail.id = "ad-room-rail";
   document.documentElement.append(rail);
@@ -202,7 +258,8 @@
   ];
   let BG_NAME = (() => { try { return Services.prefs.getStringPref("aetherdeck.room.background", "home-office"); } catch (e) { return "home-office"; } })();
   const CURVE_ON = (() => { try { return Services.prefs.getBoolPref("aetherdeck.room.curve", true); } catch (e) { return true; } })();
-  const BG_N = 36, BG_R = 2400, BG_W = (2 * Math.PI * BG_R) / BG_N, BG_H = 7400;
+  const BG_R = 2400, BG_H = 7400;
+  let BG_N = 36, BG_W = (2 * Math.PI * BG_R) / BG_N;
   let bgEl = null, bgWorld = null;
   const isPhoto = (n) => ["home-office", "glasshouse", "loft", "seaside-balcony"].includes(n);
   function bgUrl(n) { return "chrome://browser/content/aetherdeck/rooms/" + n + ".jpg"; }
@@ -214,6 +271,7 @@
     bgWorld.id = "ad-bg-world";
     bgEl.append(bgWorld);
     // Static strips: a ring of the panorama. Turning the camera moves the one container, not every strip.
+    BG_N = clamp(tune("bgStrips", 36), 8, 72); BG_W = (2 * Math.PI * BG_R) / BG_N;
     for (let j = 0; j < BG_N; j++) {
       const d = document.createElementNS(X, "div");
       d.className = "ad-bg-strip";
@@ -273,6 +331,7 @@
       const rg = document.createElementNS(X, "input"); rg.type = "range"; rg.min = "0"; rg.max = "100"; rg.step = "5"; rg.value = String(curveAmount);
       rg.style.cssText = "flex:1;margin:0 8px;accent-color:#8f73ff;";
       const val = document.createElementNS(X, "span"); val.textContent = curveAmount + "%"; val.style.minWidth = "36px";
+      rg.addEventListener("change", () => place());
       rg.addEventListener("input", () => { curveAmount = Number(rg.value); val.textContent = curveAmount + "%"; try { Services.prefs.setIntPref("aetherdeck.room.curveAmount", curveAmount); } catch (e) {} layoutVer++; apply(); });
       row.append(lab, rg, val);
       bgMenu.append(row);
@@ -294,6 +353,8 @@
   const look = { on: false, x: 0, y: 0, yaw: 0, pitch: 0 };
   const press = { on: false, pane: null, lx: 0, ly: 0 };
   const stats = { snaps: 0, t0: Date.now() };
+  const perf = { snaps: 0, snapMs: 0, drawMs: 0, perPane: {} };
+  let tiersAt = 0; // when the panes' tiers were last set (setTiers)
   const wu = window.windowUtils;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -323,21 +384,28 @@
       curveEl.append(worldEl);
       gBrowser.tabpanels.parentNode.insertBefore(curveEl, gBrowser.tabpanels.nextSibling);
     }
-    for (const p of panes) {
-      if (p.curve) continue;
-      p.curve = [];
-      p.ctx = [];
-      for (let i = 0; i < CURVE_N; i++) {
+    const strips = (n) => {
+      const list = [], ctx = [];
+      for (let i = 0; i < n; i++) {
         const c = document.createElementNS(X, "canvas");
         c.className = "ad-curve-strip";
         c.width = 8; c.height = 8;
         c.style.display = "none";
         worldEl.append(c);
-        p.curve.push(c);
-        p.ctx.push(c.getContext("2d"));
+        list.push(c);
+        ctx.push(c.getContext("2d"));
       }
+      return [list, ctx];
+    };
+    for (const p of panes) {
+      if (p.curve) continue;
+      [p.curve, p.ctx] = strips(CURVE_N);
+      // While the view moves, a few wide strips stand in for the eighteen narrow ones (fewer layers to composite per frame).
+      const n = clamp(tune("movingStrips", 6), 2, CURVE_N);
+      if (n < CURVE_N) [p.coarse, p.cctx] = strips(n);
     }
   }
+  const stripsOf = (p) => [...(p.curve || []), ...(p.coarse || [])];
 
   // --- looking around (free, no snapping) ---
   function startLook(e) {
@@ -359,6 +427,7 @@
     window.removeEventListener("mousemove", onLookMove, true);
     window.removeEventListener("mouseup", onLookEnd, true);
     look.on = false;
+    apply(); // back to the fine strips, and the pane in front can come into focus
   }
   function onWheelRoom(e) {
     cam.target = null;
@@ -374,8 +443,11 @@
   try {
     window.ChromeUtils.registerWindowActor("AetherDeckInput", {
       parent: { esModuleURI: "chrome://browser/content/aetherdeck/AetherDeckInputParent.sys.mjs" },
-      child: { esModuleURI: "chrome://browser/content/aetherdeck/AetherDeckInputChild.sys.mjs" },
-      allFrames: false,
+      // Paints and media from every frame (a video is often in an iframe): the Pod redraws a pane's picture only when it changed.
+      child: { esModuleURI: "chrome://browser/content/aetherdeck/AetherDeckInputChild.sys.mjs",
+        events: { MozAfterPaint: {}, play: { capture: true }, playing: { capture: true }, pause: { capture: true }, ended: { capture: true }, emptied: { capture: true } },
+        observers: ["mediakeys-request"] },
+      allFrames: true,
       safeForUntrustedWebProcess: true,
       matches: ["*://*/*", "about:*", "file:///*"],
     });
@@ -437,7 +509,9 @@
     const u = (hit.i * g.sw + hit.x) / g.sc, v = hit.y / g.sc; // 0..PW, 0..PH on the pane
     // The page's real viewport is a few pixels smaller than the pane; the picture is stretched over the pane, so scale back.
     const kx = (p.vw || PW) / PW, ky = (p.vh || PH) / PH;
-    return { u: clamp(u * kx, 0, (p.vw || PW) - 0.5), v: clamp(v * ky, 0, (p.vh || PH) - 0.5) };
+    // ...and the page is laid out at its page zoom (the reading zoom), so its own pixels are bigger than the pane's.
+    const z = p.tab.linkedBrowser?.fullZoom || 1;
+    return { u: clamp((u * kx) / z, 0, (p.vw || PW) / z - 0.5), v: clamp((v * ky) / z, 0, (p.vh || PH) / z - 0.5) };
   }
   function actorOf(p) {
     try {
@@ -467,6 +541,7 @@
   }
   function setActive(p) {
     activePane = p; lastTarget = p; syncSize();
+    selectPane(p);
     try { p.tab.linkedBrowser.focus(); } catch (e) {}
   }
   function layerDown(e) {
@@ -561,22 +636,198 @@
     layoutVer++;
     apply();
   }
-  function onMoveUp() { window.removeEventListener("mousemove", onMoveMove, true); window.removeEventListener("mouseup", onMoveUp, true); mv.on = false; }
+  function onMoveUp() { window.removeEventListener("mousemove", onMoveMove, true); window.removeEventListener("mouseup", onMoveUp, true); mv.on = false; apply(); }
   let theaterOf = null, theaterPrev = 1;
-  function fitScale(p) {
-    const H = window.innerHeight || 800, Wd = window.innerWidth || 1200;
-    const hfov = 2 * Math.atan(Math.tan(cam.fov / 2) * (Wd / H));
-    const sW = (0.86 * hfov * layout.radius) / PW;
-    const sH = (2 * layout.radius * Math.tan(0.43 * cam.fov)) / PH;
-    return clamp(Math.min(sW, sH), 0.5, 3.2);
-  }
-  function theater(p) {
+  // Theater: one pane fills the view as a flat live page (the same path as the sharp front pane), the Pod stays around it,
+  // every other pane goes cold (not drawn, not rendering, no pictures), widgets tuck away. F, the Fit button or a page's own
+  // full screen starts it; F, Esc, the button or leaving the page's full screen ends it.
+  let theaterFS = false, theaterPrevVoff = 0, fsAspect = 0;
+  function theater(p, opts = {}) {
     p = p || targetPane() || panes[0];
     if (!p) return;
-    if (theaterOf === p) { p.scale = theaterPrev; theaterOf = null; place(); lookAt(panes.indexOf(p)); return; }
-    theaterOf = p; theaterPrev = p.scale || 1; p.scale = fitScale(p);
+    if (theaterOf === p) { endTheater(); return; }
+    if (theaterOf) endTheater(true);
+    theaterOf = p; theaterPrev = p.scale || 1; theaterPrevVoff = p.voff || 0; theaterFS = !!opts.fs;
+    document.documentElement.setAttribute("data-ad-theater", "true");
+    if (!opts.fs) { fitBtn.textContent = "Exit"; fitBtn.title = "Back to the ring (F or Esc)"; }
+    cam.back = 0; cam.fov = 1.3;
+    // Fill the view, above the bar. Growing a pane can widen the ring (and so shrink every pane on screen): size it twice.
+    const fill = () => {
+      const H = window.innerHeight || 800, Wd = window.innerWidth || 1200, P = (H / 2) / Math.tan(cam.fov / 2);
+      const k = Math.min((0.94 * Wd) / PW, (H - 96) / PH);
+      p.scale = clamp((k * layout.radius) / P, 0.5, 8);
+      p.voff = -40 * (layout.radius / P); // a little above the middle, clear of the bar
+      place();
+    };
+    // A page's own full screen stays in its pane, same place and size (the video fills the pane); F / Fit fills the view.
+    if (opts.fs) document.documentElement.setAttribute("data-ad-pane-fs", "true"); else { fill(); fill(); }
+    cam.target = turn(p.yaw + (p.off || 0)); cam.tpitch = 0; kick(); apply();
+    setTiers();
+    placeFullscreen();
+  }
+  function endTheater(quiet) {
+    const p = theaterOf;
+    if (!p) return;
+    theaterOf = null; theaterFS = false; fsAspect = 0;
+    document.documentElement.removeAttribute("data-ad-theater"); document.documentElement.removeAttribute("data-ad-pane-fs");
+    fitBtn.textContent = "Fit"; fitBtn.title = "Fill the view with this pane (F, Esc to go back)";
+    if (document.fullscreenElement) try { document.exitFullscreen(); } catch (e) {}
+    if (panes.includes(p)) { p.scale = theaterPrev; p.voff = theaterPrevVoff; }
+    setTiers();
+    if (quiet) return;
     place();
-    cam.target = turn(p.yaw + (p.off || 0)); cam.tpitch = -(p.voff || 0) / layout.radius; kick(); apply();
+    const i = panes.indexOf(p); if (i >= 0) lookAt(i);
+    updateWidgets();
+  }
+  // Where the pane sits on screen when it is the flat front pane: its size there and its offset from the middle.
+  function screenBox(p) {
+    const H = window.innerHeight || 800, Wd = window.innerWidth || 1200, P = (H / 2) / Math.tan(cam.fov / 2);
+    const k = (P / layout.radius) * (p.scale || 1);
+    const w = Math.round(PW * k), h = Math.round(PH * k), dy = Math.round((p.voff || 0) * (P / layout.radius));
+    return { k, w, h, x: Math.round((Wd - w) / 2), y: Math.round((H - h) / 2 + dy), dy };
+  }
+  // A page in full screen is drawn in the Theater rectangle (see the agent sheet at the top).
+  function placeFullscreen() {
+    if (!theaterOf) return;
+    const b = screenBox(theaterOf), st = document.documentElement.style;
+    let { x, y, w, h } = b;
+    if (theaterFS) { // the pane's own rectangle, trimmed to the video's shape, so the video fills it without black bars
+      const a = fsAspect || 16 / 9;
+      if (w / h > a) { const nw = Math.round(h * a); x += Math.round((w - nw) / 2); w = nw; } else { const nh = Math.round(w / a); y += Math.round((h - nh) / 2); h = nh; }
+    }
+    st.setProperty("--ad-fs-x", x + "px"); st.setProperty("--ad-fs-y", y + "px"); st.setProperty("--ad-fs-w", w + "px"); st.setProperty("--ad-fs-h", h + "px");
+  }
+  // Firefox only lets the selected tab's page go full screen, so the pane you use is the selected tab.
+  let selecting = false;
+  function selectPane(p) {
+    if (!p || gBrowser.selectedTab === p.tab || document.fullscreenElement) return;
+    selecting = true;
+    try { gBrowser.selectedTab = p.tab; } catch (e) {} finally { selecting = false; }
+  }
+  // The other way round: when something else selects a pane's tab (Firefox opening Import in Settings, a link that
+  // focuses its tab, a keyboard shortcut), the Pod turns to that pane, so the pane in front and the selected tab agree.
+  gBrowser.tabContainer.addEventListener("TabSelect", () => {
+    if (selecting || !document.body.classList.contains("ad-room") || theaterOf) return;
+    const i = panes.findIndex((q) => q.tab === gBrowser.selectedTab);
+    if (i >= 0 && panes[i] !== focused) window.setTimeout(() => { if (gBrowser.selectedTab === panes[i]?.tab) lookAt(i); }, 0);
+  });
+  // A page asked for full screen (Firefox has already put its <browser> in full screen, inside the window because of
+  // full-screen-api.ignore-widgets, set while the Pod is open): make it the Theater pane. It leaving full screen ends it.
+  document.addEventListener("fullscreenchange", () => {
+    const el = document.fullscreenElement;
+    if (cinemaOf) { // the page's full screen is the cinema screen
+      if (el && el.localName === "browser") document.documentElement.setAttribute("data-ad-theater", "true"); else document.documentElement.removeAttribute("data-ad-theater");
+      placeCinema(); return;
+    }
+    if (el && el.localName === "browser" && document.body.classList.contains("ad-room")) {
+      const p = panes.find((q) => q.tab.linkedBrowser === el);
+      if (!p) return;
+      if (theaterOf !== p) theater(p, { fs: true }); else { theaterFS = true; document.documentElement.setAttribute("data-ad-pane-fs", "true"); placeFullscreen(); }
+      try {
+        p.tab.linkedBrowser.browsingContext.currentWindowGlobal.getActor("AetherDeckInput").sendQuery("videoAspect").then((a) => {
+          if (theaterOf === p && a > 0.3 && a < 4) { fsAspect = a; placeFullscreen(); }
+        }, () => {});
+      } catch (e) {}
+    } else if (!el && theaterFS) endTheater();
+  });
+  // ---- Cinema (prototype): one tab on a cinema screen. The Pod's 3D scene, bent panes, pictures and 360° photo are all
+  // switched off; a still auditorium (CSS, drawn once) surrounds one flat live page; every other pane is cold. DRM video
+  // (which can't be drawn into a bent pane's picture) plays here as on any normal tab.
+  let cinemaOf = null, cinemaEl = null;
+  function cinemaRect() {
+    const W = window.innerWidth || 1200, H = window.innerHeight || 800;
+    const w = Math.round(Math.min(W * 0.84, (H * 0.66 * 16) / 9)), h = Math.round((w * 9) / 16);
+    return { x: Math.round((W - w) / 2), y: Math.round(H * 0.07), w, h };
+  }
+  function placeCinema() {
+    if (!cinemaOf) return;
+    const r = cinemaRect(), st = document.documentElement.style;
+    for (const [k, v] of [["x", r.x], ["y", r.y], ["w", r.w], ["h", r.h]]) { st.setProperty("--ad-cin-" + k, v + "px"); st.setProperty("--ad-fs-" + k, v + "px"); }
+    const b = cinemaOf.tab.linkedBrowser;
+    const z = r.w / 1280; // lay the page out as a 1280-pixel-wide tab, scaled to the screen
+    try { if (b && Math.abs(b.fullZoom - z) > 0.001) b.fullZoom = z; } catch (e) {}
+  }
+  function cinema(p) {
+    if (!p || !document.body.classList.contains("ad-room")) return;
+    if (theaterOf) endTheater(true);
+    unfocus();
+    if (p.asleep) wake(p);
+    cinemaOf = p;
+    if (!cinemaEl) { cinemaEl = document.createElementNS(X, "div"); cinemaEl.id = "ad-cinema"; gBrowser.tabpanels.parentNode.insertBefore(cinemaEl, gBrowser.tabpanels); }
+    document.getElementById(p.tab.linkedPanel)?.classList.add("ad-cinema-screen");
+    (p.curve || []).concat(p.coarse || []).forEach((c) => { c.style.visibility = "hidden"; });
+    document.documentElement.setAttribute("data-ad-cinema", "true");
+    cinemaBtn.textContent = "Leave cinema";
+    selectPane(p);
+    placeCinema();
+    setTiers();
+    try { p.tab.linkedBrowser.focus(); } catch (e) {}
+  }
+  function endCinema() {
+    const p = cinemaOf;
+    if (!p) return;
+    cinemaOf = null;
+    if (document.fullscreenElement) try { document.exitFullscreen(); } catch (e) {}
+    document.documentElement.removeAttribute("data-ad-cinema"); document.documentElement.removeAttribute("data-ad-theater");
+    document.getElementById(p.tab.linkedPanel)?.classList.remove("ad-cinema-screen");
+    (p.curve || []).concat(p.coarse || []).forEach((c) => { c.style.visibility = ""; });
+    cinemaBtn.textContent = "Cinema";
+    try { p.tab.linkedBrowser.fullZoom = pageZoom(); } catch (e) {}
+    setTiers();
+    layoutVer++; apply();
+    const i = panes.indexOf(p); if (i >= 0) lookAt(i);
+  }
+  // ---- When the Cinema is offered: a pane's page starts protected (DRM) media, or loads a known streaming service. The first
+  // time for a site it asks, with one click to go ("Watch in Cinema"); "Remember for <site>" keeps the answer: always go
+  // straight to the Cinema, or never ask. Kept in the pref aetherdeck.room.cinemaSites ({ host: "auto" | "never" }).
+  const STREAMING = /(^|\.)(netflix\.com|primevideo\.com|disneyplus\.com|max\.com|hbomax\.com|hulu\.com|tv\.apple\.com|peacocktv\.com|paramountplus\.com|crunchyroll\.com)$/;
+  const cinemaSites = () => { try { return JSON.parse(Services.prefs.getStringPref("aetherdeck.room.cinemaSites", "{}")) || {}; } catch (e) { return {}; } };
+  const hostOf = (p) => { try { return new URL(tabUrl(p.tab)).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
+  const isStreaming = (p) => { const h = hostOf(p); if (STREAMING.test(h)) return true; try { const u = new URL(tabUrl(p.tab)); return /(^|\.)amazon\./.test(u.hostname) && u.pathname.startsWith("/gp/video"); } catch (e) { return false; } };
+  let askEl = null, askFor = null, askTimer = 0;
+  function offerCinema(p, why) {
+    if (!p || !document.body.classList.contains("ad-room") || cinemaOf === p) return;
+    const host = hostOf(p), choice = cinemaSites()[host];
+    if (choice === "never") return;
+    if (choice === "auto") { cinema(p); return; }
+    if (p.askedFor === tabUrl(p.tab) && why !== "protected") return; // once per page, unless protected media actually started
+    p.askedFor = tabUrl(p.tab);
+    askFor = p;
+    if (!askEl) {
+      askEl = document.createElementNS(X, "div"); askEl.id = "ad-cinema-ask"; askEl.setAttribute("role", "dialog");
+      document.documentElement.append(askEl);
+    }
+    askEl.replaceChildren();
+    const t = document.createElementNS(X, "div");
+    const b = document.createElementNS(X, "b"); b.textContent = (p.tab.label || host).slice(0, 60);
+    t.append(b, document.createTextNode(why === "protected"
+      ? " plays protected video, which can't show on a bent pane. Watch it in the Cinema?"
+      : " is a streaming service: its videos are protected and can't show on a bent pane. Watch it in the Cinema?"));
+    const row = document.createElementNS(X, "div"); row.className = "row";
+    const go = document.createElementNS(X, "button"); go.className = "go"; go.textContent = "Watch in Cinema";
+    const no = document.createElementNS(X, "button"); no.textContent = "Not now";
+    const lab = document.createElementNS(X, "label"); const cb = document.createElementNS(X, "input"); cb.type = "checkbox";
+    lab.append(cb, document.createTextNode("Remember for " + (host || "this site")));
+    const done = (answer) => {
+      window.clearTimeout(askTimer); askEl.remove(); askEl = null;
+      if (cb.checked && host) { const m = cinemaSites(); m[host] = answer ? "auto" : "never"; try { Services.prefs.setStringPref("aetherdeck.room.cinemaSites", JSON.stringify(m)); } catch (e) {} }
+      if (answer && panes.includes(p)) cinema(p);
+    };
+    go.addEventListener("click", () => done(true)); no.addEventListener("click", () => done(false));
+    row.append(go, no, lab);
+    askEl.append(t, row);
+    window.clearTimeout(askTimer); askTimer = window.setTimeout(() => { if (askEl && askFor === p) { askEl.remove(); askEl = null; } }, 60000);
+  }
+  gBrowser.tabpanels.addEventListener("AetherDeckPaneEME", (e) => { const p = paneOfBrowser(e.target); if (p) offerCinema(p, "protected"); }, true);
+  let fsWarnDefault = null;
+  function fullscreenStaysInWindow(on) {
+    // Default branch: never saved to the profile, so a normal window's full screen is untouched after a restart.
+    try { Services.prefs.getDefaultBranch("").setBoolPref("full-screen-api.ignore-widgets", on); } catch (e) { log("full-screen pref failed: " + e); }
+    try {
+      const d = Services.prefs.getDefaultBranch("");
+      if (on && fsWarnDefault === null) { fsWarnDefault = d.getIntPref("full-screen-api.warning.timeout", 3000); d.setIntPref("full-screen-api.warning.timeout", 0); }
+      if (!on && fsWarnDefault !== null) { d.setIntPref("full-screen-api.warning.timeout", fsWarnDefault); fsWarnDefault = null; }
+    } catch (e) {}
   }
 
   // The glide: ease the camera to cam.target (and pitch) when asked to look at something.
@@ -589,29 +840,59 @@
       const d = turn(cam.target - cam.yaw), dp = cam.tpitch - cam.pitch;
       if (Math.abs(d) < 0.0008 && Math.abs(dp) < 0.0008) { cam.yaw = cam.target; cam.pitch = cam.tpitch; }
       else { const k = 1 - Math.exp(-9 * dt); cam.yaw = turn(cam.yaw + d * k); cam.pitch += dp * k; }
-      apply();
+      // Ask for the next frame first, so this frame's apply() knows the view is still moving.
       if (Math.abs(turn(cam.target - cam.yaw)) > 0.0008 || Math.abs(cam.tpitch - cam.pitch) > 0.0008) raf = window.requestAnimationFrame(frame);
+      apply();
+      if (!raf) setTiers(); // came to rest: tiers follow the new view straight away
     }
   }
   function kick() { if (!raf) { lastFrame = window.performance.now(); raf = window.requestAnimationFrame(frame); } }
 
   // The camera is ONE transform on the world container; each strip only changes when the layout, size or position changes.
-  // ---- Widgets: small panes of glass in front of the Pod (a clock, the tabs, the agents). They sit flat in a row along the
-  // top, above where the panes are, and stay where you put them: drag to move, pull the corner to resize, × to hide one,
-  // double-click to put one back in its place. Their spots and sizes are kept in the pref aetherdeck.room.widgetLayout.
+  // ---- Widgets: small panes of glass in front of the Pod (a clock, the tabs, the agents), kept off the critical path:
+  // - a shelf on the left edge, closed by default (the "Widgets" tab or button opens it; Theater hides it);
+  // - never in the middle of the view (a fixed safe zone the panes use), never on top of each other, on a 16 px grid;
+  // - drag to move, pull the corner to resize, × to hide one, double-click to put one back, "Reset" puts them all back.
+  // Their spots and sizes are kept in the pref aetherdeck.room.widgetLayout.
   const widgets = {};
   const WIDGET_IDS = [["clock", "Time"], ["tabs", "Tabs"], ["crew", "Agents"]];
   let agentCount = null, agentsAt = 0, widgetLayer = null;
-  const defaultSpot = (i) => ({ x: 16 + i * 186, y: 16, w: 174, h: 82, hidden: false });
+  const defaultSpot = (i) => ({ x: 32, y: 16 + i * 96, w: 174, h: 82, hidden: false }); // a column down the left edge, clear of the shelf tab
+  const GRID = 16;
+  const safeZone = () => { const W = window.innerWidth, H = window.innerHeight; return { l: W * 0.22, r: W * 0.78, t: H * 0.1, b: H * 0.82 }; };
+  // Where a widget may sit: on the grid, on screen above the bar, outside the safe zone, not on another widget.
+  function fitSpot(id, sp) {
+    const W = window.innerWidth, H = window.innerHeight, z = safeZone();
+    // A widget is never wider than the band beside the safe zone, so it always fits there.
+    const w = Math.min(sp.w, W - 16, Math.max(130, Math.floor(z.l - 40))), h = Math.min(sp.h, H - 110);
+    let x = clamp(Math.round(sp.x / GRID) * GRID, 32, Math.max(32, W - w - 8)), y = clamp(Math.round(sp.y / GRID) * GRID, 8, Math.max(8, H - h - 96));
+    const inZone = (ax, ay) => ax < z.r && ax + w > z.l && ay < z.b && ay + h > z.t;
+    if (inZone(x, y)) {
+      const fits = (o) => o.x >= 32 && o.x + w <= W - 8 && o.y >= 8 && o.y + h <= H - 96;
+      const opts = [{ x: Math.floor((z.l - w - 8) / GRID) * GRID, y }, { x: Math.ceil((z.r + 8) / GRID) * GRID, y }, { x, y: Math.floor((z.t - h - 8) / GRID) * GRID }, { x, y: Math.ceil((z.b + 8) / GRID) * GRID }].filter(fits);
+      opts.sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y));
+      if (opts[0]) ({ x, y } = opts[0]);
+    }
+    const others = Object.entries(widgets).filter(([k, el]) => k !== id && el.style.display !== "none").map(([, el]) => ({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }));
+    const hits = (ax, ay) => others.some((o) => ax < o.x + o.w + 8 && ax + w + 8 > o.x && ay < o.y + o.h + 8 && ay + h + 8 > o.y);
+    const x0 = x, y0 = y;
+    let free = !(hits(x, y) || inZone(x, y));
+    for (let guard = 0; guard < 400 && !free; guard++) {
+      y += GRID; // down the column, then the next column (left of the zone first, then right of it)
+      if (y + h > H - 96) { y = 8; x += GRID * 12; if (x + w > W - 8) break; }
+      free = !(hits(x, y) || inZone(x, y));
+    }
+    if (!free) { x = x0; y = y0; } // the screen is full: overlapping beats falling off it
+    return { ...sp, x, y, w, h };
+  }
   let widgetLayout = {};
   try { widgetLayout = JSON.parse(Services.prefs.getStringPref("aetherdeck.room.widgetLayout", "{}")) || {}; } catch (e) { widgetLayout = {}; }
   const saveLayout = () => { try { Services.prefs.setStringPref("aetherdeck.room.widgetLayout", JSON.stringify(widgetLayout)); } catch (e) {} };
   function spotOf(id) { const i = WIDGET_IDS.findIndex(([w]) => w === id); return { ...(id.startsWith("aw-") ? { x: 16, y: 110, w: 220, h: 150, hidden: false } : defaultSpot(i)), ...(widgetLayout[id] || {}) }; }
   function placeWidget(el, id) {
-    const sp = spotOf(id), W = window.innerWidth, H = window.innerHeight;
-    const w = Math.min(sp.w, W - 16), h = Math.min(sp.h, H - 16);
-    el.style.width = w + "px"; el.style.height = h + "px";
-    el.style.left = Math.max(0, Math.min(W - w, sp.x)) + "px"; el.style.top = Math.max(0, Math.min(H - h - 60, sp.y)) + "px"; // never under the bar
+    const sp = fitSpot(id, spotOf(id));
+    el.style.width = sp.w + "px"; el.style.height = sp.h + "px";
+    el.style.left = sp.x + "px"; el.style.top = sp.y + "px";
   }
   function widgetEl(id, key) {
     if (widgets[id]) return widgets[id];
@@ -636,20 +917,49 @@
       const move = (ev) => { el.style.left = ev.clientX - dx + "px"; el.style.top = ev.clientY - dy + "px"; };
       const up = () => {
         el.classList.remove("dragging"); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up);
-        widgetLayout[id] = { ...spotOf(id), x: el.offsetLeft, y: el.offsetTop }; saveLayout(); placeWidget(el, id);
+        widgetLayout[id] = fitSpot(id, { ...spotOf(id), x: el.offsetLeft, y: el.offsetTop }); saveLayout(); placeWidget(el, id);
       };
       el.addEventListener("pointermove", move); el.addEventListener("pointerup", up);
     });
     // Resize: the CSS corner handle; remember the size once it settles.
     let rt = 0;
-    new window.ResizeObserver(() => { window.clearTimeout(rt); rt = window.setTimeout(() => { if (el.style.display === "none") return; const w = el.offsetWidth, h = el.offsetHeight, sp = spotOf(id); if (Math.abs(w - sp.w) > 2 || Math.abs(h - sp.h) > 2) { widgetLayout[id] = { ...sp, w, h }; saveLayout(); } }, 400); }).observe(el);
+    new window.ResizeObserver(() => { window.clearTimeout(rt); rt = window.setTimeout(() => { if (el.style.display === "none" || !el.getClientRects().length || !el.offsetWidth) return; const w = el.offsetWidth, h = el.offsetHeight, sp = spotOf(id); if (Math.abs(w - sp.w) > 2 || Math.abs(h - sp.h) > 2) { widgetLayout[id] = fitSpot(id, { ...sp, x: el.offsetLeft, y: el.offsetTop, w, h }); saveLayout(); placeWidget(el, id); } }, 400); }).observe(el);
     el.addEventListener("wheel", (e) => e.stopPropagation(), { passive: true });
     widgetLayer.append(el);
     placeWidget(el, id);
     return (widgets[id] = el);
   }
+  // The shelf: a tab on the left edge that opens and closes the widgets, with "Reset" while open.
+  const shelf = document.createElementNS(X, "div");
+  shelf.id = "ad-shelf";
+  const shelfBtn = document.createElementNS(X, "button");
+  shelfBtn.title = "Open or close the widget shelf";
+  shelfBtn.addEventListener("click", () => setShelf(!widgetsOn));
+  const resetBtn = document.createElementNS(X, "button");
+  resetBtn.className = "reset"; resetBtn.textContent = "Reset"; resetBtn.title = "Put every widget back in its place (hidden ones too)";
+  resetBtn.addEventListener("click", () => { widgetLayout = {}; saveLayout(); reflowWidgets(); });
+  shelf.append(shelfBtn, resetBtn);
+  document.documentElement.append(shelf);
+  shelf.classList.toggle("open", widgetsOn);
+  shelfBtn.textContent = widgetsOn ? "‹ Widgets" : "Widgets ›";
+  function setShelf(on) {
+    widgetsOn = on;
+    try { Services.prefs.setBoolPref("aetherdeck.room.widgetShelfOpen", on); } catch (e) {}
+    widgetsBtn.style.opacity = on ? "1" : ".55";
+    shelf.classList.toggle("open", on);
+    shelfBtn.textContent = on ? "‹ Widgets" : "Widgets ›";
+    reflowWidgets();
+  }
+  // Lay every shown widget out again, one after another, so each one fits around those already placed.
+  function reflowWidgets() {
+    updateWidgets();
+    const shown = WIDGET_IDS.map(([id]) => id).filter((id) => widgets[id] && widgets[id].style.display !== "none");
+    const disp = shown.map((id) => widgets[id].style.display);
+    for (const id of shown) widgets[id].style.display = "none";
+    shown.forEach((id, i) => { widgets[id].style.display = disp[i]; placeWidget(widgets[id], id); });
+  }
   const setWidget = (el, v, sub) => { const a = el.querySelector(".v"), b = el.querySelector(".s"); if (a.textContent !== v) a.textContent = v; if (b.textContent !== sub) b.textContent = sub; };
-  window.addEventListener("resize", () => { for (const [id] of WIDGET_IDS) if (widgets[id]) placeWidget(widgets[id], id); });
+  window.addEventListener("resize", () => reflowWidgets());
 
   // ---- Widgets agents make (the pod_widget tool): each runs its own HTML in a sandboxed page of its own, with an opaque
   // origin (no cookies or storage, not AetherDeck's page, so no bridge), no network (strict CSP), and no popups, navigation,
@@ -667,7 +977,7 @@
     agentWidgets.forEach((w, i) => {
       const id = "aw-" + w.id;
       if (!WIDGET_IDS.some(([x]) => x === id)) WIDGET_IDS.push([id, w.title]);
-      if (!widgetLayout[id]) widgetLayout[id] = { x: 16 + i * 236, y: 110, w: w.w || 220, h: w.h || 150, hidden: false };
+      if (!widgetLayout[id]) widgetLayout[id] = { x: 32, y: 16, w: w.w || 220, h: w.h || 150, hidden: false };
       let el = widgets[id];
       if (el && el.dataset.ver === String(w.updated)) return;
       if (el) { el.remove(); delete widgets[id]; }
@@ -699,11 +1009,11 @@
         const r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
         el.classList.add("dragging"); bar.setPointerCapture(e.pointerId);
         const move = (ev) => { el.style.left = ev.clientX - dx + "px"; el.style.top = ev.clientY - dy + "px"; };
-        const up = () => { el.classList.remove("dragging"); bar.removeEventListener("pointermove", move); bar.removeEventListener("pointerup", up); widgetLayout[id] = { ...spotOf(id), x: el.offsetLeft, y: el.offsetTop }; saveLayout(); placeWidget(el, id); };
+        const up = () => { el.classList.remove("dragging"); bar.removeEventListener("pointermove", move); bar.removeEventListener("pointerup", up); widgetLayout[id] = fitSpot(id, { ...spotOf(id), x: el.offsetLeft, y: el.offsetTop }); saveLayout(); placeWidget(el, id); };
         bar.addEventListener("pointermove", move); bar.addEventListener("pointerup", up);
       });
       let rt = 0;
-      new window.ResizeObserver(() => { window.clearTimeout(rt); rt = window.setTimeout(() => { const sp = spotOf(id); if (el.style.display !== "none" && (Math.abs(el.offsetWidth - sp.w) > 2 || Math.abs(el.offsetHeight - sp.h) > 2)) { widgetLayout[id] = { ...sp, w: el.offsetWidth, h: el.offsetHeight }; saveLayout(); } }, 400); }).observe(el);
+      new window.ResizeObserver(() => { window.clearTimeout(rt); rt = window.setTimeout(() => { const sp = spotOf(id); if (el.style.display !== "none" && el.getClientRects().length && el.offsetWidth && (Math.abs(el.offsetWidth - sp.w) > 2 || Math.abs(el.offsetHeight - sp.h) > 2)) { widgetLayout[id] = fitSpot(id, { ...sp, x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }); saveLayout(); placeWidget(el, id); } }, 400); }).observe(el);
       widgetLayer.append(el);
       widgets[id] = el;
       placeWidget(el, id);
@@ -743,6 +1053,8 @@
       const el = panelOf2(p);
       const bent = CURVE_ON && !!p.hasSnap && !p.asleep;
       if (p.bentNow !== bent) { p.bentNow = bent; p.geomVer = -1; el?.classList.toggle("ad-side", CURVE_ON && !!p.hasSnap); }
+      const coarse = bent && !!p.coarse && p.coarseReady && moving() && tune("movingStrips", 6) < CURVE_N;
+      if (p.coarseNow !== coarse) { p.coarseNow = coarse; p.geomVer = -1; }
       if (p.geomVer === layoutVer) continue;
       p.geomVer = layoutVer;
       const g = paneGeom(p);
@@ -751,33 +1063,80 @@
       const bend = (curveAmount / 100) * 0.9;
       const Rb = bend < 0.02 ? 1e9 : (PW * g.sc) / bend;
       const base = p.yaw + (p.off || 0);
-      (p.curve || []).forEach((strip, i) => {
-        strip.style.display = bent ? "block" : "none";
-        if (!bent) return;
-        strip.style.width = g.sw + 2.6 + "px";
+      const lay = (list, n, show, keep) => (list || []).forEach((strip, i) => {
+        strip.style.display = show ? "block" : "none";
+        if (!show && !keep) return;
+        const sw = (PW * g.sc) / n;
+        strip.style.width = sw + 2.6 + "px";
         strip.style.height = g.h + "px";
-        strip.style.margin = `${-g.h / 2}px 0 0 ${-g.sw / 2}px`;
-        const x = (i - (CURVE_N - 1) / 2) * g.sw;
+        strip.style.margin = `${-g.h / 2}px 0 0 ${-sw / 2}px`;
+        const x = (i - (n - 1) / 2) * sw;
         const th = Math.asin(clamp(x / Rb, -0.99, 0.99));
         const d = Rb - Math.sqrt(Math.max(0, Rb * Rb - x * x));
         strip.style.transform = `rotateY(${-base}rad) translateY(${p.voff || 0}px) translateZ(${-layout.radius}px) translateX(${x}px) translateZ(${d}px) rotateY(${-th}rad)`;
+        if (n !== CURVE_N) return;
         const deg = (a) => (a * 180) / Math.PI;
         (p.S || (p.S = []))[i] = new window.DOMMatrix().rotateAxisAngleSelf(0, 1, 0, deg(-base)).translateSelf(0, p.voff || 0, 0).translateSelf(0, 0, -layout.radius).translateSelf(x, 0, 0).translateSelf(0, 0, d).rotateAxisAngleSelf(0, 1, 0, deg(-th));
       });
+      // The fine strips keep their geometry while hidden (hit-testing uses it).
+      lay(p.curve, CURVE_N, bent && !coarse, bent);
+      if (p.coarse) lay(p.coarse, p.coarse.length, coarse, false);
     }
     if (widgetVer !== layoutVer) { widgetVer = layoutVer; updateWidgets(); } // shows or hides them with the Pod
   }
 
-  // Pictures of the pages, as fast as the browser can make them (panes you can see), rarely for the ones behind you.
+  // Pictures of the pages: redrawn only when the page changed (its frames report paints) or plays media, at a modest rate for
+  // panes beside you, never for panes behind you or while the view turns (the last pictures are shown).
   let snapRunning = false, snapMode, burstUntil = 0;
+  // Tunables (hidden prefs aetherdeck.room.perf.*), read live: the performance governor and measurements change them.
+  const tune = (n, d) => { try { return Services.prefs.getIntPref("aetherdeck.room.perf." + n, d); } catch (e) { return d; } };
+  const moving = () => !!(raf || look.on || mv.on);
+  // Reading zoom: a pane is shown at about 40% of a normal tab's size (8 panes round the ring), which made text tiny and the
+  // text caret thinner than a pixel. Pages in panes are laid out a little narrower and bigger (125% by default), so text
+  // and the caret are 25% larger in every pane, live or bent. Back to 100% when you leave the Pod.
+  const pageZoom = () => clamp(tune("pageZoom", 125), 50, 300) / 100;
+  function applyPageZoom() {
+    const z = pageZoom();
+    for (const p of panes) {
+      if (p.asleep || p === focused || p === cinemaOf) continue; // those two have their own zoom
+      const b = p.tab.linkedBrowser;
+      try { if (b && Math.abs((b.fullZoom || 1) - z) > 0.001) b.fullZoom = z; } catch (e) {}
+    }
+  }
+  const paneOfBrowser = (b) => panes.find((p) => p.tab.linkedBrowser === b);
+  gBrowser.tabpanels.addEventListener("AetherDeckPaneChanged", (e) => { const p = paneOfBrowser(e.target); if (p) p.dirty = true; }, true);
+  gBrowser.tabpanels.addEventListener("AetherDeckPaneMedia", (e) => {
+    const p = paneOfBrowser(e.target);
+    if (!p) return;
+    p.media ??= new Set();
+    if (e.detail?.media) p.media.add(e.detail.frame); else p.media.delete(e.detail?.frame);
+    setTiers();
+  }, true);
+  const playing = (p) => !!p.media && p.media.size > 0;
+  // A page that navigates away takes its media with it.
+  try {
+    gBrowser.addTabsProgressListener({
+      onLocationChange(b, wp, req, loc, flags) {
+        if (!wp?.isTopLevel || (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) return;
+        const p = paneOfBrowser(b);
+        if (p) { p.media?.clear(); p.dirty = true; window.setTimeout(() => { if (panes.includes(p) && isStreaming(p)) offerCinema(p, "streaming"); }, 1500); }
+      },
+    });
+  } catch (e) { log("progress listener failed: " + e); }
   function burst(ms) { burstUntil = Math.max(burstUntil, Date.now() + ms); }
   // Pixels per CSS pixel to capture a pane at: the screen's density for the pane you're using (2 on Retina, more when it is
   // zoomed bigger, at most 3), and a little less for the others, which redraw more often than you look at them.
+  // Pixels per page pixel to draw a pane's picture at: what the pane really takes on screen (device pixels per CSS pixel of
+  // the page when it faces you: the screen's density times how big the ring shows it), so text in a bent pane is as sharp
+  // as the screen allows. The pane you point at gets all of it; the others a little less (they are seen at an angle).
   function sharpness(p) {
-    const dpr = window.devicePixelRatio || 1, zoom = Math.max(1, p.scale || 1);
-    // The pane you're facing shows its live page when the view rests, so pictures only need to be fine enough while turning.
+    const dpr = window.devicePixelRatio || 1;
+    const H = window.innerHeight || 800, P = (H / 2) / Math.tan(cam.fov / 2);
+    const onScreen = dpr * (P / layout.radius) * (p.scale || 1) * pageZoom(); // device pixels per page pixel
     if (raf || look.on) return 1;
-    return p === activePane ? Math.min(2, dpr * zoom) : 1;
+    if (p === activePane) return clamp(onScreen, 1, 2);
+    const side = tune("sideScale", 0); // 0: automatic
+    return side ? side / 100 : clamp(onScreen * 0.9, 0.75, 1.6);
   }
   async function snapPane(p, scale) {
     const b = p.tab.linkedBrowser;
@@ -786,19 +1145,28 @@
     const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
     p.vw = b.clientWidth || PW; p.vh = b.clientHeight || PH; // layout size (getBoundingClientRect would be the transformed box)
     let bmp = null;
+    const t0 = window.performance.now();
     // The whole visible page (fullViewport), scaled: with an explicit rectangle the scale changes what part is captured.
     try { bmp = await b.drawSnapshot(0, 0, 0, 0, scale, "white", true); } catch (e) { /* not painted yet */ }
+    const t1 = window.performance.now();
     if (!bmp) return;
-    const sw = bmp.width / CURVE_N;
-    for (let i = 0; i < CURVE_N; i++) {
-      const c = p.curve[i];
-      const cw = Math.max(1, Math.ceil(sw));
-      if (c.width !== cw || c.height !== bmp.height) { c.width = cw; c.height = bmp.height; }
-      p.ctx[i].drawImage(bmp, i * sw, 0, sw, bmp.height, 0, 0, cw, bmp.height);
-    }
+    const cut = (list, ctx) => {
+      const n = list.length, sw = bmp.width / n, cw = Math.max(1, Math.ceil(sw));
+      for (let i = 0; i < n; i++) {
+        const c = list[i];
+        if (c.width !== cw || c.height !== bmp.height) { c.width = cw; c.height = bmp.height; }
+        ctx[i].drawImage(bmp, i * sw, 0, sw, bmp.height, 0, 0, cw, bmp.height);
+      }
+    };
+    cut(p.curve, p.ctx);
+    if (p.coarse) { cut(p.coarse, p.cctx); p.coarseReady = true; }
     if (bmp.close) bmp.close();
     if (!p.hasSnap) { p.hasSnap = true; apply(); }
-    stats.snaps++;
+    // What the pictures cost (read by the performance governor and by measurements: window.adRoomTabs.perf).
+    const t2 = window.performance.now();
+    stats.snaps++; perf.snaps++; perf.snapMs += t1 - t0; perf.drawMs += t2 - t1;
+    const pp = perf.perPane[p.tab.label.slice(0, 20)] ??= { n: 0, ms: 0 }; pp.n++; pp.ms += t2 - t0;
+    p.lastSnapMs = t2 - t0; p.snapScale = scale;
   }
   async function snapLoop() {
     if (snapRunning) return;
@@ -809,19 +1177,25 @@
         const now = Date.now();
         // While you are pointing, clicking or scrolling in a pane, redraw that pane as fast as possible (nothing else), so
         // what you see keeps up with what you do.
-        if (now < burstUntil && activePane && activePane.curve && !activePane.asleep) {
+        if (now < burstUntil && activePane && activePane.curve && !activePane.asleep && activePane !== focused) {
           try { await snapPane(activePane, sharpness(activePane)); } catch (e) {}
           await new Promise((r) => window.setTimeout(r, 0));
           continue;
         }
-        for (const p of panes) {
+        // While the view turns, the last pictures are shown (redrawing them is what made turning slow).
+        const changeDriven = tune("changeDriven", 1), sideMs = tune("sideMs", 250);
+        if (!moving() || tune("snapWhileTurning", 0)) for (const p of panes) {
           if (p.asleep || !p.curve || p === focused) continue; // the focused pane is live on screen, no picture needed
-          if ((raf || look.on) && p !== activePane) continue; // while the view moves, only the pane you're on is redrawn
-          const d = Math.abs(turn(p.yaw + (p.off || 0) - cam.yaw));
-          const inView = d < 1.5;
-          const every = !inView ? 1500 : p === activePane ? 0 : 100;
+          if (theaterOf && p !== theaterOf) continue; // Theater: the others are cold
+          if (cinemaOf) continue; // the cinema screen is live; nothing else is drawn
+          const inView = Math.abs(turn(p.yaw + (p.off || 0) - cam.yaw)) < 1.5;
+          if (!inView && p.hasSnap) continue; // behind you: its last picture waits until you turn back
+          // A sharper picture is wanted than the one shown (you pointed at a side pane): draw it again, changed or not.
+          if (p.hasSnap && !p.dirty && sharpness(p) > (p.snapScale || 0) + 0.05) p.dirty = true;
+          if (changeDriven && p.hasSnap && !p.dirty && !playing(p)) continue; // nothing new on the page
+          const every = p === activePane ? 33 : sideMs;
           if (p.lastSnap && now - p.lastSnap < every) continue;
-          p.lastSnap = now;
+          p.lastSnap = now; p.dirty = false;
           try { await snapPane(p, sharpness(p)); } catch (e) { if (!p.snapErr) { p.snapErr = true; log("snapshot failed: " + String(e).slice(0, 120)); } }
         }
         if (DEBUG && now - stats.t0 > 6000) { log("snapshots per second: " + Math.round((stats.snaps * 1000) / (now - stats.t0))); stats.snaps = 0; stats.t0 = now; }
@@ -847,6 +1221,7 @@
     const b = p.tab.linkedBrowser;
     try { if (b && p.zoomBefore) b.fullZoom = p.zoomBefore; } catch (e) {}
     (p.curve || []).forEach((c) => { c.style.visibility = ""; });
+    notifyHome();
   }
   function focusPane(p) {
     if (focused === p) return;
@@ -856,7 +1231,7 @@
     const H = window.innerHeight || 800, P = (H / 2) / Math.tan(cam.fov / 2);
     const k = (P / layout.radius) * (p.scale || 1); // how big the pane looks on screen, per CSS pixel of the page
     const W = Math.round(PW * k), Hh = Math.round(PH * k);
-    p.zoomBefore = b.fullZoom || 1;
+    p.zoomBefore = pageZoom();
     el.style.setProperty("width", W + "px", "important"); el.style.setProperty("height", Hh + "px", "important");
     el.style.setProperty("margin", `${Math.round(-Hh / 2 + (p.voff || 0) * (P / layout.radius))}px 0 0 ${Math.round(-W / 2)}px`, "important");
     p.focusZoom = p.zoomBefore * k;
@@ -867,6 +1242,9 @@
     (p.curve || []).forEach((c) => { c.style.visibility = "hidden"; });
     focused = p;
     if (b.docShellIsActive === false) b.docShellIsActive = true;
+    selectPane(p);
+    notifyHome();
+    if (theaterOf === p) placeFullscreen();
   }
   function settle() {
     window.clearTimeout(settleTimer);
@@ -881,8 +1259,10 @@
 
   function apply() {
     if (!document.body.classList.contains("ad-room")) return; // a stray resize after leaving must not put 3D transforms back
+    if (cinemaOf) { placeCinema(); return; } // the cinema has no 3D scene to move
     if (focused && (Math.abs(turn(focused.yaw + (focused.off || 0) - cam.yaw)) > 0.004 || !canFocus())) unfocus();
     settle();
+    if (Date.now() - tiersAt > 200) setTiers(); // panes coming into view warm up as you turn
     const H = window.innerHeight || 800;
     const P = (H / 2) / Math.tan(cam.fov / 2);
     const tp = panels();
@@ -904,11 +1284,21 @@
     unfocus(); // sizes change: it refocuses at the new size once the view rests
     const R0 = PW / (2 * Math.tan(0.405)); // radius that makes a normal pane about 46 degrees wide
     const gap = 0.07;
+    // Each pane's true half-width as an angle seen from the middle: a bent pane's edges curl towards you, so they reach a
+    // little further round than its arc length (the pane in front, shown flat, reaches less far).
+    const bend = (curveAmount / 100) * 0.9;
+    const halfOf = (p, r) => {
+      const sc = p.scale || 1, x = (sc * PW) / 2, Rb = bend < 0.02 ? 1e9 : (PW * sc) / bend;
+      const d = Rb - Math.sqrt(Math.max(0, Rb * Rb - x * x));
+      return Math.atan2(x, Math.max(1, r - d));
+    };
+    const totalAt = (r) => panes.reduce((t, p) => t + 2 * halfOf(p, r) + gap, 0);
+    // Too many (or too big) panes for one turn: widen the ring until panes AND every gap fit exactly once round. (Scaling
+    // only the panes left the gaps over, so the last pane overlapped the first.)
     let R = R0;
-    const wOf = (p, r) => ((p.scale || 1) * PW) / r;
-    let total = panes.reduce((t, p) => t + wOf(p, R) + gap, 0);
-    if (total > TAU) { R = R0 * (total / TAU); total = panes.reduce((t, p) => t + wOf(p, R) + gap, 0); }
+    for (let k = 0; k < 30 && totalAt(R) > TAU; k++) R *= Math.max(1.0005, (totalAt(R) - panes.length * gap) / (TAU - panes.length * gap));
     layout = { yaws: [], radius: R, step: 0 };
+    const wOf = (p, r) => 2 * halfOf(p, r);
     let at = -wOf(panes[0] || { scale: 1 }, R) / 2; // pane 0 is centred on yaw 0
     panes.forEach((p, i) => {
       const w = wOf(p, R);
@@ -921,6 +1311,8 @@
   }
 
   const tabUrl = (t) => {
+    // The page actually showing (the parent knows it at once; session data and currentURI can lag for background tabs).
+    try { const u = t.linkedBrowser?.browsingContext?.currentWindowGlobal?.documentURI?.spec; if (u && u !== "about:blank") return u; } catch (e) {}
     try {
       const st = JSON.parse(window.SessionStore.getTabState(t));
       const e = st.entries?.[Math.max(0, (st.index || 1) - 1)];
@@ -951,6 +1343,7 @@
       gBrowser.tabpanels.splitViewPanels = [];
     } catch (e) { log("enter cleanup failed: " + e); }
     document.body.classList.add("ad-room");
+    fullscreenStaysInWindow(true);
     gBrowser.showSplitViewPanels(panes.map((p) => p.tab));
     for (const p of panes) {
       const el = document.getElementById(p.tab.linkedPanel);
@@ -961,11 +1354,16 @@
     if (!enteredOnce) { enteredOnce = true; cam.yaw = panes[0] ? panes[0].yaw : 0; cam.pitch = 0; cam.target = null; }
     apply();
     hud.hidden = false;
+    applyPageZoom();
     window.setTimeout(snapLoop, 300);
+    notifyHome();
   }
 
   function leave() {
+    if (cinemaOf) endCinema();
+    endTheater(true);
     unfocus();
+    fullscreenStaysInWindow(false);
     cam.target = null;
     // Hide the page area while the layout changes: WebRender panicked ("pictures caches don't support complex transforms") when
     // live pages were still on screen as the 3D transforms came off.
@@ -989,6 +1387,8 @@
         }
       } catch (e) { log("leave cleanup failed: " + e); }
       window.setTimeout(() => { panels().style.removeProperty("visibility"); }, 200);
+      notifyHome(); // outside the Pod the home is a normal tab: its Earth turns when you can see it
+      for (const p of panes) { try { if (p.tab.linkedBrowser) p.tab.linkedBrowser.fullZoom = 1; } catch (e) {} } // ordinary tabs again
     }, 150);
   }
 
@@ -1020,16 +1420,53 @@
     dialogLeft = false;
     window.setTimeout(() => { if (!document.body.classList.contains("ad-room")) enter(); }, 300);
   }, true);
-  // Firefox deactivates the tab you switch away from; in the Room every pane stays live (up to the cap), so re-assert it.
-  const keepActive = () => { if (!document.body.classList.contains("ad-room")) return; for (const p of panes) { if (p.asleep) continue; const b = p.tab.linkedBrowser; if (b) { b.docShellIsActive = true; b.renderLayers = true; } } };
+  // Firefox deactivates the tab you switch away from; in the Pod the panes keep the activity their tier gives them:
+  // - media: a pane playing audio or video stays active wherever it is (never starved);
+  // - in view (and the selected tab): active;
+  // - behind you: cold (no painting or rendering; its last picture stays), warmed again just before it comes into view;
+  // - Theater: only the Theater pane (and media panes) are active.
+  function setTiers() {
+    if (!document.body.classList.contains("ad-room")) return;
+    tiersAt = Date.now();
+    const cold = tune("coldBehind", 1), at = cam.target ?? cam.yaw;
+    for (const p of panes) {
+      if (p.asleep) continue;
+      const b = p.tab.linkedBrowser;
+      if (!b) continue;
+      const near = Math.abs(turn(p.yaw + (p.off || 0) - at)) < 1.85 || Math.abs(turn(p.yaw + (p.off || 0) - cam.yaw)) < 1.85;
+      const on = cinemaOf ? p === cinemaOf : playing(p) || (theaterOf ? p === theaterOf : (!cold || near || p === focused || p.tab === gBrowser.selectedTab));
+      if (b.docShellIsActive !== on) b.docShellIsActive = on;
+      if (b.renderLayers !== on) b.renderLayers = on;
+    }
+  }
+  const keepActive = () => setTiers();
+  // The home pane's Earth turns only when the home pane is the one in front (and not in Lite mode): the Pod tells the home
+  // page through its bridge ("pod:view"), whenever that changes.
+  function notifyHome() {
+    const mode = (() => { try { return Services.prefs.getStringPref("aetherdeck.room.mode", "balanced"); } catch (e) { return "balanced"; } })();
+    const inPod = document.body.classList.contains("ad-room");
+    for (const p of panes) {
+      const b = p.tab.linkedBrowser;
+      if (!b || p.asleep || !isHome(b.currentURI?.spec)) continue;
+      const front = !inPod || focused === p || theaterOf === p;
+      const key = front + "/" + mode;
+      if (p.homeSent === key && p.homeWG === b.browsingContext?.currentWindowGlobal) continue;
+      try {
+        b.browsingContext.currentWindowGlobal.getActor("AetherDeckBridge").emit("pod:view", { front, mode });
+        p.homeSent = key; p.homeWG = b.browsingContext.currentWindowGlobal;
+      } catch (e) { /* not loaded yet: tried again next second */ }
+    }
+  }
   gBrowser.tabContainer.addEventListener("TabSelect", () => window.setTimeout(keepActive, 50));
   gBrowser.tabContainer.addEventListener("TabClose", (e) => {
     const i = panes.findIndex((p) => p.tab === e.target);
     if (i < 0) return;
+    if (theaterOf === panes[i]) endTheater(true);
+    if (cinemaOf === panes[i]) endCinema();
     if (focused === panes[i]) { focused = null; document.body.classList.remove("ad-focusing"); }
     const el = document.getElementById(panes[i].tab.linkedPanel);
     if (el) { el.classList.remove("ad-room-pane"); el.style.transform = ""; }
-    (panes[i].curve || []).forEach((e) => e.remove());
+    stripsOf(panes[i]).forEach((e) => e.remove());
     panes.splice(i, 1);
     place();
   });
@@ -1086,7 +1523,7 @@
     if (i >= 0) {
       const el = document.getElementById(out.tab.linkedPanel);
       if (el) { el.classList.remove("ad-room-pane", "ad-side", "ad-focus"); el.style.transform = ""; }
-      (out.curve || []).forEach((c) => c.remove());
+      stripsOf(out).forEach((c) => c.remove());
       panes.splice(i, 1, np);
     } else panes.push(np);
     enter();
@@ -1095,7 +1532,13 @@
     say(`${tab.label || "The tab"} is in your pod${out ? `; ${out.tab.label || "the other one"} is in More tabs` : ""}.`);
   }
   gBrowser.tabContainer.addEventListener("TabClose", () => window.setTimeout(drawMore, 50));
-  gBrowser.tabContainer.addEventListener("TabAttrModified", () => { if (moreEl?.classList.contains("open")) drawMore(); });
+  // A tab that finishes loading in the background (its address and title arrive late) counts from then on: keep the button's
+  // number current, not only the open box (it stayed at "More tabs" for tabs opened in the background).
+  let moreAt = 0;
+  gBrowser.tabContainer.addEventListener("TabAttrModified", () => {
+    if (moreEl?.classList.contains("open")) { drawMore(); return; }
+    window.clearTimeout(moreAt); moreAt = window.setTimeout(drawMore, 150); // cheap, and coalesced
+  });
 
   function addPane(url) {
     if (panes.length >= MAX_PANES) {
@@ -1217,6 +1660,9 @@
     // dialog), and those keys reach this window and threw the Room away.
     if (e.altKey && e.shiftKey && (e.code === "KeyP" || e.code === "KeyR")) { toggle(); e.preventDefault(); return; }
     if (!document.body.classList.contains("ad-room")) return;
+    // Esc ends Theater even while the page has the keyboard (a page in its own full screen handles Esc itself).
+    if (e.key === "Escape" && cinemaOf && !document.fullscreenElement) { endCinema(); e.preventDefault(); return; }
+    if (e.key === "Escape" && theaterOf && !document.fullscreenElement) { endTheater(); e.preventDefault(); return; }
     if (document.activeElement?.localName === "browser" || e.target?.localName === "input") return; // typing in a page or the address box
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       cam.target = null; cam.yaw = turn(cam.yaw + (e.key === "ArrowRight" ? 0.12 : -0.12)); apply();
@@ -1226,7 +1672,6 @@
     else if (e.key === "-" || e.key === "_") zoomPane(targetPane(), 1 / 1.12);
     else if (e.key === "f" || e.key === "F") theater();
     else if (e.key === "Home" || e.key === "c" || e.key === "C") recenter();
-    else if (e.key === "Escape" && theaterOf) theater(theaterOf);
     else if (e.key === "0") overview(cam.back === 0);
     else return;
     e.preventDefault();
@@ -1288,6 +1733,7 @@
   function tick() {
     if (focused) { const b = focused.tab.linkedBrowser; try { if (b && focused.focusZoom && Math.abs(b.fullZoom - focused.focusZoom) > 0.001) b.fullZoom = focused.focusZoom; } catch (e) {} }
     if (!document.body.classList.contains("ad-room")) return;
+    applyPageZoom(); // Firefox resets a page's zoom when it navigates
     const look = cam.target ?? cam.yaw, now = Date.now();
     const near = new Set([...panes].sort((a, b) => Math.abs(turn(a.yaw - look)) - Math.abs(turn(b.yaw - look))).slice(0, MAX_LIVE));
     for (const p of panes) {
@@ -1306,6 +1752,8 @@
     const room = MAX_LIVE - (panes.some((p) => !p.asleep && p.tab === gBrowser.selectedTab) ? 1 : 0);
     live.sort((a, b) => Math.abs(turn(b.yaw - look)) - Math.abs(turn(a.yaw - look)));
     while (live.length > room) sleep(live.shift());
+    setTiers(); // tiers follow the view (and a pane that just woke stays cold behind the Theater)
+    notifyHome();
     drawRail();
     meter.textContent = panes.filter((p) => !p.asleep).length + " live of " + panes.length + " panes";
     meter.title = `Up to ${MAX_LIVE} panes stay live on this Mac (${Math.round(RAM_GB)} GB); the others sleep with their last picture and wake when you turn to them. Up to ${MAX_PANES} panes; more tabs wait in More tabs.`;
@@ -1366,7 +1814,7 @@
           if (i < 0 && agentWidgets.length >= 12) throw new Error("The pod has 12 agent widgets already; delete one first");
           if (i >= 0) agentWidgets[i] = entry; else agentWidgets.push(entry);
           await writeData("widgets", agentWidgets);
-          if (!widgetsOn) { widgetsOn = true; widgetsBtn.style.opacity = "1"; }
+          if (!widgetsOn) setShelf(true); // an agent just placed one: show it
           drawAgentWidgets();
           return { id, placed: true };
         }
@@ -1417,5 +1865,6 @@
 
   window.setInterval(() => { try { updateWidgets(); } catch (e) {} }, 5000);
   loadAgentWidgets().catch((e) => log("agent widgets: " + e));
-  window.adRoomTabs = { sleep, wake, tick, cam, panes, lookAt, overview, apply, enter, leave, addPane, place, sendMouse, layout: () => layout, PW, PH };
+  window.adRoomTabs = { sleep, wake, tick, cam, panes, lookAt, overview, apply, enter, leave, addPane, place, sendMouse, theater, endTheater, perf,
+    focusedPane: () => focused, theaterPane: () => theaterOf, cinema, endCinema, cinemaPane: () => cinemaOf, layout: () => layout, PW, PH };
 })();
