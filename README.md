@@ -14,7 +14,7 @@ Give a **crew of agents** any task. They research, build websites and post for y
 [![Downloads](https://img.shields.io/github/downloads/tajwarah/aetherdeck/total?color=f6c89c)](https://github.com/tajwarah/aetherdeck/releases)
 [![Stars](https://img.shields.io/github/stars/tajwarah/aetherdeck?style=flat&color=a796ff)](https://github.com/tajwarah/aetherdeck/stargazers)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-6c5ce7)](LICENSE)
-![Mac preview · Windows and Linux soon](https://img.shields.io/badge/Mac%20preview%20%C2%B7%20Windows%20%26%20Linux%20soon-2b2840)
+![Mac now · Windows and Linux soon](https://img.shields.io/badge/Mac%20now%20%C2%B7%20Windows%20%26%20Linux%20soon-2b2840)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-9fe6bd)](CONTRIBUTING.md)
 
 [**Download**](#-download) · [Features](#-what-it-does) · [Quick start](#-quick-start) · [How to use it](docs/USING.md) · [Agents](#-agents) · [Guide](docs/GUIDE.md) · [Roadmap](#-roadmap) · [Contribute](CONTRIBUTING.md)
@@ -100,11 +100,11 @@ AetherDeck is now its own browser: the window **is** the 360° pod, with your re
 
 | System | Status | Get it |
 |---|---|---|
-| 🍎 **macOS**, Apple silicon (M1 or newer) | **Preview, available now** | [`AetherDeck-0.2.3-mac-arm64.dmg`](https://github.com/tajwarah/aetherdeck/releases/tag/v0.2.3) |
+| 🍎 **macOS**, Apple silicon (M1 or newer) | **Available now** | [`AetherDeck-0.2.3-mac-arm64.dmg`](https://github.com/tajwarah/aetherdeck/releases/tag/v0.2.3) |
 | 🪟 **Windows** | Coming soon | Not released yet |
 | 🐧 **Linux** | Coming soon | Not released yet |
 
-**Mac first launch.** The preview isn't signed yet: drag AetherDeck to Applications, open it once, then go to **System Settings → Privacy & Security → Open Anyway**. Check the download against the `.sha256` file on the release page if you like.
+**Mac first launch.** The app isn't signed yet: drag AetherDeck to Applications, open it once, then go to **System Settings → Privacy & Security → Open Anyway**. Check the download against the `.sha256` file on the release page if you like.
 
 It brings its own local server, so there's nothing else to install. Bring your own AI from the ⚙️ on the home pane: **Sign in with ChatGPT** (Plus or Pro), an API key, Ollama on your computer, or any OpenAI-compatible address. AetherDeck is built on Firefox's open-source engine but is not Mozilla or Firefox; how it's built and how it follows Mozilla's licence and trademark rules: [browser/README.md](browser/README.md). Ad blocking is [uBlock Origin](https://github.com/gorhill/uBlock) (GPL-3.0), shipped unmodified, with its source on every release.
 
@@ -173,7 +173,7 @@ Needs Node 22+. Architecture, data sources, environment variables and tests: [do
 - [x] Artifacts, local websites, posting with approval
 - [x] Sign in with ChatGPT
 - [x] First-run setup
-- [x] AetherDeck for Mac as its own browser, with the 360° pod as the window (preview)
+- [x] AetherDeck for Mac as its own browser, with the 360° pod as the window
 - [ ] The same browser for Windows and Linux, with automatic updates (coming soon)
 - [ ] Signed and notarized macOS and Windows builds
 - [ ] Publish agent-built websites to a public host (GitHub Pages, Netlify, Vercel), with your approval
