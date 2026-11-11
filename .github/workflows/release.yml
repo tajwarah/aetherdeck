@@ -1,9 +1,8 @@
-# Push a tag like v0.2.0 and this builds AetherDeck for macOS, Windows and Linux and attaches the installers
-# to a GitHub release (a draft, so you can read it over and press Publish).
+# Builds the AetherDeck desktop app (Electron) for macOS, Windows and Linux and attaches the installers to the GitHub
+# release for the version in package.json. Run it by hand only (Actions → Release → Run workflow): v* tags are now the
+# releases of AetherDeck for Mac (the browser), and running this on them attached Electron installers to those releases.
 name: Release
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
