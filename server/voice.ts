@@ -19,14 +19,15 @@ const SERVICES: Record<Service, { label: string; key: string }> = {
 /** The service that will listen: the one chosen in Settings, else the first with a key. */
 export function voiceService(): { id: Service; label: string } | null {
   const chosen = process.env.AETHERDECK_VOICE as Service | undefined;
-  const order: Service[] = chosen && chosen in SERVICES ? [chosen] : ["openai", "groq", "gemini"];
+  // Fastest first: Groq's Whisper answers in well under a second, OpenAI's in about one, Gemini (a chat model) in a few.
+  const order: Service[] = chosen && chosen in SERVICES ? [chosen] : ["groq", "openai", "gemini"];
   const id = order.find((s) => process.env[SERVICES[s].key]);
   return id ? { id, label: SERVICES[id].label } : null;
 }
 
 export async function transcribe(req: TranscribeRequest, fetchImpl: typeof fetch = fetch): Promise<{ text: string; by: string }> {
   const service = voiceService();
-  if (!service) throw Object.assign(new Error("Voice needs an OpenAI, Groq or Gemini key. Add one in Settings, or dictate with an app such as Wispr Flow."), { status: 503 });
+  if (!service) throw Object.assign(new Error("Voice needs an OpenAI, Groq or Gemini key. Add one in Settings, or dictate with an app such as OpenWhispr."), { status: 503 });
   const key = process.env[SERVICES[service.id].key]!;
   const signal = AbortSignal.timeout(45_000);
   if (service.id === "gemini") {

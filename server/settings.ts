@@ -6,7 +6,7 @@ import type { IncomingMessage } from "node:http";
 import { listModels, AI_PROVIDERS, resetBackend } from "./models.ts";
 
 export const SETTING_KEYS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OLLAMA_API_KEY", "MOONSHOT_API_KEY", "LLM_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY", "YOUTUBE_API_KEY"] as const;
-export const SETTING_CONFIG = ["LLM_PROVIDER", "LLM_MODEL", "LLM_BASE_URL", "OLLAMA_URL", "SEARXNG_URL"] as const;
+export const SETTING_CONFIG = ["LLM_PROVIDER", "LLM_MODEL", "LLM_BASE_URL", "OLLAMA_URL", "SEARXNG_URL", "AETHERDECK_SEARCH_ENGINE"] as const;
 type Saved = { keys: Record<string, string>; config: Record<string, string> };
 
 const fileOf = (dir: string) => join(dir, "ai-settings.json");

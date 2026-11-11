@@ -5,6 +5,7 @@ import { Field, type FieldHandle } from "./components/Field.tsx";
 import { Earth } from "./components/Earth.tsx";
 import { Hero } from "./components/Hero.tsx";
 import { Onboarding, welcomed } from "./components/Onboarding.tsx";
+import { hasProfile, loadProfile } from "./lib/profile.ts";
 import { Logo } from "./components/Logo.tsx";
 import { Windows } from "./components/Windows.tsx";
 import { arrangeGroup, awayTabs, closeTab, frontWindow, showTab, toggleMaximize, parseOpenRequest, placeBeside, placeWindow, uid, webSearchTab, type Tab, type Win } from "./lib/windows.ts";
@@ -280,6 +281,15 @@ export function App() {
     setWins((ws) => ws.map((w) => (isPage(w) && w.minimized ? { ...w, minimized: false } : w)));
   }, []);
   const floatWindows = useCallback(() => setSurround(false), []);
+  // Inside AetherDeck for Mac, sites never become frames on this page (most refuse): any site window made by some other path
+  // goes to the Pod as a real tab instead.
+  useEffect(() => {
+    if (!roomBridge) return;
+    const out = wins.filter((w) => (w.page.kind === "web" || w.page.kind === "video") && /^https?:\/\//i.test(w.page.href));
+    if (!out.length) return;
+    for (const w of out) void roomBridge.invoke("room:open", w.page.href).catch(() => undefined);
+    setWins((ws) => ws.filter((w) => !out.includes(w)));
+  }, [wins]);
 
   /**
    * A site or video opens as a new tab of the browser window in front (or of `tabIn`), or in a window of its own
@@ -326,6 +336,8 @@ export function App() {
   const openGroup = useCallback((pages: { url: string; title: string }[], group = uid("g")) => {
     const tabs = pages.flatMap((p) => { const t = parseOpenRequest(p.url); return t ? [{ ...t, title: p.title || t.title }] : []; });
     if (!tabs.length) return;
+    // Inside AetherDeck for Mac the sites go into the Pod as real tabs, side by side on the ring.
+    if (roomBridge) { for (const t of tabs) if (/^https?:\/\//i.test(t.href)) void roomBridge.invoke("room:open", t.href).catch(() => undefined); setComposer(null); return; }
     setWins((ws) => {
       let top = Math.max(0, ...ws.map((w) => w.z));
       const vw = window.innerWidth;
@@ -431,7 +443,10 @@ export function App() {
   const [addressFocus, setAddressFocus] = useState<{ id: string; seq: number } | null>(null);
   const [library, setLibrary] = useState<LibraryTab | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [welcome, setWelcome] = useState(() => !!desktop && !welcomed()); // the first setup, after installing
+  // The local profile from the first-run setup (a name and a picture, on this computer only).
+  const [profile, setProfile] = useState(loadProfile);
+  useEffect(() => { const on = () => setProfile(loadProfile()); window.addEventListener("aetherdeck:profile", on); return () => window.removeEventListener("aetherdeck:profile", on); }, []);
+  const [welcome, setWelcome] = useState(() => !!(desktop || roomBridge) && !welcomed()); // the first setup, after installing
   const [downloads, setDownloads] = useState<Download[]>([]);
   const [asks, setAsks] = useState<PermissionAsk[]>([]);
   const [appUpdate, setAppUpdate] = useState<{ version: string; ready?: boolean; manual?: boolean; url?: string } | null>(null);
@@ -888,12 +903,13 @@ export function App() {
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></svg>
           </button>
           <button className={`avatar ${accounts?.google ? "is-signed-in" : ""}`} onClick={() => setAccountOpen((o) => !o)} aria-label="Accounts" aria-expanded={accountOpen}
-            title={accounts?.google ? "Signed in to Google" : "Accounts: sign in with Google"}>
-            {prefs.preferences.name ? prefs.preferences.name.trim().charAt(0).toUpperCase()
+            title={`${profile.name ? profile.name + ": " : ""}${accounts?.google ? "signed in to Google" : "accounts, sign in with Google"}`}>
+            {hasProfile() ? <span className="avatar__pic" aria-hidden="true">{profile.avatar}</span>
+              : prefs.preferences.name ? prefs.preferences.name.trim().charAt(0).toUpperCase()
               : <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="9" r="3.6" /><path d="M5 20c1.3-3.6 4-5.2 7-5.2s5.7 1.6 7 5.2" strokeLinecap="round" /></svg>}
           </button>
-          {desktop && <button className="voice" onClick={enterRoom} aria-label="360° pod" title="360° pod: your tabs all around you">
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><ellipse cx="12" cy="12" rx="9" ry="4" /><path d="M6 7.5V6a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1.5M6 16.5V18a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1.5" /></svg>
+          {(desktop || roomBridge) && <button className="voice" onClick={() => (roomBridge ? void roomBridge.invoke("room:enter").catch(() => undefined) : enterRoom())} aria-label="360° pod" title="360° pod: your tabs all around you">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3.6 14.6C3.6 8.5 7.4 3.8 12 3.8s8.4 4.7 8.4 10.8c0 1.9-1.2 3.1-3.1 3.1H6.7c-1.9 0-3.1-1.2-3.1-3.1Z" /><circle cx="12" cy="9.8" r="3" /><path d="M4 13.8h16M7.6 17.7 6 20.6M16.4 17.7l1.6 2.9" /></svg>
           </button>}
           <button className={`voice ${agents ? "is-on" : ""}`} onClick={() => setAgents((a) => (a ? null : { listen: true, key: Date.now() }))} aria-label="Agents: speak once" title="Agents: speak once, the crew does the rest (⌘⇧Space)">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10.5v3" /></svg>

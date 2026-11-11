@@ -246,7 +246,7 @@ What keeps it smooth:
   AetherDeck only checks whether a sign-in cookie exists, and never sees passwords.
 - **Agents** (`server/agent.ts`, `src/components/AgentConsole.tsx`). Press ⌘⇧Space from any app, or the
   sound-wave button, and say one thing. Speech becomes text through Whisper (OpenAI or Groq) or Gemini
-  (`server/voice.ts`); a dictation app such as Wispr Flow types into the box too. Your model plans steps for
+  (`server/voice.ts`); a dictation app such as OpenWhispr types into the box too. Your model plans steps for
   four agents. Scout searches and maps; Navigator opens, groups, focuses and closes windows; Reader reads a
   page and answers; Scribe writes. Every step shows as it runs. The agents never sign in, buy, post, send or
   fill in forms.

@@ -3,7 +3,7 @@
 // run neither grows the app's memory nor pays again for rows Claude has already seen.
 import { appUrl, extractScript, inboxScript, inGmail, INBOX_READY, ROWS_LIMIT, stamp, TEXT_LIMIT, threadScript, THREAD_READY, toCsv, videoScript, type ExtractKind, type Row } from "../../shared/harvest.ts";
 import { artifactHtml, type ArtifactKind } from "../../shared/artifact.ts";
-import { desktop } from "./desktop.ts";
+import { desktop, roomBridge } from "./desktop.ts";
 import type { Agent } from "./agents.ts";
 
 export type DataSets = Map<string, { source: string; rows: Row[] }>;
@@ -115,6 +115,11 @@ export async function engineTool(name: string, input: Record<string, unknown>, c
       const m = v.result;
       const said = m.lines.map((l) => `[${stamp(l.s)}] ${l.x}`).join("\n");
       return inParts(v.url, `${m.title}\nChannel: ${m.channel}\nLength: ${stamp(m.seconds)}\n\n${m.description}\n\nTranscript:\n${said || "(YouTube didn't give this browser a transcript. Say so plainly, work only from the title and description, and never guess what was said.)"}`, offset);
+    }
+    case "pod_widget": {
+      if (!roomBridge) return "Widgets live in the pod of AetherDeck for Mac; this AetherDeck has no pod to place one in.";
+      const r = await roomBridge.invoke<{ id: string }>("widgets:save", { id: input.id, title: input.title, html: input.html, width: input.width, height: input.height, agent: c.agent.name });
+      return `Placed the widget “${String(input.title ?? "Widget")}” in the person's pod, id ${r.id}. Pass this id to update it.`;
     }
     case "build_app": {
       const given = String(input.id ?? "");

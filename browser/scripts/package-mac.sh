@@ -36,6 +36,29 @@ mv "$STAGE/node-$NODE_VERSION-darwin-arm64/bin/node" "$STAGE/aetherdeck/bin/node
 mv "$STAGE/node-$NODE_VERSION-darwin-arm64/LICENSE" "$STAGE/aetherdeck/bin/NODE-LICENSE"
 rm -rf "$STAGE/node-$NODE_VERSION-darwin-arm64"
 
+echo "== 2b. uBlock Origin (built-in ad and tracker blocking)"
+# The copy Mozilla signed on addons.mozilla.org, checked against the hash AMO publishes. It ships in the app and is installed
+# for every new profile; the policy keeps it installed (it can be switched off, not removed) and updates it from AMO.
+UBO_ID="uBlock0@raymondhill.net"
+read -r UBO_URL UBO_HASH < <(curl -fsSL https://addons.mozilla.org/api/v5/addons/addon/ublock-origin/ | python3 -c "import json,sys; f=json.load(sys.stdin)['current_version']['file']; print(f['url'], f['hash'].split(':',1)[1])")
+curl -fsSL -o "$WORK/dl/ublock-origin.xpi" "$UBO_URL"
+[ "$(shasum -a 256 "$WORK/dl/ublock-origin.xpi" | cut -d' ' -f1)" = "$UBO_HASH" ] || { echo "uBlock Origin checksum mismatch" >&2; exit 1; }
+mkdir -p "$STAGE/distribution/extensions"
+cp "$WORK/dl/ublock-origin.xpi" "$STAGE/distribution/extensions/$UBO_ID.xpi"
+cat > "$STAGE/distribution/policies.json" <<JSON
+{
+  "policies": {
+    "ExtensionSettings": {
+      "$UBO_ID": {
+        "installation_mode": "normal_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi",
+        "private_browsing": true
+      }
+    }
+  }
+}
+JSON
+
 echo "== 3. browser"
 if [ "${1:-}" != "--skip-build" ]; then
   "$SRC/scripts/prepare.sh"
@@ -50,6 +73,7 @@ echo "== 4. app and disk image"
 APP="$STAGE/AetherDeck.app"
 ditto "$BUILT" "$APP"
 cp -R "$STAGE/aetherdeck" "$APP/Contents/Resources/aetherdeck"
+rm -rf "$APP/Contents/Resources/distribution/extensions" && mkdir -p "$APP/Contents/Resources/distribution" && cp -R "$STAGE/distribution/." "$APP/Contents/Resources/distribution/"
 xattr -cr "$APP"
 codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict "$APP"

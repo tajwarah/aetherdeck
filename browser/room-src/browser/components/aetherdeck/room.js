@@ -26,7 +26,10 @@
     return { yaws, radius: PW / (2 * Math.tan(wAng / 2)), step };
   }
 
-  const MAX_PANES = 8, MAX_LIVE = Math.max(2, Math.min(8, Number(Services.env.get("AD_ROOM_LIVE")) || 6)), SLEEP_AFTER_MS = 20000;
+  // Eight panes in the Pod; how many stay live depends on the Mac's memory (all eight from 16 GB). Asleep panes keep their
+  // last picture and wake when you turn to them. More tabs than eight wait in the "More tabs" box.
+  const RAM_GB = (() => { try { return Services.sysinfo.getProperty("memsize") / 2 ** 30; } catch (e) { return 8; } })();
+  const MAX_PANES = 8, MAX_LIVE = Math.max(2, Math.min(8, Number(Services.env.get("AD_ROOM_LIVE")) || (RAM_GB >= 15 ? 8 : RAM_GB >= 7 ? 6 : 4))), SLEEP_AFTER_MS = 20000;
   let lastTarget = null, sizeRange = null, sizeLabel = null; // the dock's size slider (built with the dock)
   const cam = { yaw: 0, pitch: 0, fov: 1.3, back: 0, target: null, tpitch: 0 };
   const panes = []; // { tab, url, yaw, outSince, asleep }
@@ -49,6 +52,16 @@
     body.ad-room split-view-footer { display: none !important; }
     body.ad-room .browserSidebarContainer.ad-room-pane.ad-asleep::after { content: "Asleep to save memory. Turn to it to wake it."; position: absolute; inset: 0; display: flex;
       align-items: center; justify-content: center; background: #0e0e13; color: #9a9aa6; font: 15px system-ui; z-index: 3; }
+    #ad-more { position: fixed; right: 12px; bottom: 92px; z-index: 1600; width: 300px; max-height: 50vh; overflow: auto; display: none; padding: 8px; border-radius: 14px;
+      background: rgba(20,18,32,.94); border: 1px solid rgba(214,202,255,.35); box-shadow: 0 18px 50px rgba(0,0,0,.5); color: #f6f1ff; font: 13px system-ui; }
+    #ad-more.open { display: block; }
+    #ad-more .h { margin: 2px 4px 8px; font-weight: 600; } #ad-more .h small { display: block; font-weight: 400; opacity: .7; margin-top: 2px; }
+    #ad-more .t { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 9px; cursor: grab; }
+    #ad-more .t:hover { background: rgba(255,255,255,.08); }
+    #ad-more .t img { width: 16px; height: 16px; flex: none; }
+    #ad-more .t span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #ad-more .t button { flex: none; border: 0; border-radius: 7px; padding: 3px 8px; background: #6c56d8; color: #fff; font: 12px system-ui; cursor: pointer; }
+    #ad-more-ghost { position: fixed; z-index: 2100; pointer-events: none; padding: 6px 10px; border-radius: 9px; background: #6c56d8; color: #fff; font: 12px system-ui; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #ad-room-rail { position: fixed; top: 34px; left: 0; bottom: 0; width: 210px; z-index: 1500; overflow: auto; background: #0b0b0fe6; color: #ececf1; font: 12px system-ui; padding: 6px; display: none; }
     body.ad-room #ad-room-rail.open { display: block; }
     #ad-room-rail .item { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
@@ -57,10 +70,23 @@
     #ad-room-rail .item .h { color: #9a9aa6; font-size: 11px; }
     #ad-room-rail .item.asleep .t { opacity: .5; }
     #ad-room-rail .item button { margin: 0; padding: 0 5px; border: 0; background: transparent; color: #9a9aa6; cursor: pointer; }
-    .ad-widget { position: absolute; left: 50%; top: 50%; width: 220px; height: 110px; margin: -55px 0 0 -110px; box-sizing: border-box; padding: 14px 18px; border-radius: 18px; border: 1px solid rgba(255,255,255,.22); background: rgba(20,22,34,.55); backdrop-filter: blur(14px); color: #fff; font: 13px system-ui; pointer-events: none; backface-visibility: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
-    .ad-widget .k { opacity: .65; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
-    .ad-widget .v { font-size: 34px; font-weight: 300; margin-top: 6px; line-height: 1.1; }
-    .ad-widget .s { opacity: .75; margin-top: 4px; }
+    #ad-widgets { display: none; position: fixed; inset: 0; z-index: 1003; pointer-events: none; }
+    body.ad-room ~ #ad-widgets, body.ad-room #ad-widgets { display: block; }
+    .ad-widget { position: absolute; box-sizing: border-box; min-width: 130px; min-height: 64px; max-width: 520px; max-height: 300px; padding: 10px 14px; border-radius: 16px;
+      border: 1px solid rgba(214,202,255,.32); background: linear-gradient(145deg, rgba(43,33,80,.62), rgba(20,22,34,.62)); backdrop-filter: blur(14px);
+      color: #f6f1ff; font: 13px system-ui; pointer-events: auto; cursor: grab; box-shadow: 0 10px 34px rgba(0,0,0,.35); resize: both; overflow: hidden; container-type: size; user-select: none; }
+    .ad-widget.dragging { cursor: grabbing; opacity: .9; }
+    .ad-widget .k { opacity: .7; font-size: clamp(9px, 8cqh, 13px); letter-spacing: .08em; text-transform: uppercase; }
+    .ad-widget .v { font-size: clamp(16px, 34cqh, 72px); font-weight: 300; margin-top: 2px; line-height: 1.1; white-space: nowrap; }
+    .ad-widget .s { opacity: .75; margin-top: 2px; font-size: clamp(10px, 11cqh, 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ad-widget .x { position: absolute; top: 6px; right: 8px; width: 18px; height: 18px; border: 0; border-radius: 50%; background: rgba(0,0,0,.35); color: #fff; font: 13px/18px system-ui; padding: 0; cursor: pointer; opacity: 0; }
+    .ad-widget:hover .x { opacity: 1; }
+    .ad-widget.agent { padding: 6px 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .ad-widget.agent .bar { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: .85; padding-right: 22px; }
+    .ad-widget.agent .bar b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    .ad-widget.agent .bar button { border: 0; background: rgba(0,0,0,.3); color: #fff; border-radius: 6px; font: 11px system-ui; padding: 1px 6px; cursor: pointer; }
+    .ad-widget.agent browser, .ad-widget.agent pre { flex: 1; min-height: 0; width: 100%; border: 0; border-radius: 10px; background: #fff; pointer-events: auto; }
+    .ad-widget.agent pre { margin: 0; padding: 6px; overflow: auto; background: #0b0b10; color: #cfd2ff; font: 11px ui-monospace, Menlo, monospace; white-space: pre-wrap; user-select: text; cursor: text; }
     #ad-room-hud input { flex: 0 1 320px; padding: 3px 8px; border: 1px solid #555; border-radius: 6px; background: #111; color: #fff; font: 13px system-ui; }
     #ad-room-hud .meter { margin-left: auto; color: #9a9aa6; font-size: 12px; }
     #ad-room-hud button { margin-left: 0; }
@@ -105,6 +131,9 @@
     #ad-room-drag { display: none; position: fixed; inset: 0; z-index: 1002; cursor: grab; }
     body.ad-room ~ #ad-room-drag, body.ad-room #ad-room-drag { display: block; }
     body.ad-room .browserSidebarContainer.ad-room-pane.ad-side { opacity: 0.001 !important; pointer-events: none !important; }
+    /* The pane you're facing, at rest: the live page itself, flat and at the screen's own resolution, above the Pod's layers. */
+    body.ad-room.ad-focusing #tabbrowser-tabpanels { z-index: 1003 !important; }
+    body.ad-room .browserSidebarContainer.ad-room-pane.ad-focus { transform: none !important; opacity: 1 !important; pointer-events: auto !important; z-index: 10 !important; border-color: transparent !important; box-shadow: 0 18px 60px rgba(0,0,0,.45); }
     body.ad-room .browserSidebarContainer.ad-room-pane.ad-input { transform: none !important; pointer-events: auto !important; opacity: 0.001 !important; z-index: 5 !important; }
     #ad-room-curves.ad-passthru, #ad-room-curves.ad-passthru *, #ad-room-drag.ad-passthru { pointer-events: none !important; }
   `;
@@ -145,12 +174,15 @@
   try { widgetsOn = window.Services.prefs.getBoolPref("aetherdeck.room.widgets", true); } catch (e) {}
   const widgetsBtn = mk("Widgets", "Show or hide the clock, tab and agent widgets", () => {
     widgetsOn = !widgetsOn;
+    if (widgetsOn) { for (const k of Object.keys(widgetLayout)) if (widgetLayout[k]) widgetLayout[k].hidden = false; saveLayout(); }
     try { window.Services.prefs.setBoolPref("aetherdeck.room.widgets", widgetsOn); } catch (e) {}
     widgetsBtn.style.opacity = widgetsOn ? "1" : ".55";
     apply();
   });
   widgetsBtn.style.opacity = widgetsOn ? "1" : ".55";
-  hud.append(title, addr, railBtn, zoomOutBtn, sizeRange, sizeLabel, zoomInBtn, fitBtn, homeBtn, roomsBtn, widgetsBtn, fsBtn, meter, leaveBtn);
+  const moreBtn = mk("More tabs", "Tabs beyond the eight in your pod: swap one in", () => toggleMore());
+  moreBtn.style.minWidth = "84px";
+  hud.append(title, addr, railBtn, zoomOutBtn, sizeRange, sizeLabel, zoomInBtn, fitBtn, homeBtn, roomsBtn, widgetsBtn, moreBtn, fsBtn, meter, leaveBtn);
   const rail = document.createElementNS(X, "div");
   rail.id = "ad-room-rail";
   document.documentElement.append(rail);
@@ -354,7 +386,10 @@
       parent: { esModuleURI: "chrome://browser/content/aetherdeck/AetherDeckBridgeParent.sys.mjs" },
       child: { esModuleURI: "chrome://browser/content/aetherdeck/AetherDeckBridgeChild.sys.mjs", events: { DOMWindowCreated: {} } },
       allFrames: false,
-      matches: ["http://127.0.0.1:8787/*", "http://localhost:8787/*"],
+      // Web pages run in "untrusted" content processes; without this the bridge never reached AetherDeck's own page. Safe:
+      // the parent checks the requesting page's real origin (from the parent process) on every request.
+      safeForUntrustedWebProcess: true,
+      matches: ["http://127.0.0.1/*", "http://localhost/*"], // match patterns can't name a port: the child checks it
     });
   } catch (e) { if (!/already/i.test(String(e))) log("registering the bridge actor failed: " + e); }
   function panelOf2(p) { return document.getElementById(p.tab.linkedPanel); }
@@ -407,11 +442,26 @@
   function actorOf(p) {
     try {
       const a = p.tab.linkedBrowser.browsingContext.currentWindowGlobal.getActor("AetherDeckInput");
-      a.onCursor = (c) => { if (dragEl) dragEl.style.cursor = (c === "auto" ? "default" : c) || "default"; };
+      // Only plain keywords from the page; anything else (none, an image) would leave no visible pointer.
+      a.onCursor = (c) => { if (dragEl) dragEl.style.cursor = /^[a-z-]{3,20}$/.test(c || "") && c !== "none" && c !== "auto" ? c : "default"; };
       return a;
     } catch (e) { if (!p.actorErr) { p.actorErr = true; log("getActor failed: " + String(e).slice(0, 200)); } return null; }
   }
   function sendMouse(p, type, pt, button, clicks) {
+    const b = p.tab.linkedBrowser;
+    // Firefox's own pages (Settings, Add-ons, the import window) run in this process, inside the Pod's tilted layer: hit-testing
+    // a click maps it back through the tilt and misses. Flatten that page's layer for the instant of the event and deliver it
+    // straight to its window. It's invisible either way (the pane on screen is a picture).
+    if (b && !b.isRemoteBrowser && b.contentWindow) {
+      const panel = document.getElementById(p.tab.linkedPanel);
+      try {
+        panel?.classList.add("ad-input"); panel?.getBoundingClientRect();
+        b.contentWindow.synthesizeMouseEvent(type, pt.u, pt.v, { button: button || 0, clickCount: clicks || 0 }, { toWindow: true, isDOMEventSynthesized: true });
+      } catch (e) { log("in-process click failed: " + e); }
+      finally { panel?.classList.remove("ad-input"); }
+      if (type === "mousemove") { const a = actorOf(p); if (a) try { a.sendAsyncMessage("mouse", { type, x: pt.u, y: pt.v, cursorOnly: true }); } catch (e) {} }
+      return;
+    }
     const a = actorOf(p);
     if (a) { try { a.sendAsyncMessage("mouse", { type, x: pt.u, y: pt.v, button: button || 0, clicks: clicks || 0 }); } catch (e) { log("send failed: " + String(e).slice(0, 200)); } }
   }
@@ -464,7 +514,7 @@
     const pt = pagePoint(hit);
     burst(600);
     const a = actorOf(hit.p);
-    if (a) a.sendAsyncMessage("wheel", { x: pt.u, y: pt.v, dx: e.deltaX, dy: e.deltaY });
+    if (a) a.sendAsyncMessage("wheel", { x: pt.u, y: pt.v, dx: e.deltaX, dy: e.deltaY, mode: e.deltaMode, shift: e.shiftKey });
   }
 
   // The pane the size controls act on: the one you last clicked, otherwise the one nearest the middle of your view.
@@ -546,25 +596,134 @@
   function kick() { if (!raf) { lastFrame = window.performance.now(); raf = window.requestAnimationFrame(frame); } }
 
   // The camera is ONE transform on the world container; each strip only changes when the layout, size or position changes.
-  // ---- Widgets: small panes of glass hung on the ring beside the tabs (a clock, the tabs, the agents) ----
+  // ---- Widgets: small panes of glass in front of the Pod (a clock, the tabs, the agents). They sit flat in a row along the
+  // top, above where the panes are, and stay where you put them: drag to move, pull the corner to resize, × to hide one,
+  // double-click to put one back in its place. Their spots and sizes are kept in the pref aetherdeck.room.widgetLayout.
   const widgets = {};
-  let agentCount = null, agentsAt = 0;
+  const WIDGET_IDS = [["clock", "Time"], ["tabs", "Tabs"], ["crew", "Agents"]];
+  let agentCount = null, agentsAt = 0, widgetLayer = null;
+  const defaultSpot = (i) => ({ x: 16 + i * 186, y: 16, w: 174, h: 82, hidden: false });
+  let widgetLayout = {};
+  try { widgetLayout = JSON.parse(Services.prefs.getStringPref("aetherdeck.room.widgetLayout", "{}")) || {}; } catch (e) { widgetLayout = {}; }
+  const saveLayout = () => { try { Services.prefs.setStringPref("aetherdeck.room.widgetLayout", JSON.stringify(widgetLayout)); } catch (e) {} };
+  function spotOf(id) { const i = WIDGET_IDS.findIndex(([w]) => w === id); return { ...(id.startsWith("aw-") ? { x: 16, y: 110, w: 220, h: 150, hidden: false } : defaultSpot(i)), ...(widgetLayout[id] || {}) }; }
+  function placeWidget(el, id) {
+    const sp = spotOf(id), W = window.innerWidth, H = window.innerHeight;
+    const w = Math.min(sp.w, W - 16), h = Math.min(sp.h, H - 16);
+    el.style.width = w + "px"; el.style.height = h + "px";
+    el.style.left = Math.max(0, Math.min(W - w, sp.x)) + "px"; el.style.top = Math.max(0, Math.min(H - h - 60, sp.y)) + "px"; // never under the bar
+  }
   function widgetEl(id, key) {
     if (widgets[id]) return widgets[id];
+    if (!widgetLayer) { widgetLayer = document.createElementNS(X, "div"); widgetLayer.id = "ad-widgets"; document.documentElement.appendChild(widgetLayer); }
     const el = document.createElementNS(X, "div");
     el.className = "ad-widget";
-    el.innerHTML = '<div class="k"></div><div class="v"></div><div class="s"></div>';
+    for (const c of ["k", "v", "s"]) { const d = document.createElementNS(X, "div"); d.className = c; el.append(d); }
+    const xb = document.createElementNS(X, "button");
+    xb.className = "x"; xb.textContent = "×"; xb.title = "Hide this widget (the Widgets button brings it back)";
+    el.append(xb);
     el.querySelector(".k").textContent = key;
-    worldEl.append(el);
+    el.querySelector(".x").addEventListener("click", (e) => { e.stopPropagation(); widgetLayout[id] = { ...spotOf(id), hidden: true }; saveLayout(); updateWidgets(); });
+    el.addEventListener("dblclick", () => { const hidden = spotOf(id).hidden; widgetLayout[id] = { ...defaultSpot(WIDGET_IDS.findIndex(([w]) => w === id)), hidden }; saveLayout(); placeWidget(el, id); });
+    // Move: drag from anywhere but the resize corner.
+    el.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || e.target.classList.contains("x")) return;
+      const r = el.getBoundingClientRect();
+      if (e.clientX > r.right - 18 && e.clientY > r.bottom - 18) return; // the resize corner
+      e.preventDefault(); e.stopPropagation();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      el.classList.add("dragging"); el.setPointerCapture(e.pointerId);
+      const move = (ev) => { el.style.left = ev.clientX - dx + "px"; el.style.top = ev.clientY - dy + "px"; };
+      const up = () => {
+        el.classList.remove("dragging"); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up);
+        widgetLayout[id] = { ...spotOf(id), x: el.offsetLeft, y: el.offsetTop }; saveLayout(); placeWidget(el, id);
+      };
+      el.addEventListener("pointermove", move); el.addEventListener("pointerup", up);
+    });
+    // Resize: the CSS corner handle; remember the size once it settles.
+    let rt = 0;
+    new window.ResizeObserver(() => { window.clearTimeout(rt); rt = window.setTimeout(() => { if (el.style.display === "none") return; const w = el.offsetWidth, h = el.offsetHeight, sp = spotOf(id); if (Math.abs(w - sp.w) > 2 || Math.abs(h - sp.h) > 2) { widgetLayout[id] = { ...sp, w, h }; saveLayout(); } }, 400); }).observe(el);
+    el.addEventListener("wheel", (e) => e.stopPropagation(), { passive: true });
+    widgetLayer.append(el);
+    placeWidget(el, id);
     return (widgets[id] = el);
   }
   const setWidget = (el, v, sub) => { const a = el.querySelector(".v"), b = el.querySelector(".s"); if (a.textContent !== v) a.textContent = v; if (b.textContent !== sub) b.textContent = sub; };
+  window.addEventListener("resize", () => { for (const [id] of WIDGET_IDS) if (widgets[id]) placeWidget(widgets[id], id); });
+
+  // ---- Widgets agents make (the pod_widget tool): each runs its own HTML in a sandboxed page of its own, with an opaque
+  // origin (no cookies or storage, not AetherDeck's page, so no bridge), no network (strict CSP), and no popups, navigation,
+  // forms, downloads or dialogs. Scripts may run inside it. Moved, resized and hidden like the others; </> shows its code,
+  // × deletes it. Kept in widgets.json in this profile's AetherDeck data.
+  let agentWidgets = [];
+  const AW_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src data:";
+  const SANDBOX = 0xfffff & ~0x80; // every sandbox flag but "no scripts"
+  async function loadAgentWidgets() { agentWidgets = (await readData("widgets", [])).filter((w) => w && typeof w.id === "string"); drawAgentWidgets(); }
+  function widgetDoc(w) { return `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${AW_CSP}"><style>html,body{margin:0;font:13px system-ui}</style>${w.html}`; }
+  function drawAgentWidgets() {
+    if (!widgetLayer) widgetEl("clock", "Time"); // makes the layer
+    const ids = new Set(agentWidgets.map((w) => "aw-" + w.id));
+    for (const k of Object.keys(widgets)) if (k.startsWith("aw-") && !ids.has(k)) { widgets[k].remove(); delete widgets[k]; }
+    agentWidgets.forEach((w, i) => {
+      const id = "aw-" + w.id;
+      if (!WIDGET_IDS.some(([x]) => x === id)) WIDGET_IDS.push([id, w.title]);
+      if (!widgetLayout[id]) widgetLayout[id] = { x: 16 + i * 236, y: 110, w: w.w || 220, h: w.h || 150, hidden: false };
+      let el = widgets[id];
+      if (el && el.dataset.ver === String(w.updated)) return;
+      if (el) { el.remove(); delete widgets[id]; }
+      el = document.createElementNS(X, "div");
+      el.className = "ad-widget agent"; el.dataset.ver = String(w.updated);
+      const bar = document.createElementNS(X, "div"); bar.className = "bar";
+      const t = document.createElementNS(X, "b"); t.textContent = w.title; t.title = `Made by ${w.agent || "an agent"}. Runs sandboxed: no access to your pages, cookies, files or the internet.`;
+      const code = document.createElementNS(X, "button"); code.textContent = "</>"; code.title = "Show what this widget runs";
+      bar.append(t, code);
+      const xb = document.createElementNS(X, "button"); xb.className = "x"; xb.textContent = "×"; xb.title = "Delete this widget";
+      xb.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!Services.prompt.confirm(window, "Delete widget", `Delete “${w.title}”, made by ${w.agent || "an agent"}?`)) return;
+        agentWidgets = agentWidgets.filter((x) => x.id !== w.id); void writeData("widgets", agentWidgets); delete widgetLayout[id]; saveLayout(); drawAgentWidgets();
+      });
+      const view = document.createXULElement("browser");
+      for (const [k, v] of [["type", "content"], ["remote", "true"], ["maychangeremoteness", "true"], ["disableglobalhistory", "true"], ["messagemanagergroup", "aetherdeck-widget"]]) view.setAttribute(k, v);
+      el.append(bar, view, xb);
+      code.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const pre = el.querySelector("pre");
+        if (pre) { pre.remove(); view.hidden = false; return; }
+        const p2 = document.createElementNS(X, "pre"); p2.textContent = w.html; view.hidden = true; el.insertBefore(p2, xb);
+      });
+      // Move by the title bar (the page inside takes its own clicks).
+      bar.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0 || e.target === code) return;
+        e.preventDefault(); e.stopPropagation();
+        const r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+        el.classList.add("dragging"); bar.setPointerCapture(e.pointerId);
+        const move = (ev) => { el.style.left = ev.clientX - dx + "px"; el.style.top = ev.clientY - dy + "px"; };
+        const up = () => { el.classList.remove("dragging"); bar.removeEventListener("pointermove", move); bar.removeEventListener("pointerup", up); widgetLayout[id] = { ...spotOf(id), x: el.offsetLeft, y: el.offsetTop }; saveLayout(); placeWidget(el, id); };
+        bar.addEventListener("pointermove", move); bar.addEventListener("pointerup", up);
+      });
+      let rt = 0;
+      new window.ResizeObserver(() => { window.clearTimeout(rt); rt = window.setTimeout(() => { const sp = spotOf(id); if (el.style.display !== "none" && (Math.abs(el.offsetWidth - sp.w) > 2 || Math.abs(el.offsetHeight - sp.h) > 2)) { widgetLayout[id] = { ...sp, w: el.offsetWidth, h: el.offsetHeight }; saveLayout(); } }, 400); }).observe(el);
+      widgetLayer.append(el);
+      widgets[id] = el;
+      placeWidget(el, id);
+      window.setTimeout(() => {
+        try {
+          view.browsingContext.sandboxFlags = SANDBOX;
+          // Started by the browser itself (Firefox refuses top-level data: pages started by anyone else); the page still gets
+          // an opaque origin of its own (checked: documentPrincipal.isNullPrincipal) and the sandbox flags above.
+          view.loadURI(Services.io.newURI("data:text/html;charset=utf-8," + encodeURIComponent(widgetDoc(w))), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+        } catch (e) { log("agent widget failed: " + e); }
+      }, 0);
+    });
+    updateWidgets();
+  }
   function updateWidgets() {
-    if (!worldEl) return;
     const show = widgetsOn && document.body.classList.contains("ad-room") && panes.length > 0;
-    const clock = widgetEl("clock", "Time"), tabs = widgetEl("tabs", "Tabs"), crew = widgetEl("crew", "Agents");
-    for (const el of [clock, tabs, crew]) el.style.display = show ? "block" : "none";
+    const els = WIDGET_IDS.map(([id, key]) => (id.startsWith("aw-") ? widgets[id] : widgetEl(id, key)));
+    WIDGET_IDS.forEach(([id], i) => { if (els[i]) els[i].style.display = show && !spotOf(id).hidden ? (id.startsWith("aw-") ? "flex" : "block") : "none"; });
     if (!show) return;
+    const [clock, tabs, crew] = els;
     const now = new Date();
     setWidget(clock, now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), now.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }));
     const live = panes.filter((p) => !p.asleep).length;
@@ -574,12 +733,6 @@
       window.IOUtils.readUTF8(dataFile("agents")).then((t) => { try { agentCount = JSON.parse(t).length; } catch (e) { agentCount = 0; } }, () => { agentCount = 0; });
     }
     setWidget(crew, agentCount === null ? "-" : String(agentCount), agentCount === 1 ? "agent on the crew" : "agents on the crew");
-    // Hung either side of the tabs: the clock and tabs on the left, the crew on the right.
-    const ys = panes.map((p) => p.yaw + (p.off || 0));
-    const half = 0.42; // about half a pane's width in radians at the default size
-    const left = Math.min(...ys) - half - 0.3, right = Math.max(...ys) + half + 0.3;
-    const place = (el, yaw, dy) => { el.style.transform = `rotateY(${-yaw}rad) translateY(${dy}px) translateZ(${-layout.radius}px)`; };
-    place(clock, left, -70); place(tabs, left, 70); place(crew, right, 0);
   }
 
   function applyCurves(P) {
@@ -612,12 +765,20 @@
         (p.S || (p.S = []))[i] = new window.DOMMatrix().rotateAxisAngleSelf(0, 1, 0, deg(-base)).translateSelf(0, p.voff || 0, 0).translateSelf(0, 0, -layout.radius).translateSelf(x, 0, 0).translateSelf(0, 0, d).rotateAxisAngleSelf(0, 1, 0, deg(-th));
       });
     }
-    if (widgetVer !== layoutVer) { widgetVer = layoutVer; updateWidgets(); }
+    if (widgetVer !== layoutVer) { widgetVer = layoutVer; updateWidgets(); } // shows or hides them with the Pod
   }
 
   // Pictures of the pages, as fast as the browser can make them (panes you can see), rarely for the ones behind you.
   let snapRunning = false, snapMode, burstUntil = 0;
   function burst(ms) { burstUntil = Math.max(burstUntil, Date.now() + ms); }
+  // Pixels per CSS pixel to capture a pane at: the screen's density for the pane you're using (2 on Retina, more when it is
+  // zoomed bigger, at most 3), and a little less for the others, which redraw more often than you look at them.
+  function sharpness(p) {
+    const dpr = window.devicePixelRatio || 1, zoom = Math.max(1, p.scale || 1);
+    // The pane you're facing shows its live page when the view rests, so pictures only need to be fine enough while turning.
+    if (raf || look.on) return 1;
+    return p === activePane ? Math.min(2, dpr * zoom) : 1;
+  }
   async function snapPane(p, scale) {
     const b = p.tab.linkedBrowser;
     if (!b || typeof b.drawSnapshot !== "function") return;
@@ -649,18 +810,19 @@
         // While you are pointing, clicking or scrolling in a pane, redraw that pane as fast as possible (nothing else), so
         // what you see keeps up with what you do.
         if (now < burstUntil && activePane && activePane.curve && !activePane.asleep) {
-          try { await snapPane(activePane, 1); } catch (e) {}
+          try { await snapPane(activePane, sharpness(activePane)); } catch (e) {}
           await new Promise((r) => window.setTimeout(r, 0));
           continue;
         }
         for (const p of panes) {
-          if (p.asleep || !p.curve) continue;
+          if (p.asleep || !p.curve || p === focused) continue; // the focused pane is live on screen, no picture needed
+          if ((raf || look.on) && p !== activePane) continue; // while the view moves, only the pane you're on is redrawn
           const d = Math.abs(turn(p.yaw + (p.off || 0) - cam.yaw));
           const inView = d < 1.5;
           const every = !inView ? 1500 : p === activePane ? 0 : 100;
           if (p.lastSnap && now - p.lastSnap < every) continue;
           p.lastSnap = now;
-          try { await snapPane(p, p === activePane ? 1 : 0.75); } catch (e) { if (!p.snapErr) { p.snapErr = true; log("snapshot failed: " + String(e).slice(0, 120)); } }
+          try { await snapPane(p, sharpness(p)); } catch (e) { if (!p.snapErr) { p.snapErr = true; log("snapshot failed: " + String(e).slice(0, 120)); } }
         }
         if (DEBUG && now - stats.t0 > 6000) { log("snapshots per second: " + Math.round((stats.snaps * 1000) / (now - stats.t0))); stats.snaps = 0; stats.t0 = now; }
         // A window you can't see (minimized, or another app's full screen in front) needs no fresh pictures.
@@ -669,8 +831,58 @@
     } finally { snapRunning = false; }
   }
 
+  // ---- The front pane, sharp: when the view comes to rest facing a pane, that pane shows its live page flat, sized to the
+  // exact space it takes on screen, with the page zoom raised by the same factor (so its layout doesn't change) - which is
+  // what a normal tab is. Native scrolling, selection and the pointer work on it. Turning puts the bent picture back.
+  let focused = null, settleTimer = 0;
+  const FOCUS_SNAP = 0.2; // within this angle of a pane, the view eases onto it when you stop
+  function canFocus() { return CURVE_ON && !look.on && !press.on && cam.back === 0 && Math.abs(cam.pitch) < 0.03 && Math.abs(cam.fov - 1.3) < 0.01 && document.body.classList.contains("ad-room"); }
+  function nearestFacing() { let best = null, bd = 9; for (const p of panes) { const d = Math.abs(turn(p.yaw + (p.off || 0) - cam.yaw)); if (d < bd) { bd = d; best = p; } } return best ? { p: best, d: bd } : null; }
+  function unfocus() {
+    if (!focused) return;
+    const p = focused; focused = null;
+    document.body.classList.remove("ad-focusing");
+    const el = document.getElementById(p.tab.linkedPanel);
+    if (el) { el.classList.remove("ad-focus"); for (const k of ["width", "height", "margin"]) el.style.removeProperty(k); }
+    const b = p.tab.linkedBrowser;
+    try { if (b && p.zoomBefore) b.fullZoom = p.zoomBefore; } catch (e) {}
+    (p.curve || []).forEach((c) => { c.style.visibility = ""; });
+  }
+  function focusPane(p) {
+    if (focused === p) return;
+    unfocus();
+    const b = p.tab.linkedBrowser, el = document.getElementById(p.tab.linkedPanel);
+    if (!b || !el || p.asleep) return;
+    const H = window.innerHeight || 800, P = (H / 2) / Math.tan(cam.fov / 2);
+    const k = (P / layout.radius) * (p.scale || 1); // how big the pane looks on screen, per CSS pixel of the page
+    const W = Math.round(PW * k), Hh = Math.round(PH * k);
+    p.zoomBefore = b.fullZoom || 1;
+    el.style.setProperty("width", W + "px", "important"); el.style.setProperty("height", Hh + "px", "important");
+    el.style.setProperty("margin", `${Math.round(-Hh / 2 + (p.voff || 0) * (P / layout.radius))}px 0 0 ${Math.round(-W / 2)}px`, "important");
+    p.focusZoom = p.zoomBefore * k;
+    const zoomIt = () => { try { if (focused === p && Math.abs(b.fullZoom - p.focusZoom) > 0.001) b.fullZoom = p.focusZoom; } catch (e) {} };
+    zoomIt(); window.setTimeout(zoomIt, 80); window.setTimeout(zoomIt, 400); // Firefox's site zoom can reset it right after
+    el.classList.add("ad-focus");
+    document.body.classList.add("ad-focusing");
+    (p.curve || []).forEach((c) => { c.style.visibility = "hidden"; });
+    focused = p;
+    if (b.docShellIsActive === false) b.docShellIsActive = true;
+  }
+  function settle() {
+    window.clearTimeout(settleTimer);
+    settleTimer = window.setTimeout(() => {
+      if (!canFocus() || raf) return;
+      const n = nearestFacing();
+      if (!n || n.p.asleep || !n.p.hasSnap) return;
+      if (n.d < 0.004) { focusPane(n.p); return; }
+      if (n.d < FOCUS_SNAP) { cam.target = turn(n.p.yaw + (n.p.off || 0)); cam.tpitch = 0; kick(); } // ease onto it; focuses when it stops
+    }, 220);
+  }
+
   function apply() {
     if (!document.body.classList.contains("ad-room")) return; // a stray resize after leaving must not put 3D transforms back
+    if (focused && (Math.abs(turn(focused.yaw + (focused.off || 0) - cam.yaw)) > 0.004 || !canFocus())) unfocus();
+    settle();
     const H = window.innerHeight || 800;
     const P = (H / 2) / Math.tan(cam.fov / 2);
     const tp = panels();
@@ -689,6 +901,7 @@
   // Panes sit side by side on the cylinder, each as wide (as an angle) as its own size, with a gap between: zooming one pane
   // pushes its neighbours aside instead of overlapping them. If they no longer fit the circle, the circle grows.
   function place() {
+    unfocus(); // sizes change: it refocuses at the new size once the view rests
     const R0 = PW / (2 * Math.tan(0.405)); // radius that makes a normal pane about 46 degrees wide
     const gap = 0.07;
     let R = R0;
@@ -752,6 +965,7 @@
   }
 
   function leave() {
+    unfocus();
     cam.target = null;
     // Hide the page area while the layout changes: WebRender panicked ("pictures caches don't support complex transforms") when
     // live pages were still on screen as the 3D transforms came off.
@@ -781,19 +995,38 @@
   // A link or window.open inside a pane opens an ordinary new tab in Firefox: adopt it as the next pane (this is what the
   // Chromium extension needed webNavigation for). Tabs that the Room itself made are already in `panes`.
   gBrowser.tabContainer.addEventListener("TabOpen", (e) => {
-    if (!document.body.classList.contains("ad-room")) return;
+    // Outside the Pod too: a new tab (Cmd+T, a link, the address bar) belongs in the Pod, so it brings you back in.
     const tab = e.target;
-    if (adding || panes.some((p) => p.tab === tab)) return;
-    if (panes.length >= MAX_PANES) { say("The Pod holds " + MAX_PANES + " panes; this tab was left outside it."); return; }
+    if (!enteredOnce || adding || panes.some((p) => p.tab === tab)) return; // before the first entry, start() gathers tabs itself
+    if (panes.length >= MAX_PANES) { say("Your pod holds " + MAX_PANES + " panes: this tab is in More tabs, swap it in from there."); drawMore(); return; }
     panes.push({ tab, url: "", yaw: 0, outSince: null, asleep: false, born: Date.now() });
     window.setTimeout(() => { try { enter(); lookAt(panes.length - 1); } catch (err) { log("adopt failed: " + err); } }, 400);
   });
+  // A dialog a page opens (alert, "Leave page?", a sign-in prompt) is drawn by Firefox around the page, which a bent pane
+  // can't show or click. While one is open the Pod steps aside to that tab as a normal page, then comes back.
+  let dialogLeft = false;
+  window.addEventListener("DOMWillOpenModalDialog", onDialog, true);
+  function onDialog(e) {
+    if (!document.body.classList.contains("ad-room")) return;
+    const b = e.target?.localName === "browser" ? e.target : null; // Firefox fires it on the page's <browser> element
+    const tab = b ? gBrowser.getTabForBrowser(b) : null;
+    if (!tab || !panes.some((p) => p.tab === tab)) return;
+    dialogLeft = true;
+    leave();
+    window.setTimeout(() => { gBrowser.selectedTab = tab; }, 200);
+  }
+  window.addEventListener("DOMModalDialogClosed", () => {
+    if (!dialogLeft) return;
+    dialogLeft = false;
+    window.setTimeout(() => { if (!document.body.classList.contains("ad-room")) enter(); }, 300);
+  }, true);
   // Firefox deactivates the tab you switch away from; in the Room every pane stays live (up to the cap), so re-assert it.
   const keepActive = () => { if (!document.body.classList.contains("ad-room")) return; for (const p of panes) { if (p.asleep) continue; const b = p.tab.linkedBrowser; if (b) { b.docShellIsActive = true; b.renderLayers = true; } } };
   gBrowser.tabContainer.addEventListener("TabSelect", () => window.setTimeout(keepActive, 50));
   gBrowser.tabContainer.addEventListener("TabClose", (e) => {
     const i = panes.findIndex((p) => p.tab === e.target);
     if (i < 0) return;
+    if (focused === panes[i]) { focused = null; document.body.classList.remove("ad-focusing"); }
     const el = document.getElementById(panes[i].tab.linkedPanel);
     if (el) { el.classList.remove("ad-room-pane"); el.style.transform = ""; }
     (panes[i].curve || []).forEach((e) => e.remove());
@@ -801,8 +1034,77 @@
     place();
   });
 
+  // ---- More tabs: every open tab that isn't one of the eight panes, in tab order. Click "Swap in" (or drag a row onto a
+  // pane) to put it in the pod in place of the pane you're facing (or the one you drop it on); that pane's tab joins the box.
+  let moreEl = null;
+  const extraTabs = () => gBrowser.tabs.filter((t) => !t.pinned && !panes.some((p) => p.tab === t) && !blank(tabUrl(t)));
+  function toggleMore(force) {
+    if (!moreEl) { moreEl = document.createElementNS(X, "div"); moreEl.id = "ad-more"; document.documentElement.appendChild(moreEl); }
+    moreEl.classList.toggle("open", force ?? !moreEl.classList.contains("open"));
+    drawMore();
+  }
+  function drawMore() {
+    const extra = extraTabs();
+    moreBtn.textContent = extra.length ? `More tabs (${extra.length})` : "More tabs";
+    moreBtn.style.opacity = extra.length ? "1" : ".55";
+    if (!moreEl || !moreEl.classList.contains("open")) return;
+    moreEl.textContent = "";
+    const h = document.createElementNS(X, "div"); h.className = "h"; h.textContent = extra.length ? `More tabs (${extra.length})` : "No more tabs";
+    const sm = document.createElementNS(X, "small"); sm.textContent = extra.length ? "Swap one in for the pane you're facing, or drag it onto a pane." : "Your pod shows every open tab.";
+    h.append(sm); moreEl.append(h);
+    for (const t of extra) {
+      const row = document.createElementNS(X, "div"); row.className = "t";
+      const ic = document.createElementNS(X, "img"); ic.src = t.getAttribute("image") || "chrome://global/skin/icons/defaultFavicon.svg";
+      const nm = document.createElementNS(X, "span"); nm.textContent = t.label || tabUrl(t);
+      const go = document.createElementNS(X, "button"); go.textContent = "Swap in";
+      go.addEventListener("click", (e) => { e.stopPropagation(); swapIn(t, targetPane() || panes[0]); });
+      row.append(ic, nm, go);
+      row.addEventListener("pointerdown", (e) => { if (e.target !== go) dragToPane(e, t); });
+      moreEl.append(row);
+    }
+  }
+  function dragToPane(e, tab) {
+    e.preventDefault();
+    const ghost = document.createElementNS(X, "div"); ghost.id = "ad-more-ghost"; ghost.textContent = tab.label || "Tab";
+    document.documentElement.appendChild(ghost);
+    const move = (ev) => { ghost.style.left = ev.clientX + 12 + "px"; ghost.style.top = ev.clientY + 8 + "px"; };
+    const up = (ev) => {
+      window.removeEventListener("pointermove", move, true); window.removeEventListener("pointerup", up, true); ghost.remove();
+      if (moreEl.contains(ev.target)) return;
+      const hit = pick(ev.clientX, ev.clientY);
+      if (hit) swapIn(tab, hit.p);
+    };
+    move(e);
+    window.addEventListener("pointermove", move, true); window.addEventListener("pointerup", up, true);
+  }
+  function swapIn(tab, out) {
+    if (!tab || panes.some((p) => p.tab === tab)) return;
+    const i = out ? panes.indexOf(out) : -1;
+    if (i < 0 && panes.length >= MAX_PANES) return;
+    if (focused) unfocus();
+    const np = { tab, url: tabUrl(tab), lastUrl: tabUrl(tab), yaw: 0, outSince: null, asleep: false, born: Date.now() };
+    if (i >= 0) {
+      const el = document.getElementById(out.tab.linkedPanel);
+      if (el) { el.classList.remove("ad-room-pane", "ad-side", "ad-focus"); el.style.transform = ""; }
+      (out.curve || []).forEach((c) => c.remove());
+      panes.splice(i, 1, np);
+    } else panes.push(np);
+    enter();
+    lookAt(panes.indexOf(np));
+    drawMore();
+    say(`${tab.label || "The tab"} is in your pod${out ? `; ${out.tab.label || "the other one"} is in More tabs` : ""}.`);
+  }
+  gBrowser.tabContainer.addEventListener("TabClose", () => window.setTimeout(drawMore, 50));
+  gBrowser.tabContainer.addEventListener("TabAttrModified", () => { if (moreEl?.classList.contains("open")) drawMore(); });
+
   function addPane(url) {
-    if (panes.length >= MAX_PANES) { say("The Pod holds " + MAX_PANES + " panes; close one first."); return null; }
+    if (panes.length >= MAX_PANES) {
+      adding = true;
+      try { gBrowser.addTab(url, { triggeringPrincipal: system, inBackground: true, skipAnimation: true }); } finally { adding = false; }
+      say("Your pod holds " + MAX_PANES + " panes: the new tab is in More tabs, swap it in from there.");
+      window.setTimeout(drawMore, 100);
+      return null;
+    }
     adding = true; // the TabOpen handler below must not adopt a tab we are making ourselves
     let tab;
     try { tab = gBrowser.addTab(url, { triggeringPrincipal: system, inBackground: true, skipAnimation: true }); } finally { adding = false; }
@@ -813,6 +1115,14 @@
 
   // Start: wait for Firefox's session restore (it may bring back tabs from last time). If tabs came back, they become the
   // panes; otherwise the window's own blank tab is the first pane and the default sites are added.
+  // AetherDeck's own home page may use the microphone (voice for agents and search) without Firefox's prompt: that prompt hangs
+  // off the toolbar, which the Pod hides, so the request waited forever. Only this computer's AetherDeck page; macOS still asks.
+  try {
+    for (const origin of ["http://127.0.0.1:8787", "http://localhost:8787"]) {
+      const pr = Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin);
+      if (Services.perms.testExactPermissionFromPrincipal(pr, "microphone") !== Services.perms.ALLOW_ACTION) Services.perms.addFromPrincipal(pr, "microphone", Services.perms.ALLOW_ACTION);
+    }
+  } catch (e) { log("microphone permission failed: " + e); }
   // The local AetherDeck server behind the home pane: started from inside the app when nothing answers on 8787.
   const serverReady = (async () => {
     try {
@@ -926,6 +1236,7 @@
   // grace period and wake when the camera turns back (a discarded tab reloads its page, so scroll position is lost).
   const panelOf = (p) => document.getElementById(p.tab.linkedPanel);
   function sleep(p) {
+    if (focused === p) unfocus();
     if (p.asleep || p.tab === gBrowser.selectedTab || Date.now() - p.born < 10000) return; // a new pane gets time to load first
     const was = p.tab.linkedBrowser?.currentURI?.spec;
     if (was && was !== "about:blank") p.lastUrl = was;
@@ -975,6 +1286,7 @@
     });
   }
   function tick() {
+    if (focused) { const b = focused.tab.linkedBrowser; try { if (b && focused.focusZoom && Math.abs(b.fullZoom - focused.focusZoom) > 0.001) b.fullZoom = focused.focusZoom; } catch (e) {} }
     if (!document.body.classList.contains("ad-room")) return;
     const look = cam.target ?? cam.yaw, now = Date.now();
     const near = new Set([...panes].sort((a, b) => Math.abs(turn(a.yaw - look)) - Math.abs(turn(b.yaw - look))).slice(0, MAX_LIVE));
@@ -995,7 +1307,9 @@
     live.sort((a, b) => Math.abs(turn(b.yaw - look)) - Math.abs(turn(a.yaw - look)));
     while (live.length > room) sleep(live.shift());
     drawRail();
-    meter.textContent = panes.filter((p) => !p.asleep).length + " live of " + panes.length + " (max " + MAX_LIVE + " live, " + MAX_PANES + " panes)";
+    meter.textContent = panes.filter((p) => !p.asleep).length + " live of " + panes.length + " panes";
+    meter.title = `Up to ${MAX_LIVE} panes stay live on this Mac (${Math.round(RAM_GB)} GB); the others sleep with their last picture and wake when you turn to them. Up to ${MAX_PANES} panes; more tabs wait in More tabs.`;
+    drawMore();
   }
   window.setInterval(tick, 1000);
 
@@ -1006,7 +1320,6 @@
     const text = addr.value.trim();
     if (!text) return;
     addr.value = "";
-    if (panes.length >= MAX_PANES) { say("The Pod holds " + MAX_PANES + " panes; close one first."); return; }
     const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : /^[^\s/]+\.[^\s/]+/.test(text) ? "https://" + text : "https://duckduckgo.com/?q=" + encodeURIComponent(text);
     if (!/^https?:/i.test(url)) { say("Only http(s) addresses."); return; }
     addPane(url);
@@ -1025,6 +1338,8 @@
     await window.IOUtils.writeUTF8(dataFile(name), JSON.stringify(value), { tmpPath: dataFile(name) + ".tmp" });
   }
   const SAVED = new Set(["research", "agents", "agent-memory", "apps", "settings"]);
+  // Firefox's search engines (its address bar's default), a module in this version rather than Services.search.
+  const searchService = () => ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs").SearchService;
   window.adBridge = {
     async invoke(channel, args) {
       switch (channel) {
@@ -1034,9 +1349,59 @@
           const url = String(args[0] || "");
           if (!/^https?:\/\//i.test(url)) throw new Error("Only http(s) addresses");
           const p = addPane(url);
-          if (!p) throw new Error("The Pod holds " + MAX_PANES + " panes; close one first.");
+          if (!p) return { pane: null, inMoreTabs: true };
           window.setTimeout(() => { enter(); lookAt(panes.length - 1); }, 400);
           return { pane: panes.length };
+        }
+        case "room:enter": enter(); return { panes: panes.length };
+        case "widgets:list": return agentWidgets.map(({ id, title, agent, updated }) => ({ id, title, agent, updated }));
+        case "widgets:save": {
+          const w = args[0] || {};
+          const id = String(w.id || "").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 32) || "w" + Date.now().toString(36);
+          const html = String(w.html || "");
+          if (!html.trim()) throw new Error("A widget needs some HTML");
+          if (html.length > 200_000) throw new Error("A widget can be at most 200 KB");
+          const entry = { id, title: String(w.title || "Widget").slice(0, 60), agent: String(w.agent || "").slice(0, 60), html, w: Math.max(140, Math.min(520, Number(w.width) || 220)), h: Math.max(90, Math.min(400, Number(w.height) || 150)), updated: Date.now() };
+          const i = agentWidgets.findIndex((x) => x.id === id);
+          if (i < 0 && agentWidgets.length >= 12) throw new Error("The pod has 12 agent widgets already; delete one first");
+          if (i >= 0) agentWidgets[i] = entry; else agentWidgets.push(entry);
+          await writeData("widgets", agentWidgets);
+          if (!widgetsOn) { widgetsOn = true; widgetsBtn.style.opacity = "1"; }
+          drawAgentWidgets();
+          return { id, placed: true };
+        }
+        case "widgets:remove": { agentWidgets = agentWidgets.filter((x) => x.id !== String(args[0])); await writeData("widgets", agentWidgets); drawAgentWidgets(); return true; }
+        // First-run setup in AetherDeck for Mac: the browser's own settings, changed by the person's choice in the setup.
+        case "browser:status": {
+          const AM = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs").AddonManager;
+          const ubo = await AM.getAddonByID("uBlock0@raymondhill.net");
+          let isDefault = false;
+          try { isDefault = window.ShellService.isDefaultBrowser(false, false); } catch (e) {}
+          const engine = (await searchService().getDefault())?.name || "";
+          return { isDefault, adblock: ubo ? !ubo.userDisabled : null, engine };
+        }
+        case "app:setDefault": {
+          try { await window.ShellService.setDefaultBrowser(false); } catch (e) { log("set default failed: " + e); }
+          try { return window.ShellService.isDefaultBrowser(false, false); } catch (e) { return false; }
+        }
+        case "search:setDefault": {
+          const want = { google: "Google", bing: "Bing", duckduckgo: "DuckDuckGo" }[String(args[0])];
+          if (!want) throw new Error("Unknown search engine");
+          const engine = (await searchService().getEngines()).find((e) => e.name === want);
+          if (engine) await searchService().setDefault(engine, searchService().CHANGE_REASON?.USER ?? Ci.nsISearchService?.CHANGE_REASON_USER ?? 1);
+          return !!engine;
+        }
+        case "adblock:set": {
+          const AM = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs").AddonManager;
+          const ubo = await AM.getAddonByID("uBlock0@raymondhill.net");
+          if (!ubo) return null;
+          if (args[0]) await ubo.enable(); else await ubo.disable();
+          return !ubo.userDisabled;
+        }
+        case "import:open": {
+          const key = { chrome: "chrome", safari: "safari", firefox: "firefox", edge: "chromium-edge", brave: "brave" }[String(args[0])];
+          window.MigrationUtils.showMigrationWizard(window, { entrypoint: window.MigrationUtils.MIGRATION_ENTRYPOINTS.FIRSTRUN, ...(key ? { migratorKey: key } : {}) });
+          return true;
         }
         case "room:panes": return panes.map((p, i) => ({ i, url: tabUrl(p.tab), title: p.tab.label || "" }));
         case "research:load": return await readData("research", null);
@@ -1051,5 +1416,6 @@
   };
 
   window.setInterval(() => { try { updateWidgets(); } catch (e) {} }, 5000);
-  window.adRoomTabs = { sleep, wake, tick, cam, panes, lookAt, overview, apply, enter, leave, addPane, place, layout: () => layout, PW, PH };
+  loadAgentWidgets().catch((e) => log("agent widgets: " + e));
+  window.adRoomTabs = { sleep, wake, tick, cam, panes, lookAt, overview, apply, enter, leave, addPane, place, sendMouse, layout: () => layout, PW, PH };
 })();

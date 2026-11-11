@@ -2,7 +2,8 @@
 // site know them, the way Chrome works (one browsing session for every window). AetherDeck never sees the password:
 // Google's own sign-in page does the signing in, and AetherDeck only checks whether a sign-in cookie exists.
 import { useEffect, useState } from "react";
-import { desktop } from "../lib/desktop.ts";
+import { desktop, roomBridge } from "../lib/desktop.ts";
+import { AVATARS, loadProfile, saveProfile } from "../lib/profile.ts";
 
 export interface Accounts { google: boolean; youtube: boolean }
 
@@ -28,10 +29,31 @@ export function AccountMenu({ accounts, onAccounts, onOpen, onData, onClose }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const signedIn = !!accounts?.google;
+  const [profile, setProfile] = useState(loadProfile);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(profile);
+  const saveEdit = () => { saveProfile(draft); setProfile({ ...draft, name: draft.name.trim() }); setEditing(false); };
   return (
     <>
       <div className="acct__scrim" onClick={onClose} />
       <div className="acct" role="dialog" aria-label="Accounts" data-ui>
+        <div className="acct__me">
+          <span className="acct__pic" aria-hidden="true">{(editing ? draft : profile).avatar}</span>
+          {editing ? (
+            <input className="acct__name-in" value={draft.name} maxLength={40} placeholder="Your name" autoFocus aria-label="Your name"
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") { e.stopPropagation(); setEditing(false); } }} />
+          ) : (
+            <span className="acct__who"><strong>{profile.name || "Your profile"}</strong><small>Kept on this computer only</small></span>
+          )}
+          {editing
+            ? <button className="acct__btn acct__btn--primary acct__edit" onClick={saveEdit}>Save</button>
+            : <button className="acct__btn acct__edit" onClick={() => { setDraft(profile); setEditing(true); }}>Edit</button>}
+        </div>
+        {editing && (
+          <div className="acct__pics" role="radiogroup" aria-label="Your picture">
+            {AVATARS.map((a) => <button key={a} role="radio" aria-checked={draft.avatar === a} className={`acct__pick ${draft.avatar === a ? "is-on" : ""}`} onClick={() => setDraft({ ...draft, avatar: a })}>{a}</button>)}
+          </div>
+        )}
         <p className="acct__h">Accounts</p>
         {desktop ? (
           <>
@@ -56,7 +78,12 @@ export function AccountMenu({ accounts, onAccounts, onOpen, onData, onClose }: {
             )}
           </>
         ) : (
-          <p className="acct__fine">Sign-in lives in your browser here. In the AetherDeck desktop app, one Google sign-in covers YouTube, Gmail and the rest.</p>
+          roomBridge ? (
+            <>
+              <button className="acct__btn acct__btn--primary" onClick={() => { onOpen(SIGN_IN, "Sign in to Google"); onClose(); }}>Sign in with Google</button>
+              <p className="acct__fine">Google's own page opens in your pod; you type your email and password there, and AetherDeck never sees or keeps them. One sign-in covers YouTube, Gmail and Drive.</p>
+            </>
+          ) : <p className="acct__fine">Sign-in lives in your browser here. In the AetherDeck desktop app, one Google sign-in covers YouTube, Gmail and the rest.</p>
         )}
         <button className="acct__link" onClick={() => { onData(); onClose(); }}>Your data and privacy</button>
       </div>

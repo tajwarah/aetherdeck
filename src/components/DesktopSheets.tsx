@@ -299,7 +299,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
                 return <button key={id} role="radio" aria-checked={on} disabled={!!key && !info?.keys[key]} title={key && !info?.keys[key] ? "Add this key under AI and Claude first" : undefined} className={`seg__opt ${on ? "is-on" : ""}`} onClick={() => void apply({}, { AETHERDECK_VOICE: id }, `Voice: ${label}.`)}>{label}</button>;
               })}
             </div>
-            <p className="group__note">Press ⌘⇧Space from any app and say one thing: four agents search, open, read and write for you. Automatic uses the first key you have: OpenAI's Whisper, then Groq's Whisper, then Gemini. Claude has no speech to text, so voice needs one of those keys; dictation apps such as Wispr Flow also work.</p>
+            <p className="group__note">Press ⌘⇧Space from any app and say one thing: four agents search, open, read and write for you. Automatic uses the first key you have: OpenAI's Whisper, then Groq's Whisper, then Gemini. Claude has no speech to text, so voice needs one of those keys; dictation apps such as OpenWhispr also work.</p>
           </>}
 
           {page === "privacy" && <Shields />}

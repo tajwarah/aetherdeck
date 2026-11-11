@@ -14,7 +14,12 @@ export async function record(onQuiet?: () => void): Promise<Recording> {
   // The desktop app asks the system for the microphone first (macOS shows its own prompt, once).
   const bridge = (window as unknown as { aetherdeck?: { invoke: (c: string) => Promise<boolean> } }).aetherdeck;
   if (bridge && !(await bridge.invoke("app:microphone"))) throw new Error("Microphone not allowed");
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  // Automatic gain lifts a quiet voice; noise suppression keeps the room out. If the microphone request isn't answered (a
+  // permission prompt nobody can see), give up after 10 seconds instead of spinning.
+  const stream = await Promise.race([
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } }),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("The microphone didn't start. Check that AetherDeck may use it in System Settings → Privacy & Security → Microphone.")), 10_000)),
+  ]);
   const ctx = new AudioContext();
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
@@ -27,6 +32,7 @@ export async function record(onQuiet?: () => void): Promise<Recording> {
   let spoke = false;
   let quietSince = 0;
   let lvl = 0;
+  let floor = 0.02; // the room's own level, learned in the first moments and slowly after
   const started = performance.now();
   const tick = setInterval(() => {
     analyser.getByteTimeDomainData(buf);
@@ -34,9 +40,14 @@ export async function record(onQuiet?: () => void): Promise<Recording> {
     for (const v of buf) sum += ((v - 128) / 128) ** 2;
     lvl = Math.min(1, Math.sqrt(sum / buf.length) * 6);
     const now = performance.now();
-    if (lvl > 0.12) { spoke = true; quietSince = 0; } else if (spoke && !quietSince) quietSince = now;
-    if ((spoke && quietSince && now - quietSince > 1400) || now - started > 60_000) { clearInterval(tick); onQuiet?.(); }
-  }, 60);
+    // Speech is anything clearly above the room, so a quiet voice in a quiet room counts, and a fan doesn't.
+    if (now - started < 300) floor = Math.max(floor, lvl);
+    else if (!spoke || quietSince) floor = floor * 0.97 + Math.min(lvl, floor * 1.5) * 0.03;
+    const speech = Math.max(0.045, floor * 2.2);
+    if (lvl > speech) { spoke = true; quietSince = 0; } else if (spoke && !quietSince) quietSince = now;
+    // Done after a pause once something was said, after 8 seconds of nothing at all, or after a minute.
+    if ((spoke && quietSince && now - quietSince > 1200) || (!spoke && now - started > 8000) || now - started > 60_000) { clearInterval(tick); onQuiet?.(); }
+  }, 50);
   const end = () => { clearInterval(tick); stream.getTracks().forEach((t) => t.stop()); void ctx.close(); };
   return {
     level: () => lvl,

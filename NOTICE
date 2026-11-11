@@ -37,3 +37,9 @@ This product includes third-party material:
   Foundation.
 - Node.js (bundled in AetherDeck for Mac to run the local server): MIT
   License, Copyright Node.js contributors and Joyent, Inc.
+- uBlock Origin (built into AetherDeck for Mac for ad and tracker blocking):
+  GNU General Public License v3.0, Copyright Raymond Hill and contributors.
+  Shipped unmodified, as signed by Mozilla on addons.mozilla.org; its source
+  is attached to each AetherDeck for Mac release and is at
+  https://github.com/gorhill/uBlock. It is a separate program: its licence
+  does not apply to AetherDeck's own code.

@@ -7,7 +7,8 @@ export class AetherDeckBridgeChild extends JSWindowActorChild {
   }
   expose() {
     const win = this.contentWindow;
-    if (!win) return;
+    // Only AetherDeck's own server on this computer (port 8787); the parent checks the origin again for every request.
+    if (!win || win.location.port !== "8787") return;
     const self = this;
     this.listeners = new Map();
     const api = Cu.createObjectIn(win, { defineAs: "aetherdeckRoom" });

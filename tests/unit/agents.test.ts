@@ -39,6 +39,6 @@ describe("voice", () => {
 
   it("says what to do when no service has a key", async () => {
     delete process.env.OPENAI_API_KEY; delete process.env.GROQ_API_KEY; delete process.env.GEMINI_API_KEY; delete process.env.AETHERDECK_VOICE;
-    await expect(transcribe({ audio: "A".repeat(200) })).rejects.toThrow(/Wispr Flow/);
+    await expect(transcribe({ audio: "A".repeat(200) })).rejects.toThrow(/OpenWhispr/);
   });
 });

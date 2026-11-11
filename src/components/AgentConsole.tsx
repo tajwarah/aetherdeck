@@ -69,7 +69,7 @@ export function AgentConsole({ listen, voice, model, context, act, onConnect, on
   }, [phase]);
 
   async function start() {
-    if (!voice) { setError("Voice needs an OpenAI, Groq or Gemini key (Settings). You can type instead, or dictate with Wispr Flow."); return; }
+    if (!voice) { setError("Voice needs an OpenAI, Groq or Gemini key (Settings). You can type instead, or dictate with OpenWhispr."); return; }
     setError("");
     try {
       rec.current = await record(() => void finish());
